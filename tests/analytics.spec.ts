@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { Pool } from "pg";
 import {
@@ -6,7 +8,7 @@ import {
   TEST_DATABASE_URL,
   degradedURL,
 } from "../playwright.config";
-import { identify, sanitiseMeta } from "../src/lib/analytics";
+import { EVENT_NAMES, META_KEYS, identify, sanitiseMeta } from "../src/lib/analytics";
 import { issueToken, verifyToken } from "../src/lib/admin-auth";
 import { parseDays } from "../src/lib/analytics-queries";
 
@@ -326,6 +328,65 @@ test.describe("admin auth", () => {
     await page.getByRole("button", { name: "Sign out" }).click();
     const response = await page.goto("/admin/analytics");
     expect(response?.status()).toBe(404);
+  });
+});
+
+test.describe("the browser script cannot drift from the server", () => {
+  test.skip(({ isMobile }) => Boolean(isMobile), "static analysis");
+
+  /* public/analytics.js is hand-written plain JavaScript rather than a bundled
+     module, which is what lets it run before hydration. The cost of that
+     choice is that its closed lists are a second copy, so these assertions
+     exist to make the two impossible to separate. */
+  const source = readFileSync(join(process.cwd(), "public", "analytics.js"), "utf8");
+
+  test("every event name it sends is on the server's list", () => {
+    const sent = [...source.matchAll(/send\(\s*"([a-z_]+)"/g)].map((match) => match[1]);
+    expect(sent.length, "expected to find send() calls to check").toBeGreaterThan(2);
+    for (const name of new Set(sent)) {
+      expect(EVENT_NAMES as readonly string[], `${name} is not a known event`).toContain(name);
+    }
+  });
+
+  test("every event name the markup asks for is on the server's list", () => {
+    /* Elements opt in with data-analytics-event, and the script forwards that
+       value verbatim, so a typo in a component would post an event the
+       collector rejects and the click would silently go uncounted. */
+    const root = join(process.cwd(), "src");
+    const walk = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+        const path = join(dir, entry.name);
+        if (entry.isDirectory()) return walk(path);
+        return entry.name.endsWith(".tsx") ? [path] : [];
+      });
+
+    const declared = new Set<string>();
+    for (const file of walk(root)) {
+      for (const match of readFileSync(file, "utf8").matchAll(/data-analytics-event="([^"]+)"/g)) {
+        declared.add(match[1]);
+      }
+    }
+    expect(declared.size, "expected at least one tagged element").toBeGreaterThan(0);
+    for (const name of declared) {
+      expect(EVENT_NAMES as readonly string[], `${name} is not a known event`).toContain(name);
+    }
+  });
+
+  function declaredArray(name: string): string[] {
+    const match = source.match(new RegExp(`var ${name} = \\[([^\\]]*)\\]`));
+    expect(match, `${name} should be declared in the script`).not.toBeNull();
+    return [...match![1].matchAll(/"([a-z_]+)"/g)].map((entry) => entry[1]);
+  }
+
+  test("its field list is exactly the server's allow-list", () => {
+    /* The script filters every outgoing payload through this list, so a match
+       here means nothing outside the server's allow-list can leave the
+       browser at all, whatever the calling code passes. */
+    expect(declaredArray("FIELDS").sort()).toEqual([...META_KEYS].sort());
+  });
+
+  test("its event list is exactly the server's event list", () => {
+    expect(declaredArray("EVENTS").sort()).toEqual([...EVENT_NAMES].sort());
   });
 });
 

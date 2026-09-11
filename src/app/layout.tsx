@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from "next/font/google";
-import { Analytics } from "@/components/analytics";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { siteDescription, siteTitle, siteUrl } from "@/lib/site";
 import "./globals.css";
@@ -75,7 +74,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {children}
         </main>
         <SiteFooter />
-        <Analytics />
+        {/* Static and deferred rather than a React component, so a page view
+            is recorded as soon as the document is parsed instead of waiting
+            for hydration. See the note at the top of the file. */}
+        <script defer src="/analytics.js" />
       </body>
     </html>
   );
