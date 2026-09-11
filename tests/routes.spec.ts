@@ -48,6 +48,32 @@ test("the page paints its headline with JavaScript disabled", async ({ browser }
   await context.close();
 });
 
+test.describe("reduced motion", () => {
+  async function rowAnimationSeconds(
+    browser: import("@playwright/test").Browser,
+    reducedMotion: "reduce" | "no-preference",
+  ) {
+    const context = await browser.newContext({ reducedMotion });
+    const page = await context.newPage();
+    await page.goto("/");
+    const row = page.locator(".settle-rows > tr").first();
+    await expect(row).toBeVisible();
+    const duration = await row.evaluate((node) => getComputedStyle(node).animationDuration);
+    await context.close();
+    return Number.parseFloat(duration);
+  }
+
+  test("the entrance animation is suppressed when asked", async ({ browser }) => {
+    expect(await rowAnimationSeconds(browser, "reduce")).toBeLessThan(0.01);
+  });
+
+  test("and is real when not, so the check above means something", async ({ browser }) => {
+    /* Without this, a renamed class would make the assertion above pass by
+       matching nothing at all. */
+    expect(await rowAnimationSeconds(browser, "no-preference")).toBeGreaterThan(0.1);
+  });
+});
+
 test("the page never scrolls sideways at phone width", async ({ page }) => {
   await page.setViewportSize({ width: 400, height: 900 });
   for (const route of routes) {

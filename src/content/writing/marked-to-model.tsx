@@ -1,3 +1,4 @@
+import { ProportionBar } from "@/components/charts";
 import { Figures, Limits, Marginal, WrongFirst } from "@/components/prose";
 
 export default function MarkedToModel() {
@@ -65,11 +66,20 @@ export default function MarkedToModel() {
         ]}
       />
 
+      <ProportionBar
+        caption="Violation magnitude, 88 snapshots"
+        total={11593}
+        parts={[
+          { label: "At or above one full tick", value: 235, tone: "flag" },
+          { label: "Smaller than a tick", value: 11358, tone: "neutral" },
+        ]}
+        reading="Two per cent of the violations are larger than the smallest increment the venue will quote. The rest are easy to wave away as rounding. The 235 are not."
+      />
+
       <p>
-        Two per cent of the violations, 235 of them, are at or above one full
-        tick, which is the point at which the inconsistency is larger than the
-        smallest price increment the venue will quote. The rest are smaller than
-        a tick and easy to wave away as rounding. The 235 are not.
+        That two per cent is the part I would defend in a room. Everything
+        below a tick can be argued down to rounding, and I would rather concede
+        it than spend the argument there.
       </p>
 
       <p>
