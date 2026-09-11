@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { CommandPalette } from "@/components/command-palette";
-import { buildPaletteItems } from "@/lib/palette";
-import { contact, nav, person } from "@/lib/site";
+import { NavLinks } from "@/components/nav-links";
+import { PaletteTrigger } from "@/components/palette-trigger";
+import { contact, person } from "@/lib/site";
 
 export function SiteHeader() {
   return (
@@ -12,20 +12,9 @@ export function SiteHeader() {
         </Link>
         <div className="flex items-center gap-5">
           <nav aria-label="Main">
-            <ul className="flex items-center gap-5">
-              {nav.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className="font-mono text-[12px] uppercase tracking-[0.08em] text-muted hover:text-accent"
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <NavLinks />
           </nav>
-          <CommandPalette items={buildPaletteItems()} />
+          <PaletteTrigger />
         </div>
       </div>
     </header>

@@ -104,6 +104,13 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* A jump to #work should not put the heading hard against the top edge. */
+:target,
+section[id],
+main[id] {
+  scroll-margin-top: 2rem;
+}
+
 /* Long-form body. Element styles rather than a utility on every tag, so the
    essays stay readable as prose in the source too. */
 .longform {

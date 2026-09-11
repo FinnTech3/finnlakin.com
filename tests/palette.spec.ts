@@ -4,51 +4,65 @@ function paletteDialog(page: Page) {
   return page.getByRole("dialog", { name: "Search this site" });
 }
 
-/* The keydown listener only exists once the client bundle has hydrated, so a
-   single press can land in the gap after first paint and be lost. Retry until
-   it takes rather than sleeping for an arbitrary interval. */
+function trigger(page: Page) {
+  return page.getByRole("button", { name: /search/i });
+}
+
+/* Opens by clicking the trigger rather than pressing the shortcut. Playwright
+   retries a click until the handler exists, so this is immune to hydration
+   timing, whereas retrying the shortcut is not: the shortcut toggles, so a
+   retry that fires while the panel is still loading closes it again. The
+   shortcut gets its own test below. */
 async function openPalette(page: Page) {
   const dialog = paletteDialog(page);
-  await expect(async () => {
-    await page.keyboard.press("ControlOrMeta+k");
-    await expect(dialog).toBeVisible({ timeout: 1000 });
-  }).toPass({ timeout: 15_000 });
+  await trigger(page).click();
+  await expect(dialog).toBeVisible();
   return dialog;
 }
 
-/* The palette runs on desktop only; Pixel 5 has no meta key and no keyboard. */
 test.describe("command palette", () => {
   test.skip(({ isMobile }) => Boolean(isMobile), "keyboard-driven");
 
-  test("opens on the shortcut, filters, and navigates", async ({ page }) => {
+  test("filters and navigates on Enter", async ({ page }) => {
     await page.goto("/");
     await expect(paletteDialog(page)).toBeHidden();
 
     const dialog = await openPalette(page);
-
-    const input = page.getByRole("textbox", { name: "Search this site" });
+    const input = page.getByRole("combobox", { name: "Search this site" });
     await expect(input).toBeFocused();
 
     await input.fill("eleven thousand");
-    const options = dialog.locator("li");
-    await expect(options).toHaveCount(1);
+    await expect(dialog.getByRole("option")).toHaveCount(1);
 
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/writing\/marked-to-model$/);
     await expect(dialog).toBeHidden();
   });
 
+  test("the keyboard shortcut opens it, and toggles it shut again", async ({ page }) => {
+    await page.goto("/");
+
+    /* Open and close once through the button first. That guarantees the page
+       has hydrated and the panel chunk has arrived, so what this then tests is
+       the shortcut itself rather than load timing. */
+    await openPalette(page);
+    await page.keyboard.press("Escape");
+    await expect(paletteDialog(page)).toBeHidden();
+
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(paletteDialog(page)).toBeVisible();
+
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(paletteDialog(page)).toBeHidden();
+  });
+
   test("closes on Escape and returns focus to the trigger", async ({ page }) => {
     await page.goto("/");
-    const trigger = page.getByRole("button", { name: /search/i });
-    await trigger.click();
-
-    const dialog = page.getByRole("dialog", { name: "Search this site" });
-    await expect(dialog).toBeVisible();
+    await openPalette(page);
 
     await page.keyboard.press("Escape");
-    await expect(dialog).toBeHidden();
-    await expect(trigger).toBeFocused();
+    await expect(paletteDialog(page)).toBeHidden();
+    await expect(trigger(page)).toBeFocused();
   });
 
   test("closes when the backdrop is clicked", async ({ page }) => {
@@ -67,7 +81,7 @@ test.describe("command palette", () => {
        this interaction. There is no such listener; this proves it. */
     await page.goto("/");
     const dialog = await openPalette(page);
-    await dialog.getByRole("link", { name: /^CV$/ }).click();
+    await dialog.getByRole("option", { name: /^CV$/ }).click();
 
     await expect(page).toHaveURL(/\/cv$/);
     await expect(dialog).toBeHidden();
@@ -77,7 +91,42 @@ test.describe("command palette", () => {
   test("reports no match rather than an empty list", async ({ page }) => {
     await page.goto("/");
     await openPalette(page);
-    await page.getByRole("textbox", { name: "Search this site" }).fill("zzzzzz");
+    await page.getByRole("combobox", { name: "Search this site" }).fill("zzzzzz");
     await expect(page.getByText(/Nothing matches/)).toBeVisible();
   });
+
+  test("exposes combobox and listbox semantics that track the arrow keys", async ({ page }) => {
+    await page.goto("/");
+    const dialog = await openPalette(page);
+
+    const input = page.getByRole("combobox", { name: "Search this site" });
+    await expect(input).toHaveAttribute("aria-expanded", "true");
+    await expect(input).toHaveAttribute("aria-autocomplete", "list");
+
+    const listId = await input.getAttribute("aria-controls");
+    expect(listId).toBeTruthy();
+    await expect(dialog.getByRole("listbox")).toHaveAttribute("id", listId!);
+
+    const first = await input.getAttribute("aria-activedescendant");
+    expect(first).toBeTruthy();
+    await expect(dialog.locator(`#${first}`)).toHaveAttribute("aria-selected", "true");
+
+    await page.keyboard.press("ArrowDown");
+    const second = await input.getAttribute("aria-activedescendant");
+    expect(second, "arrowing down should move the active option").not.toBe(first);
+    await expect(dialog.locator(`#${second}`)).toHaveAttribute("aria-selected", "true");
+    await expect(dialog.locator(`#${first}`)).toHaveAttribute("aria-selected", "false");
+  });
+});
+
+test("the palette is reachable without a keyboard", async ({ page }) => {
+  /* Runs on the Pixel 5 project too. A phone has no meta key, so the button is
+     the only way in and it has to be a real touch target. */
+  await page.goto("/");
+  const button = trigger(page);
+  const box = await button.boundingBox();
+  expect(box?.height ?? 0, "touch target is too short").toBeGreaterThanOrEqual(24);
+
+  await button.click();
+  await expect(paletteDialog(page)).toBeVisible();
 });

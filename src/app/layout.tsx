@@ -61,8 +61,19 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${plexSans.variable} ${plexMono.variable} ${newsreader.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
+        {/* First focusable element on the page. Visually hidden until it takes
+            focus, so a keyboard user can reach the content without tabbing
+            through the whole header on every navigation. */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:border focus:border-accent focus:bg-panel focus:px-4 focus:py-2.5 focus:font-mono focus:text-xs focus:text-accent"
+        >
+          Skip to content
+        </a>
         <SiteHeader />
-        <main className="flex-1">{children}</main>
+        <main id="main" tabIndex={-1} className="flex-1 outline-none">
+          {children}
+        </main>
         <SiteFooter />
         <Analytics />
       </body>
