@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# finnlakin.com
 
-## Getting Started
+Personal site. Economics, finance and international business, with the working
+code behind the claims.
 
-First, run the development server:
+The argument the site makes is that a number nobody can check is a claim, so
+every figure on it declares where it came from: whether it reproduces offline
+from a capture committed to its repository, was measured against real data, was
+simulated over historical prices, is the output of assumptions the reader sets,
+or belongs to a tool with no result to reproduce. Anything that could not be
+sourced is not on the site.
+
+## Running it
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`npm run build` runs `scripts/build-cv-pdf.ts` first, which generates
+`public/finn-lakin-cv.pdf` from the same typed content the site renders, so the
+CV and the site cannot drift apart. The PDF is gitignored precisely because it
+is generated rather than authored.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Layout
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Path | What is in it |
+|---|---|
+| `src/lib/` | All content, as typed TypeScript. No CMS, no content in the database |
+| `src/content/writing/` | Long-form pieces, one component each |
+| `src/components/` | Presentation, including the two chart forms |
+| `src/app/` | Routes, the share-card generator, and the analytics endpoints |
+| `scripts/` | The CV generator |
+| `tests/` | Playwright, run against the production build |
 
-## Learn More
+Content lives in typed modules rather than markdown so that a figure without a
+declared provenance fails the type check rather than reaching the page.
 
-To learn more about Next.js, take a look at the following resources:
+## Tests
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run build && npm test
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The suite runs against `next start` rather than the dev server, because static
+prerendering, the emitted head tags and minified HTML only exist after a build.
+Analytics is tested against a real PostgreSQL rather than mocks, alongside a
+second server started with no database and no secret, to prove the site degrades
+instead of breaking.
 
-## Deploy on Vercel
+## Deployment
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Vercel. Environment variables:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Variable | Effect if unset |
+|---|---|
+| `NEXT_PUBLIC_SITE_URL` | Canonical URLs fall back to the Vercel production URL |
+| `POSTGRES_URL` | Analytics records nothing; the site is unaffected |
+| `ANALYTICS_SALT` | Analytics records nothing, rather than hashing under a guessable key |
+| `ADMIN_PASSWORD` | The dashboard returns 404 |
+| `ADMIN_SECRET` | The dashboard returns 404 |
+
+The site degrades cleanly without every one of them.
+
+## Analytics
+
+Cookieless, and nothing is stored on the visitor's device, so there is nothing
+to consent to. The visitor identifier is `HMAC(key, ip + user-agent +
+accept-language)` where the key is itself `HMAC(secret, today's date)`. Because
+the key changes at midnight UTC, yesterday's identifiers cannot be recomputed or
+matched against today's: cross-day tracking is impossible by construction rather
+than forbidden by policy. Only a hash of the address is stored, never the
+address.
+
+Event names and metadata fields are closed lists checked on the server, not
+patterns, because a pattern would accept `email` and `password` from anyone who
+posted them and the endpoint is open to the internet.
