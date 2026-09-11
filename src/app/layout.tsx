@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from "next/font/google";
+import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { siteDescription, siteTitle, siteUrl } from "@/lib/site";
 import "./globals.css";
 
@@ -58,7 +59,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en-GB"
       className={`${plexSans.variable} ${plexMono.variable} ${newsreader.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        <SiteHeader />
+        <main className="flex-1">{children}</main>
+        <SiteFooter />
+      </body>
     </html>
   );
 }

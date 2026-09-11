@@ -6,13 +6,19 @@ export type Provenance =
   | "reproducible"
   | "measured"
   | "simulated"
-  | "illustrative";
+  | "illustrative"
+  | "tool";
 
 export const provenanceLabel: Record<Provenance, string> = {
-  reproducible: "Reproduces offline from a committed capture",
-  measured: "Measured against real data",
-  simulated: "Simulated over real historical prices",
-  illustrative: "Model output from assumptions you set",
+  reproducible:
+    "A fresh clone reproduces every figure offline, from a capture committed to the repo.",
+  measured:
+    "Measured or benchmarked against real data, which the repo fetches rather than ships.",
+  simulated:
+    "A simulation over real historical prices. Not a record of trading, and no money was at risk.",
+  illustrative:
+    "Model output from assumptions the reader sets. The range is the result; the point estimate is not.",
+  tool: "A tool rather than a finding, so there is no result here to reproduce.",
 };
 
 export const provenanceShort: Record<Provenance, string> = {
@@ -20,7 +26,16 @@ export const provenanceShort: Record<Provenance, string> = {
   measured: "Measured",
   simulated: "Simulated",
   illustrative: "Illustrative",
+  tool: "Tool",
 };
+
+export const provenanceOrder: Provenance[] = [
+  "reproducible",
+  "measured",
+  "simulated",
+  "illustrative",
+  "tool",
+];
 
 export type Stat = {
   value: string;
