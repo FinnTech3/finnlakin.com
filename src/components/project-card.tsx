@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { IntervalBand } from "@/components/charts";
 import { provenanceLabel, provenanceOrder, provenanceShort } from "@/lib/claims";
 import type { Project } from "@/lib/projects";
 import { projects } from "@/lib/projects";
@@ -36,7 +37,7 @@ export function ProjectCard({ project, index }: { project: Project; index: numbe
   const ordinal = String(index + 1).padStart(2, "0");
 
   return (
-    <article className="border border-rule bg-panel p-6 sm:p-8">
+    <article className="card-hover border border-rule bg-panel p-6 sm:p-8">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <span className="font-mono text-[11px] uppercase tracking-[0.13em] text-muted">
           {ordinal} · {project.stack}
@@ -74,6 +75,12 @@ export function ProjectCard({ project, index }: { project: Project; index: numbe
             </div>
           ))}
         </dl>
+      ) : null}
+
+      {project.band ? (
+        <div className="mt-6">
+          <IntervalBand {...project.band} />
+        </div>
       ) : null}
 
       <p className="mt-6 max-w-[64ch] border-l-2 border-rule-strong pl-4 text-[13px] leading-relaxed text-muted">

@@ -16,6 +16,15 @@ export type Project = {
   links: ExternalLink[];
   /* Slug of the long-form write-up, where one exists. */
   writing?: string;
+  /* Only where the finding itself is a range. Most projects have none, and a
+     card without one is not missing anything. */
+  band?: {
+    caption: string;
+    widthLabel: string;
+    low: { value: string; note: string };
+    high: { value: string; note: string };
+    reading?: string;
+  };
 };
 
 const gh = (repo: string) => `https://github.com/FinnTech3/${repo}`;
@@ -80,6 +89,14 @@ export const projects: Project[] = [
     limits:
       "This is not a claim to reproduce the Fed's published term premium level to the basis point, and it is not a trading signal. Starting the estimation in 1961 puts the recent ten-year premium near zero; starting in 2000 puts it near 0.82%. Both are the same model.",
     links: [{ label: "Repository", href: gh("term-premium") }],
+    band: {
+      caption: "Ten-year term premium, rebuilt",
+      widthLabel: "81 bp wide",
+      low: { value: "0.00%", note: "estimating from 1961" },
+      high: { value: "0.82%", note: "estimating from 2000" },
+      reading:
+        "The same model, the same data and the same estimation. Only the start date changes, and the answer moves across the whole band.",
+    },
   },
   {
     slug: "deflated-sharpe",

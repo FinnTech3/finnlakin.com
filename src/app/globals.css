@@ -172,6 +172,52 @@ body {
   color: var(--ink);
 }
 
+/* Motion is CSS rather than a library. The budget here is small (rows settling
+   once on load, and hover feedback) and CSS covers all of it with no bundle.
+   It also makes one specific failure impossible rather than merely avoided:
+   a library that parks elements at an initial hidden transform bakes that
+   transform into the server HTML, and the page then never paints if the script
+   is blocked. A CSS animation needs no script to finish.
+
+   The h1 is deliberately not animated. It is the first thing a reader needs
+   and it should be painted, not arriving. */
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.settle-rows > tr {
+  animation: settle 420ms cubic-bezier(0.2, 0.6, 0.2, 1) both;
+}
+.settle-rows > tr:nth-child(1) { animation-delay: 60ms; }
+.settle-rows > tr:nth-child(2) { animation-delay: 130ms; }
+.settle-rows > tr:nth-child(3) { animation-delay: 200ms; }
+.settle-rows > tr:nth-child(4) { animation-delay: 270ms; }
+
+.card-hover {
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+.card-hover:hover {
+  border-color: var(--rule-strong);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+}
+
+a,
+button {
+  transition:
+    color 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
 .palette {
   margin: 0 auto;
   margin-top: min(12vh, 7rem);

@@ -50,7 +50,7 @@ export function Hero() {
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="settle-rows">
             {reconstructions.map((row) => (
               <tr key={row.quantity} className="border-b border-rule last:border-b-0">
                 <td
