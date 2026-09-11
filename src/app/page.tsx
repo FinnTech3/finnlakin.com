@@ -1,69 +1,131 @@
-import Image from "next/image";
+import { Endorsements } from "@/components/endorsements";
+import { Hero } from "@/components/hero";
+import { ProjectCard, ProvenanceLegend } from "@/components/project-card";
+import { Section } from "@/components/section";
+import { Skills } from "@/components/skills";
+import { Timeline } from "@/components/timeline";
+import { buildMetadata } from "@/lib/metadata";
+import { projects } from "@/lib/projects";
+import { contact, person } from "@/lib/site";
 
-export default function Home() {
+export const metadata = buildMetadata({ path: "/" });
+
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <>
+      <Hero />
+
+      <Section
+        id="work"
+        eyebrow="Selected work"
+        title="Ten projects, strongest evidence first"
+        intro="Ordered by how much of each result you can check for yourself, rather than by how large the number is. Every project states what it does not show."
+      >
+        <ProvenanceLegend />
+        <div className="mt-8 flex flex-col gap-6">
+          {projects.map((project, index) => (
+            <ProjectCard key={project.slug} project={project} index={index} />
+          ))}
+        </div>
+      </Section>
+
+      <Section id="about" eyebrow="About" title="Why this way">
+        <div className="flex max-w-[64ch] flex-col gap-5 font-serif text-[1.05rem] leading-[1.65] text-ink-soft">
+          <p>
+            I read {person.course} at {person.university}, and I have just come
+            back from an exchange year at {person.exchange}, taught in French.
+            Before that, Charterhouse, with A-levels in Mathematics, Economics
+            and French.
+          </p>
+          <p>
+            The projects on this page came out of a habit rather than a plan.
+            Somebody publishes a number, I want to know how it was built, and the
+            only way to find out is to build it again and see where the two
+            answers part company. Most of the time they agree, and the exercise
+            teaches me the method. Occasionally they do not, and that is the more
+            interesting outcome: a mark surface that breaks static arbitrage
+            eleven thousand times while the quotes beside it stay clean, a term
+            premium that moves eighty-one basis points on the choice of start
+            date, a backtest that turns from profit to loss once it is charged
+            for its own trading.
+          </p>
+          <p>
+            The habit has a cost worth naming. It makes me slow to accept a
+            figure and slower to publish one, and there are results here that
+            took longer to caveat than to compute. I would rather that than the
+            alternative, which is a portfolio of numbers nobody can check.
+          </p>
+          <p>
+            What I want next is to do this for a desk: equity research,
+            quantitative methods, or the engineering underneath both.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </Section>
+
+      <Section id="timeline" eyebrow="Path" title="Where I have studied and worked">
+        <Timeline />
+      </Section>
+
+      <Section id="skills" eyebrow="Tools" title="What I actually use">
+        <Skills />
+      </Section>
+
+      <Section
+        id="endorsements"
+        eyebrow="References"
+        title="From people who have worked alongside me"
+      >
+        <Endorsements />
+      </Section>
+
+      <Section
+        id="contact"
+        eyebrow="Contact"
+        title="Open to Summer 2026 conversations"
+        intro={`Available for ${person.seeking}. Happy to talk through any of the methods above, including the parts that did not work.`}
+      >
+        <dl className="flex flex-wrap gap-x-12 gap-y-6">
+          <div className="flex flex-col gap-1">
+            <dt className="font-mono text-[11px] uppercase tracking-[0.13em] text-muted">
+              Email
+            </dt>
+            <dd>
+              <a
+                href={`mailto:${contact.email}`}
+                className="border-b border-accent pb-0.5 text-[15px] text-accent"
+              >
+                {contact.email}
+              </a>
+            </dd>
+          </div>
+          <div className="flex flex-col gap-1">
+            <dt className="font-mono text-[11px] uppercase tracking-[0.13em] text-muted">
+              LinkedIn
+            </dt>
+            <dd>
+              <a
+                href={contact.linkedin}
+                className="border-b border-accent pb-0.5 text-[15px] text-accent"
+              >
+                /in/finnlakin
+              </a>
+            </dd>
+          </div>
+          <div className="flex flex-col gap-1">
+            <dt className="font-mono text-[11px] uppercase tracking-[0.13em] text-muted">
+              GitHub
+            </dt>
+            <dd>
+              <a
+                href={contact.github}
+                className="border-b border-accent pb-0.5 text-[15px] text-accent"
+              >
+                FinnTech3
+              </a>
+            </dd>
+          </div>
+        </dl>
+      </Section>
+    </>
   );
 }

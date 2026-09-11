@@ -213,7 +213,7 @@ export const projects: Project[] = [
       "Bank statement in, plain English out. DuckDB does the analytics and the model writes the SQL.",
     body: "Import a CSV export from any bank, Monzo, Starling, Revolut or a standard statement, into a local database, then interrogate it in plain English. Built because spreadsheets are slow to ask new questions of and dashboards only answer the questions they were built for.",
     stats: [],
-    provenance: "measured",
+    provenance: "tool",
     limits:
       "This is the one project here with no measured result to report, because there is nothing in it to measure: it is a tool rather than a finding. Your CSV is loaded into a temporary in-memory database for the session and is not persisted, but the question and the schema go to a model API, so it is a local tool with one network dependency.",
     links: [{ label: "Repository", href: gh("finance-analysis") }],
