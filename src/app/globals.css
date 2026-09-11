@@ -104,6 +104,74 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Long-form body. Element styles rather than a utility on every tag, so the
+   essays stay readable as prose in the source too. */
+.longform {
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: var(--ink-soft);
+}
+
+.longform > * + * {
+  margin-top: 1.4em;
+}
+
+/* Child combinators throughout: these are the essay's own elements. Prose
+   components (WrongFirst, Marginal, Limits) style themselves with utilities,
+   and a descendant selector here outranks those and silently resets them. */
+.longform > p {
+  max-width: 66ch;
+}
+
+.longform > h2 {
+  margin-top: 2.6em;
+  max-width: 30ch;
+  font-size: 1.55rem;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.longform strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.longform em {
+  font-style: italic;
+}
+
+.longform > p a,
+.longform > ul a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.longform > ul {
+  max-width: 66ch;
+  padding-left: 1.1em;
+  list-style: disc;
+}
+
+.longform > ul li + li {
+  margin-top: 0.5em;
+}
+
+.longform code {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 0.87em;
+}
+
+.longform .num {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.92em;
+  color: var(--ink);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
