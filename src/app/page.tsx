@@ -3,6 +3,7 @@ import { Hero } from "@/components/hero";
 import { ProjectCard, ProvenanceLegend } from "@/components/project-card";
 import { Section } from "@/components/section";
 import { Skills } from "@/components/skills";
+import { PersonSchema } from "@/components/structured-data";
 import { Timeline } from "@/components/timeline";
 import { buildMetadata } from "@/lib/metadata";
 import { projects } from "@/lib/projects";
@@ -13,6 +14,7 @@ export const metadata = buildMetadata({ path: "/" });
 export default function HomePage() {
   return (
     <>
+      <PersonSchema />
       <Hero />
 
       <Section
