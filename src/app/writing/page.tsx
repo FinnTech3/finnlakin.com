@@ -15,6 +15,7 @@ export default function WritingIndexPage() {
   return (
     <Section
       id="writing"
+      level={1}
       eyebrow="Writing"
       title="Long-form"
       intro="One piece per finding, with the argument set out properly rather than compressed into a card. Each states what it does not show."

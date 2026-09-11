@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { CommandPalette } from "@/components/command-palette";
+import { buildPaletteItems } from "@/lib/palette";
 import { contact, nav, person } from "@/lib/site";
 
 export function SiteHeader() {
@@ -8,20 +10,23 @@ export function SiteHeader() {
         <Link href="/" className="font-serif text-lg tracking-[-0.01em]">
           {person.name}
         </Link>
-        <nav aria-label="Main">
-          <ul className="flex items-center gap-5">
-            {nav.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="font-mono text-[12px] uppercase tracking-[0.08em] text-muted hover:text-accent"
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <div className="flex items-center gap-5">
+          <nav aria-label="Main">
+            <ul className="flex items-center gap-5">
+              {nav.map((item) => (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className="font-mono text-[12px] uppercase tracking-[0.08em] text-muted hover:text-accent"
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+          <CommandPalette items={buildPaletteItems()} />
+        </div>
       </div>
     </header>
   );
