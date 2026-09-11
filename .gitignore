@@ -42,3 +42,8 @@ next-env.d.ts
 
 # generated at build by scripts/build-cv-pdf.ts
 /public/finn-lakin-cv.pdf
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/

@@ -172,6 +172,21 @@ body {
   color: var(--ink);
 }
 
+.palette {
+  margin: 0 auto;
+  margin-top: min(12vh, 7rem);
+  width: min(38rem, calc(100vw - 2rem));
+  max-height: 80vh;
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.palette::backdrop {
+  background: rgb(0 0 0 / 0.32);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

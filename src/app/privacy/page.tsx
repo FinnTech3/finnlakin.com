@@ -14,6 +14,7 @@ export default function PrivacyPage() {
   return (
     <Section
       id="privacy"
+      level={1}
       eyebrow="Privacy"
       title="What this site measures"
       intro="Short version: page views and how long a page was read, with no cookie, nothing stored on your device, and no way to identify you tomorrow from what was recorded today."
