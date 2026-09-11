@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArticleSchema } from "@/components/structured-data";
 import { writingBodies } from "@/content/writing";
 import { buildMetadata } from "@/lib/metadata";
 import { projectBySlug } from "@/lib/projects";
@@ -36,6 +37,7 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
 
   return (
     <article>
+      <ArticleSchema piece={piece} />
       <header className="border-b border-rule">
         <div className="mx-auto w-full max-w-5xl px-5 py-14 sm:px-8 sm:py-20">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
