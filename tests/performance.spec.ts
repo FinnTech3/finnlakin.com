@@ -61,7 +61,12 @@ test.describe("performance budget", () => {
 
     expect(result.lcp, "largest contentful paint").toBeLessThan(1500);
     expect(result.cls, "cumulative layout shift").toBeLessThan(0.05);
-    expect(result.javascriptBytes / 1024, "uncompressed JavaScript, KB").toBeLessThan(600);
+
+    /* 500KB, down from 600. Inlining the command palette instead of splitting
+       it measured 580KB on this same page, so this ceiling is what stops that
+       122KB coming back: anything that pulls the panel into the first-load
+       bundle again fails here rather than quietly shipping. */
+    expect(result.javascriptBytes / 1024, "uncompressed JavaScript, KB").toBeLessThan(500);
 
     console.log(
       `home: LCP ${result.lcp}ms, CLS ${result.cls}, ` +
@@ -81,5 +86,29 @@ test.describe("performance budget", () => {
     await second.close();
 
     expect(withChart.javascriptBytes).toBeLessThanOrEqual(withoutChart.javascriptBytes);
+  });
+
+  test("the palette is not in the first-load bundle", async ({ page }) => {
+    /* The saving only exists while the panel stays out of the initial load, so
+       assert the shape directly rather than trusting the byte ceiling alone:
+       nothing should fetch the panel chunk until someone reaches for it. */
+    const chunks: string[] = [];
+    page.on("response", (response) => {
+      if (response.url().includes("/_next/static/chunks/")) chunks.push(response.url());
+    });
+
+    await page.goto("/");
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(1500);
+    const beforeOpen = chunks.length;
+
+    await page.getByRole("button", { name: /search/i }).click();
+    await expect(page.getByRole("dialog", { name: "Search this site" })).toBeVisible();
+    await page.waitForTimeout(500);
+
+    expect(
+      chunks.length,
+      "opening the palette should fetch a chunk that was not loaded before",
+    ).toBeGreaterThan(beforeOpen);
   });
 });

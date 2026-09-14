@@ -57,7 +57,7 @@
       if (nav.sendBeacon(ENDPOINT, new Blob([payload], { type: "application/json" }))) {
         return;
       }
-    } catch (error) {
+    } catch {
       /* fall through to fetch */
     }
     fetch(ENDPOINT, {
@@ -73,7 +73,7 @@
     try {
       var host = new URL(document.referrer).host;
       return host === location.host ? null : host;
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -123,7 +123,7 @@
       try {
         var next = new URL(event.destination.url).pathname;
         if (next !== currentPath) setTimeout(function () { startPage(next); }, 0);
-      } catch (error) {
+      } catch {
         /* not a navigation we can attribute */
       }
     });
@@ -164,7 +164,7 @@
       var url = new URL(href);
       if (url.host === location.host) return;
       send("outbound_click", { path: currentPath, target: url.host + url.pathname });
-    } catch (error) {
+    } catch {
       /* not a URL we can attribute */
     }
   });

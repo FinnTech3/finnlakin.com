@@ -1,13 +1,16 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from "next/font/google";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { siteDescription, siteTitle, siteUrl } from "@/lib/site";
 import "./globals.css";
 
+/* Only 400 and 500 are used. The single 600 on the site is `.longform strong`,
+   which sits on Newsreader, so a semibold Plex Sans was being downloaded and
+   never painted. */
 const plexSans = IBM_Plex_Sans({
   variable: "--font-plex-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500"],
   display: "swap",
 });
 
@@ -18,9 +21,14 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+/* Italic is declared explicitly. Without it the browser synthesises an oblique
+   by slanting the upright, which is what the hero's emphasis and every <em> in
+   the long-form were getting: wrong letterforms, and conspicuously so on a
+   serif, where true italic is a different design rather than a tilt. */
 const newsreader = Newsreader({
   variable: "--font-newsreader",
   subsets: ["latin"],
+  style: ["normal", "italic"],
   display: "swap",
 });
 
@@ -51,6 +59,16 @@ export const metadata: Metadata = {
     description: siteDescription,
     images: ["/api/og"],
   },
+};
+
+/* Resolved per colour scheme, so the browser chrome matches the page it is
+   framing rather than one of the two themes. */
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f7f4" },
+    { media: "(prefers-color-scheme: dark)", color: "#101215" },
+  ],
+  colorScheme: "light dark",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

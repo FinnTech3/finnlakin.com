@@ -27,23 +27,19 @@ export function PaletteTrigger() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  /* Warm the chunk once the browser is otherwise idle. Keeping the panel out
-     of the first-load bundle is the point of the split, but a cold fetch on
-     the first keypress is a visible stall on a slow connection. Fetching it
-     during idle time costs nothing on the critical path and makes the first
-     open instant. The import shares webpack's chunk cache with next/dynamic,
-     so this genuinely warms the same module. */
-  useEffect(() => {
-    const preload = () => {
-      void import("./palette-panel");
-    };
-    if (typeof window.requestIdleCallback === "function") {
-      const handle = window.requestIdleCallback(preload, { timeout: 3000 });
-      return () => window.cancelIdleCallback?.(handle);
-    }
-    const handle = window.setTimeout(preload, 2000);
-    return () => window.clearTimeout(handle);
-  }, []);
+  /* Warm the chunk on intent rather than on idle. Fetching it during idle time
+     was measurably worse than not splitting at all: everyone paid for the
+     chunk plus the split overhead, including the large majority who never open
+     it. Pointer or focus on the trigger is a reliable signal that someone is
+     about to, and it arrives far enough ahead of the click that the panel is
+     already there. Anyone who goes straight for the shortcut pays one small
+     fetch, which is imperceptible.
+
+     The import shares webpack's chunk cache with next/dynamic, so this warms
+     the same module rather than fetching a second copy. */
+  function warm() {
+    void import("./palette-panel");
+  }
 
   function openPalette() {
     setMounted(true);
@@ -55,6 +51,8 @@ export function PaletteTrigger() {
       <button
         type="button"
         onClick={openPalette}
+        onPointerEnter={warm}
+        onFocus={warm}
         aria-haspopup="dialog"
         aria-expanded={open}
         /* min-h-11 keeps this at a real touch target. The shortcut hint is
