@@ -28,6 +28,22 @@ export const writing: WritingPiece[] = [
     published: "2026-09-14",
     projectSlug: "whose-inflation",
   },
+  {
+    slug: "term-premium",
+    title: "The curve is measured, the split is a choice",
+    dek: "Rebuilding the New York Fed's term premium model reproduces the fitted yield curve to 0.45 basis points. The premium extracted from that same curve reproduces to 14, and moving the start date alone moves it 81.",
+    kicker: "Write-up",
+    published: "2026-09-14",
+    projectSlug: "term-premium",
+  },
+  {
+    slug: "nanobook",
+    title: "Measure the book before you allocate for it",
+    dek: "The obvious structure for a price-indexed order book is one flat array. A real Coinbase snapshot says that array would be a hundred gigabytes of almost entirely zero, and the same snapshot says exactly what to build instead.",
+    kicker: "Write-up",
+    published: "2026-09-14",
+    projectSlug: "nanobook",
+  },
 ];
 
 export const writingBySlug = new Map(writing.map((piece) => [piece.slug, piece]));

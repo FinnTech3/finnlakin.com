@@ -172,6 +172,17 @@ main[id] {
   font-size: 0.87em;
 }
 
+/* Default sup raises the line box and opens a gap above the line it sits in.
+   Position it instead, so an exponent in the middle of a paragraph does not
+   change that paragraph's leading. */
+.longform sup {
+  font-size: 0.7em;
+  line-height: 0;
+  position: relative;
+  top: -0.4em;
+  vertical-align: baseline;
+}
+
 .longform .num {
   font-family: var(--font-plex-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;

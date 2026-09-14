@@ -70,6 +70,7 @@ export const projects: Project[] = [
     limits:
       "This is an aggregated price-level book, not order-by-order. There is no matching engine and no order entry, and it is single-threaded. The latency figure is a benchmark on a committed sample session, not a claim about a production venue.",
     links: [{ label: "Repository", href: gh("nanobook") }],
+    writing: "nanobook",
   },
   {
     slug: "term-premium",
@@ -89,6 +90,7 @@ export const projects: Project[] = [
     limits:
       "This is not a claim to reproduce the Fed's published term premium level to the basis point, and it is not a trading signal. Starting the estimation in 1961 puts the recent ten-year premium near zero; starting in 2000 puts it near 0.82%. Both are the same model.",
     links: [{ label: "Repository", href: gh("term-premium") }],
+    writing: "term-premium",
     band: {
       caption: "Ten-year term premium, rebuilt",
       widthLabel: "81 bp wide",
