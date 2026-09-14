@@ -82,6 +82,32 @@ test.describe("navigation affordances", () => {
   });
 });
 
+test.describe("the embedded tool", () => {
+  test.skip(({ isMobile }) => Boolean(isMobile), "not viewport dependent");
+
+  /* The a11y scan excuses what is inside this frame because it is another
+     repository's deploy. What is on this side of the boundary is still this
+     site's, and it is asserted here rather than left to axe. */
+  test("carries a name, defers its load, and works if the frame never arrives", async ({
+    page,
+  }) => {
+    await page.goto("/writing/whose-inflation");
+
+    const frame = page.locator('iframe[src^="https://finntech3.github.io"]');
+    await expect(frame).toHaveCount(1);
+    await expect(frame).toHaveAttribute("loading", "lazy");
+
+    const title = await frame.getAttribute("title");
+    expect(title?.trim().length ?? 0).toBeGreaterThan(3);
+
+    /* A frame can be blocked by an extension, a policy or a dead host, so the
+       piece has to carry the reader out to the tool without it. */
+    const linkOut = page.locator('figure a[href^="https://finntech3.github.io/my-inflation"]');
+    await expect(linkOut).toHaveCount(1);
+    await expect(linkOut).toBeVisible();
+  });
+});
+
 test.describe("icons and manifest", () => {
   test.skip(({ isMobile }) => Boolean(isMobile), "not viewport dependent");
 
