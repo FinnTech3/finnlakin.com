@@ -20,6 +20,14 @@ export const writing: WritingPiece[] = [
     published: "2026-09-11",
     projectSlug: "marked-to-model",
   },
+  {
+    slug: "whose-inflation",
+    title: "Households diverge in a shock, not in general",
+    dek: "Rebuilding US CPI from its eight components recovers the published headline to 0.083 percentage points. Reweighting it for different households shows they live at much the same rate for years, then come apart exactly when the number is quoted hardest.",
+    kicker: "Write-up",
+    published: "2026-09-14",
+    projectSlug: "whose-inflation",
+  },
 ];
 
 export const writingBySlug = new Map(writing.map((piece) => [piece.slug, piece]));

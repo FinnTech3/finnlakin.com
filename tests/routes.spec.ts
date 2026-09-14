@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const routes = ["/", "/writing", "/writing/marked-to-model", "/cv", "/privacy"];
+import { PUBLIC_ROUTES as routes } from "./site-routes";
 
 test.describe("every route renders cleanly", () => {
   for (const route of routes) {

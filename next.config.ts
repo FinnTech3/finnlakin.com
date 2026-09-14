@@ -21,6 +21,10 @@ const contentSecurityPolicy = [
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
+  /* One origin, for the calculator embedded in the whose-inflation piece.
+     Framing the real tool beats reimplementing it, which would mean inventing
+     index data. frame-ancestors below still refuses to let anyone frame us. */
+  "frame-src https://finntech3.github.io",
   "font-src 'self'",
   "connect-src 'self'",
   "form-action 'self'",

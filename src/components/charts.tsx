@@ -10,14 +10,20 @@ export function IntervalBand({
   widthLabel,
   low,
   high,
+  point,
   reading,
 }: {
   caption: string;
   widthLabel: string;
   low: { value: string; note: string };
   high: { value: string; note: string };
+  /* An optional marker inside the band. `at` is a percentage of the way from
+     low to high, so the caller does the arithmetic against real values rather
+     than this component guessing a scale it cannot see. */
+  point?: { value: string; note: string; at: number };
   reading?: string;
 }) {
+  const at = point ? Math.min(Math.max(point.at, 0), 100) : 0;
   return (
     <figure className="m-0 flex flex-col gap-3 border border-rule bg-panel p-5">
       <figcaption className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -34,7 +40,25 @@ export function IntervalBand({
         <div className="absolute inset-x-0 top-1/2 h-4 -translate-y-1/2 border-x-2 border-accent bg-accent-soft" />
         <span className="absolute left-0 top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-panel bg-ink" />
         <span className="absolute right-0 top-1/2 size-3 translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-panel bg-ink" />
+        {point ? (
+          <span
+            className="absolute top-1/2 h-6 w-0.5 -translate-x-1/2 -translate-y-1/2 bg-accent"
+            style={{ left: `${at}%` }}
+          />
+        ) : null}
       </div>
+
+      {point ? (
+        <p
+          className="-mt-1 flex flex-col text-[11px] leading-snug text-muted"
+          style={{ marginLeft: `min(${at}%, calc(100% - 9rem))` }}
+        >
+          <span className="font-mono text-[13px] font-medium tabular-nums text-accent">
+            {point.value}
+          </span>
+          {point.note}
+        </p>
+      ) : null}
 
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col">

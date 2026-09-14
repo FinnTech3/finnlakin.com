@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { PUBLIC_ROUTES } from "./site-routes";
+
 test.describe("sitemap and robots", () => {
   test.skip(({ isMobile }) => Boolean(isMobile), "not viewport dependent");
 
@@ -8,7 +10,7 @@ test.describe("sitemap and robots", () => {
     expect(response.status()).toBe(200);
 
     const xml = await response.text();
-    for (const route of ["/", "/writing", "/writing/marked-to-model", "/cv", "/privacy"]) {
+    for (const route of PUBLIC_ROUTES) {
       expect(xml, `sitemap is missing ${route}`).toContain(
         route === "/" ? "<loc>" : `${route}</loc>`,
       );
@@ -17,9 +19,10 @@ test.describe("sitemap and robots", () => {
     expect(xml).not.toContain("/api/");
 
     /* grep -c would count matching lines, and this is effectively one line.
-       Count the matches themselves. */
+       Count the matches themselves. Derived from the route list, so publishing
+       a write-up without adding it to the sitemap fails here. */
     const locs = xml.match(/<loc>/g) ?? [];
-    expect(locs.length).toBe(5);
+    expect(locs.length).toBe(PUBLIC_ROUTES.length);
   });
 
   test("robots keeps crawlers out of the admin area", async ({ request }) => {

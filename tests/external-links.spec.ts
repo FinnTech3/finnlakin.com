@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const pages = ["/", "/writing", "/writing/marked-to-model", "/cv", "/privacy"];
+import { PUBLIC_ROUTES as pages } from "./site-routes";
 
 /* This one talks to the real internet, which is why it is its own file: a
    recruiter clicking a dead demo is the failure this prevents, and it cannot

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const routes = ["/", "/writing", "/writing/marked-to-model", "/cv", "/privacy"];
+import { PUBLIC_ROUTES as routes } from "./site-routes";
 
 /* Metadata merges per key rather than per field, so a page declaring a partial
    openGraph silently drops the site name, the canonical url and the card image.

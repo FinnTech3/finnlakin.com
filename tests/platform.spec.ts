@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const routes = ["/", "/writing", "/writing/marked-to-model", "/cv", "/privacy"];
+import { PUBLIC_ROUTES as routes } from "./site-routes";
 
 test.describe("security headers", () => {
   test.skip(({ isMobile }) => Boolean(isMobile), "not viewport dependent");

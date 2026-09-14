@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-const routes = ["/", "/writing", "/writing/marked-to-model", "/cv", "/privacy"];
+import { PUBLIC_ROUTES as routes } from "./site-routes";
 
 for (const route of routes) {
   test(`${route} has no serious or critical accessibility violations`, async ({ page }) => {

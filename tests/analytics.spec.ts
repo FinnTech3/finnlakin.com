@@ -12,14 +12,15 @@ import { EVENT_NAMES, META_KEYS, identify, sanitiseMeta } from "../src/lib/analy
 import { issueToken, verifyToken } from "../src/lib/admin-auth";
 import { parseDays } from "../src/lib/analytics-queries";
 
-const pool = new Pool({ connectionString: TEST_DATABASE_URL, max: 2 });
-
-let closed = false;
-test.afterAll(async () => {
-  /* afterAll runs once per project, and the pool is module scope. */
-  if (closed) return;
-  closed = true;
-  await pool.end();
+/* No explicit end(). Tests in this file run across several workers, and an
+   afterAll in one of them was closing the pool while another still had tests to
+   run. allowExitOnIdle lets the connections close themselves once nothing is
+   using them, which is the same outcome without the ordering hazard. */
+const pool = new Pool({
+  connectionString: TEST_DATABASE_URL,
+  max: 2,
+  idleTimeoutMillis: 1000,
+  allowExitOnIdle: true,
 });
 
 /* Rows left by another test change every count the next one measures, and
@@ -378,13 +379,19 @@ test.describe("the interface actually emits what it declares", () => {
   });
 
   test("depth is not recorded away from a write-up", async ({ page }) => {
-    const before = await countEvent("writing_progress");
-
     await page.goto("/");
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await quiesce(page.request, "no-depth-off-writing");
 
-    expect(await countEvent("writing_progress")).toBe(before);
+    /* Asserted against the path rather than a global count: other tests write
+       depth events concurrently, so a before-and-after total would be measuring
+       them rather than this page. No depth event should ever carry a path that
+       is not a write-up. */
+    const stray = await pool.query<{ path: string }>(
+      `SELECT DISTINCT path FROM analytics_events
+       WHERE event = 'writing_progress' AND (path IS NULL OR path NOT LIKE '/writing/%')`,
+    );
+    expect(stray.rows.map((row) => row.path)).toEqual([]);
   });
 });
 

@@ -61,6 +61,49 @@ export function Figures({
   );
 }
 
+/* The real tool, framed, rather than a reimplementation. Rebuilding the
+   weighting here would mean inventing the index data, which is the one thing
+   this site must not do. Lazy so it costs nothing until it is scrolled to, and
+   always paired with a link out, because a frame can be blocked and the piece
+   still has to work. */
+export function Embed({
+  title,
+  src,
+  href,
+  linkLabel,
+  note,
+}: {
+  title: string;
+  src: string;
+  href: string;
+  linkLabel: string;
+  note: string;
+}) {
+  return (
+    <figure className="my-10 flex flex-col gap-3 font-sans">
+      <div className="overflow-hidden border border-rule bg-panel">
+        <iframe
+          title={title}
+          src={src}
+          loading="lazy"
+          className="block h-[32rem] w-full border-0"
+        />
+      </div>
+      <figcaption className="flex flex-col gap-1 text-[13px] leading-relaxed text-muted">
+        <span>{note}</span>
+        <a
+          href={href}
+          className="text-accent underline underline-offset-[3px]"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {linkLabel}
+        </a>
+      </figcaption>
+    </figure>
+  );
+}
+
 export function Limits({ children }: { children: ReactNode }) {
   return (
     <section className="my-10 max-w-[64ch] border-t border-rule-strong pt-5 font-sans">
