@@ -24,6 +24,8 @@ export const META_KEYS = [
   "target",
   "seconds",
   "viewport",
+  /* Reading depth on a long-form piece, as a percentage milestone. */
+  "depth",
 ] as const;
 
 const META_SET: ReadonlySet<string> = new Set(META_KEYS);

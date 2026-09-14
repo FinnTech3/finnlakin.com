@@ -29,7 +29,7 @@
     "outbound_click",
     "writing_progress",
   ];
-  var FIELDS = ["path", "slug", "referrer_host", "target", "seconds", "viewport"];
+  var FIELDS = ["path", "slug", "referrer_host", "target", "seconds", "viewport", "depth"];
 
   var nav = navigator;
   if (
@@ -95,9 +95,53 @@
     send("heartbeat", { path: currentPath, seconds: elapsed() });
   }
 
+  /* Reading depth, on long-form pages only. How far people actually get
+     through a piece is the one thing worth knowing about a long piece, and it
+     cannot be inferred from dwell time: a tab left open all afternoon and a
+     careful read to the end look identical from seconds alone. */
+  var depthSeen = {};
+  var MILESTONES = [25, 50, 75, 100];
+
+  function readingSlug() {
+    var match = currentPath.match(/^\/writing\/([^/]+)\/?$/);
+    return match ? match[1] : null;
+  }
+
+  function checkDepth() {
+    var slug = readingSlug();
+    if (!slug) return;
+
+    var doc = document.documentElement;
+    var scrollable = doc.scrollHeight - window.innerHeight;
+    if (scrollable <= 0) return;
+
+    var reached = Math.round(((window.scrollY || doc.scrollTop || 0) / scrollable) * 100);
+    for (var i = 0; i < MILESTONES.length; i++) {
+      var mark = MILESTONES[i];
+      if (reached >= mark && !depthSeen[mark]) {
+        depthSeen[mark] = true;
+        send("writing_progress", { path: currentPath, slug: slug, depth: mark });
+      }
+    }
+  }
+
+  var depthQueued = false;
+  function onScroll() {
+    /* Coalesced into one frame. A listener that measures layout on every
+       scroll event is how a page starts to feel heavy. */
+    if (depthQueued) return;
+    depthQueued = true;
+    requestAnimationFrame(function () {
+      depthQueued = false;
+      checkDepth();
+    });
+  }
+  window.addEventListener("scroll", onScroll, { passive: true });
+
   function startPage(path) {
     currentPath = path;
     startedAt = Date.now();
+    depthSeen = {};
 
     var meta = {
       path: path,
@@ -169,5 +213,15 @@
     }
   });
 
+  /* The only way in from component code. Everything still passes through
+     send(), so the closed lists apply to a React caller exactly as they do
+     here, and a caller cannot invent an event or a field. */
+  window.__analytics = {
+    track: function (event, meta) {
+      send(event, meta || {});
+    },
+  };
+
   startPage(location.pathname);
+  checkDepth();
 })();

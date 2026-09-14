@@ -1,12 +1,26 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /* ssr:false because a dialog that nobody has opened has nothing to render on
    the server, and this is the whole point of the split: the panel, its item
    list and its filtering stay out of the first-load bundle of every page. */
 const PalettePanel = dynamic(() => import("./palette-panel"), { ssr: false });
+
+/* The beacon is a plain script rather than a module, so this is how a component
+   reaches it. Module scope because it closes over nothing: keeping it inside
+   the component only made it a value the keydown listener captured before it
+   was declared. Optional throughout, since Do Not Track, a blocked script or an
+   ad blocker all leave the global undefined, and none of those should stop the
+   palette opening. */
+function track() {
+  (
+    window as unknown as {
+      __analytics?: { track: (event: string, meta: Record<string, unknown>) => void };
+    }
+  ).__analytics?.track("palette_open", { path: location.pathname });
+}
 
 export function PaletteTrigger() {
   /* Two pieces of state rather than one. `mounted` latches on first open so
@@ -15,12 +29,23 @@ export function PaletteTrigger() {
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
 
+  /* The keydown listener is registered once, so `open` inside it would be the
+     value from first render forever. This mirrors it, which is also what lets
+     the shortcut tell opening from closing without putting a side effect in a
+     state updater. */
+  const isOpen = useRef(false);
+  useEffect(() => {
+    isOpen.current = open;
+  }, [open]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
+        const opening = !isOpen.current;
         setMounted(true);
-        setOpen((current) => !current);
+        setOpen(opening);
+        if (opening) track();
       }
     };
     document.addEventListener("keydown", onKeyDown);
@@ -44,6 +69,7 @@ export function PaletteTrigger() {
   function openPalette() {
     setMounted(true);
     setOpen(true);
+    track();
   }
 
   return (

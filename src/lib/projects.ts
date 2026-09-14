@@ -232,8 +232,11 @@ export const projects: Project[] = [
     stats: [],
     provenance: "tool",
     limits:
-      "This is the one project here with no measured result to report, because there is nothing in it to measure: it is a tool rather than a finding. Your CSV is loaded into a temporary in-memory database for the session and is not persisted, but the question and the schema go to a model API, so it is a local tool with one network dependency.",
-    links: [{ label: "Repository", href: gh("finance-analysis") }],
+      "This is the one project here with no measured result to report, because there is nothing in it to measure: it is a tool rather than a finding. Your CSV is loaded into a temporary in-memory database for the session and is not persisted, but the question and the schema go to a model API, so it is a local tool with one network dependency. The hosted demo runs on a free tier that sleeps when idle, so a cold first load takes about forty-five seconds and shows a blank tab while it wakes. It is quick once awake.",
+    links: [
+      { label: "Repository", href: gh("finance-analysis") },
+      { label: "Hosted demo", href: "https://finance-analysis-opml.onrender.com" },
+    ],
   },
 ];
 

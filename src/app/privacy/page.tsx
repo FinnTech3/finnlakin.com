@@ -55,6 +55,12 @@ export default function PrivacyPage() {
             adds. No third-party lookup service sees your address.
           </li>
           <li>Your viewport size, so the layout can be checked against real screens.</li>
+          <li>
+            On a long-form piece only, how far down it you scrolled, as one of
+            four milestones. Whether a piece is read to the end cannot be
+            inferred from time alone: a tab left open all afternoon and a
+            careful read look identical from seconds.
+          </li>
         </ul>
         <p>
           The list of things that can be recorded is fixed in the server code.

@@ -331,6 +331,63 @@ test.describe("admin auth", () => {
   });
 });
 
+test.describe("the interface actually emits what it declares", () => {
+  test.skip(({ isMobile }) => Boolean(isMobile), "one viewport is enough");
+
+  /* Both of these events sat in the closed list for a while without anything
+     firing them, which is worse than not declaring them: it implies a
+     measurement that is not happening. Counting before and after rather than
+     matching a unique path, because these fire on real routes. */
+  async function countEvent(event: string): Promise<number> {
+    const result = await pool.query<{ n: string }>(
+      "SELECT count(*) AS n FROM analytics_events WHERE event = $1",
+      [event],
+    );
+    return Number(result.rows[0]?.n ?? 0);
+  }
+
+  test("opening the palette records palette_open", async ({ page }) => {
+    const before = await countEvent("palette_open");
+
+    await page.goto("/");
+    await page.getByRole("button", { name: /search/i }).click();
+    await expect(page.getByRole("dialog", { name: "Search this site" })).toBeVisible();
+
+    await expect.poll(() => countEvent("palette_open"), { timeout: 10_000 }).toBeGreaterThan(
+      before,
+    );
+  });
+
+  test("reading a write-up records depth, with the slug", async ({ page }) => {
+    const before = await countEvent("writing_progress");
+
+    await page.goto("/writing/marked-to-model");
+    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+
+    await expect
+      .poll(() => countEvent("writing_progress"), { timeout: 10_000 })
+      .toBeGreaterThan(before);
+
+    const row = await pool.query<{ meta: Record<string, unknown> }>(
+      "SELECT meta FROM analytics_events WHERE event = 'writing_progress' ORDER BY id DESC LIMIT 1",
+    );
+    expect(row.rows[0].meta.slug).toBe("marked-to-model");
+    expect(Number(row.rows[0].meta.depth)).toBeGreaterThan(0);
+    expect(Number(row.rows[0].meta.depth)).toBeLessThanOrEqual(100);
+  });
+
+  test("depth is not recorded away from a write-up", async ({ page }) => {
+    const before = await countEvent("writing_progress");
+
+    await page.goto("/");
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await quiesce(page.request, "no-depth-off-writing");
+
+    expect(await countEvent("writing_progress")).toBe(before);
+  });
+});
+
 test.describe("the browser script cannot drift from the server", () => {
   test.skip(({ isMobile }) => Boolean(isMobile), "static analysis");
 
