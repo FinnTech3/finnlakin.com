@@ -10,7 +10,7 @@ export function Timeline() {
         >
           <div className="flex flex-col gap-1">
             <span className="font-mono text-xs tabular-nums text-muted">
-              {entry.start} — {entry.end}
+              {entry.start} – {entry.end}
             </span>
             <span className="font-mono text-[10.5px] uppercase tracking-[0.11em] text-muted">
               {entry.kind === "work" ? "Work" : "Education"}

@@ -1,3 +1,5 @@
+import { gzipSync } from "node:zlib";
+
 import { expect, test } from "@playwright/test";
 
 type Measurement = {
@@ -73,6 +75,45 @@ test.describe("performance budget", () => {
         `${(result.javascriptBytes / 1024).toFixed(0)}KB JS, ` +
         `${(result.totalBytes / 1024).toFixed(0)}KB total`,
     );
+  });
+
+  test("the document itself stays inside budget", async ({ page }) => {
+    /* JavaScript was the only thing budgeted, and the home page ships 158KB of
+       HTML: ten project cards plus the flight payload that repeats them. That
+       is the largest single response on the site and nothing was watching it.
+
+       Compressed size is computed here rather than read off content-length.
+       `next start` serves these uncompressed, so the header would report the
+       raw size and a transfer budget against it would be measuring the test
+       server rather than the site. Gzipping the body gives a figure that does
+       not depend on what the local server happens to do. */
+    for (const route of ["/", "/writing/nanobook"]) {
+      const response = await page.goto(route);
+      const body = await response!.body();
+      const compressed = gzipSync(body).length;
+
+      console.log(
+        `${route}: ${(body.length / 1024).toFixed(0)}KB HTML, ` +
+          `${(compressed / 1024).toFixed(0)}KB gzipped`,
+      );
+
+      expect(body.length / 1024, `${route} uncompressed HTML, KB`).toBeLessThan(220);
+      expect(compressed / 1024, `${route} gzipped HTML, KB`).toBeLessThan(40);
+    }
+  });
+
+  test("a write-up is lighter than the home page, not heavier", async ({ page, context }) => {
+    /* The budget above only covers the home page. A write-up carries charts,
+       an embed and long prose, so it is the route most likely to grow without
+       anybody noticing. */
+    const home = await measure(page, "/");
+    const second = await context.newPage();
+    const piece = await measure(second, "/writing/whose-inflation");
+    await second.close();
+
+    expect(piece.javascriptBytes / 1024, "write-up JavaScript, KB").toBeLessThan(500);
+    expect(piece.cls, "write-up layout shift").toBeLessThan(0.05);
+    expect(piece.javascriptBytes).toBeLessThanOrEqual(home.javascriptBytes);
   });
 
   test("charts cost nothing on the client", async ({ page, context }) => {

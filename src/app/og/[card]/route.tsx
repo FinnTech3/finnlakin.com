@@ -1,5 +1,15 @@
 import { ImageResponse } from "next/og";
+import { shareCardByKey, shareCards } from "@/lib/share-cards";
 import { person } from "@/lib/site";
+
+/* Every card is prerendered at build and served as a static asset, so no
+   request ever rasterises a PNG. dynamicParams refuses any key that is not on
+   the list rather than falling through to a render. */
+export function generateStaticParams() {
+  return shareCards.map((card) => ({ card: card.key }));
+}
+
+export const dynamicParams = false;
 
 /* Share cards have no viewer theme, so the light palette is hard-coded here
    rather than read from tokens. */
@@ -15,16 +25,17 @@ function clamp(value: string, max: number): string {
   return value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value;
 }
 
-export async function GET(request: Request) {
-  const params = new URL(request.url).searchParams;
+export async function GET(
+  _request: Request,
+  { params }: RouteContext<"/og/[card]">,
+) {
+  const { card: key } = await params;
+  const card = shareCardByKey.get(key);
 
-  /* searchParams.get() returns null when absent, so test the raw string
-     before using it. An empty string is also not a usable title. */
-  const rawTitle = params.get("title");
-  const title = rawTitle && rawTitle.trim() ? clamp(rawTitle.trim(), 90) : person.name;
-
-  const rawKicker = params.get("kicker");
-  const kicker = rawKicker && rawKicker.trim() ? clamp(rawKicker.trim(), 60) : null;
+  /* dynamicParams = false means an unknown key never reaches here, so this is
+     a type narrowing rather than a runtime path. */
+  const title = clamp(card?.title ?? person.name, 90);
+  const kicker = card?.kicker ? clamp(card.kicker, 60) : null;
 
   return new ImageResponse(
     (

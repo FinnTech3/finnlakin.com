@@ -78,10 +78,24 @@ function utcDay(now = new Date()): string {
 /* The key itself is derived from the date, so it changes at midnight UTC.
    Yesterday's identifiers cannot be recomputed from today's key, which makes
    cross-day matching impossible rather than merely forbidden. */
+/* Memoised on the day and the secret together. The value changes once per UTC
+   day, and recomputing it per request made a third of the crypto in the hot
+   path work that produced the same bytes every time. Keying on the secret as
+   well means a rotated secret is not served from a stale cache. */
+let cachedKey: { day: string; secret: string; key: Buffer } | null = null;
+
 function dailyKey(now?: Date): Buffer | null {
   const base = secret();
   if (!base) return null;
-  return createHmac("sha256", base).update(utcDay(now)).digest();
+
+  const day = utcDay(now);
+  if (cachedKey && cachedKey.day === day && cachedKey.secret === base) {
+    return cachedKey.key;
+  }
+
+  const key = createHmac("sha256", base).update(day).digest();
+  cachedKey = { day, secret: base, key };
+  return key;
 }
 
 export type VisitorIdentity = {

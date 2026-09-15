@@ -8,11 +8,26 @@ export type Row = { label: string; count: number };
 export type Dwell = { label: string; seconds: number };
 
 /* Vercel has no scheduler, so a retention promise kept by nothing is not a
-   retention policy. This runs on the dashboard request, which is the only
-   request on this site guaranteed to happen on a human timescale. */
-async function pruneOldRows(): Promise<number> {
+   retention policy. This still runs off the dashboard request, the only
+   request on this site guaranteed to happen on a human timescale, but it runs
+   in after() rather than in front of the render: it feeds nothing the page
+   displays, and an unbounded DELETE holding locks and generating WAL while
+   somebody waits for a page is the wrong shape.
+
+   Bounded per run for the same reason. The first run after a long gap would
+   otherwise delete an arbitrary number of rows in one transaction; at this
+   site's volume a 10,000 row ceiling clears a backlog over a few loads and
+   keeps any single one small. */
+const PRUNE_BATCH = 10_000;
+
+export async function pruneOldRows(): Promise<number> {
   const result = await getPool().query(
-    `DELETE FROM analytics_events WHERE created_at < now() - ($1 || ' days')::interval`,
+    `DELETE FROM analytics_events
+      WHERE id IN (
+        SELECT id FROM analytics_events
+         WHERE created_at < now() - ($1 || ' days')::interval
+         LIMIT ${PRUNE_BATCH}
+      )`,
     [String(RETENTION_DAYS)],
   );
   return result.rowCount ?? 0;
@@ -26,14 +41,12 @@ export type Dashboard = {
   dwell: Dwell[];
   outbound: Row[];
   daily: Row[];
-  pruned: number;
 };
 
 export async function loadDashboard(days: number): Promise<Dashboard> {
   await ensureSchema();
   const pool = getPool();
   const since = `${days} days`;
-  const pruned = await pruneOldRows();
 
   const [totals, paths, countries, referrers, dwell, outbound, daily] = await Promise.all([
     pool.query<{ views: string; visitors: string }>(
@@ -116,7 +129,6 @@ export async function loadDashboard(days: number): Promise<Dashboard> {
     dwell: dwell.rows.map((row) => ({ label: row.label, seconds: Number(row.seconds) })),
     outbound: rows(outbound),
     daily: rows(daily),
-    pruned,
   };
 }
 

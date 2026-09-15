@@ -8,7 +8,6 @@ export const metadata = buildMetadata({
   title: "Writing",
   description:
     "Long-form write-ups of the projects, each one built around a single finding and the argument for why it holds.",
-  kicker: "Writing",
 });
 
 export default function WritingIndexPage() {
@@ -34,11 +33,15 @@ export default function WritingIndexPage() {
                   year: "numeric",
                 })}
               </time>
-              <h3 className="max-w-[24ch] text-pretty font-serif text-[clamp(1.5rem,4vw,2rem)] leading-[1.12] tracking-[-0.018em]">
+              {/* h2, not h3. The Section heading above is the h1 on this page,
+                  so an h3 here skipped a level. axe rates heading-order as
+                  moderate and the gate only fails on serious and critical,
+                  which is why it shipped. */}
+              <h2 className="max-w-[24ch] text-pretty font-serif text-[clamp(1.5rem,4vw,2rem)] leading-[1.12] tracking-[-0.018em]">
                 <Link href={`/writing/${piece.slug}`} className="hover:text-accent">
                   {piece.title}
                 </Link>
-              </h3>
+              </h2>
               <p className="max-w-[64ch] text-[15px] leading-relaxed text-muted">
                 {piece.dek}
               </p>

@@ -7,7 +7,6 @@ export const metadata = buildMetadata({
   path: "/cv",
   title: "CV",
   description: `Curriculum vitae for ${person.name}: ${person.course} at ${person.university}, with an exchange year at ${person.exchange}.`,
-  kicker: "CV",
 });
 
 const education = timeline.filter((entry) => entry.kind === "education");
@@ -21,7 +20,7 @@ function Entries({ entries }: { entries: typeof timeline }) {
           <div className="flex flex-wrap items-baseline justify-between gap-x-4">
             <h3 className="text-[15px] font-medium">{entry.title}</h3>
             <span className="font-mono text-xs tabular-nums text-muted">
-              {entry.start} — {entry.end}
+              {entry.start} – {entry.end}
             </span>
           </div>
           <p className="text-sm text-muted">
@@ -53,7 +52,7 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
 
 export default function CvPage() {
   return (
-    <div className="mx-auto w-full max-w-3xl px-5 py-14 sm:px-8 sm:py-16">
+    <div className="cv-print mx-auto w-full max-w-3xl px-5 py-14 sm:px-8 sm:py-16">
       <header className="flex flex-col gap-3 pb-8">
         <h1 className="font-serif text-[clamp(2rem,6vw,2.8rem)] leading-[1.05] tracking-[-0.025em]">
           {person.name}
@@ -76,7 +75,7 @@ export default function CvPage() {
           <a
             href="/finn-lakin-cv.pdf"
             data-analytics-event="cv_download"
-            className="border border-accent px-3 py-2 font-mono text-xs text-accent hover:bg-accent-soft"
+            className="print-hidden border border-accent px-3 py-2 font-mono text-xs text-accent hover:bg-accent-soft"
           >
             Download PDF
           </a>

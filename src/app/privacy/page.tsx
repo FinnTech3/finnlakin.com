@@ -7,7 +7,6 @@ export const metadata = buildMetadata({
   title: "Privacy",
   description:
     "What this site measures, what it stores, and why there is no cookie banner.",
-  kicker: "Privacy",
 });
 
 export default function PrivacyPage() {

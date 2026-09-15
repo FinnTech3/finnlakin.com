@@ -30,10 +30,11 @@ let ready: Promise<void> | null = null;
 export function ensureSchema(): Promise<void> {
   if (!ready) {
     ready = (async () => {
-      const pool = getPool();
-      for (const statement of STATEMENTS) {
-        await pool.query(statement);
-      }
+      /* Sent as one statement rather than a loop of awaits. They are
+         independent and idempotent, so three sequential round trips bought
+         nothing and every new serverless instance paid for them before its
+         first insert. */
+      await getPool().query(STATEMENTS.join(";\n"));
     })().catch((error) => {
       /* Clear the cached promise so the next request retries. Without this a
          single failure, a cold database or a transient network blip, is

@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "next": "16.3.4",
-    "pdfkit": "^0.17.2",
     "pg": "^8.16.3",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -32,6 +31,7 @@
     "axe-core": "^4.11.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
+    "pdfkit": "^0.17.2",
     "playwright": "^1.56.1",
     "tailwindcss": "^4",
     "tsx": "^4.20.6",

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+import { shareCards } from "../src/lib/share-cards";
 import { PUBLIC_ROUTES as routes } from "./site-routes";
 
 /* Metadata merges per key rather than per field, so a page declaring a partial
@@ -54,11 +55,51 @@ test.describe("emitted head tags", () => {
     });
   }
 
-  test("the og:image route returns a real image", async ({ request }) => {
-    const response = await request.get("/api/og?title=Test%20card&kicker=Write-up");
-    expect(response.status()).toBe(200);
-    expect(response.headers()["content-type"]).toContain("image/");
-    expect((await response.body()).byteLength).toBeGreaterThan(1000);
+  test("every share card is a real image, prerendered and cacheable", async ({ request }) => {
+    expect(shareCards.length).toBeGreaterThan(4);
+
+    for (const card of shareCards) {
+      const response = await request.get(`/og/${card.key}`);
+      expect(response.status(), `/og/${card.key} did not serve`).toBe(200);
+      expect(response.headers()["content-type"]).toContain("image/");
+      expect((await response.body()).byteLength).toBeGreaterThan(1000);
+
+      /* The whole point of prerendering them. A card served without a cache
+         header is a card re-rasterised for every crawler that asks. */
+      expect(
+        response.headers()["cache-control"] ?? "",
+        `/og/${card.key} is not cacheable`,
+      ).toMatch(/s-maxage=\d{5,}/);
+    }
+  });
+
+  test("the card endpoint cannot be driven by a stranger", async ({ request }) => {
+    /* It used to render whatever ?title= it was given, on every request. The
+       set is closed now, so anything not on it is a 404 rather than a render. */
+    /* No traversal case here: a client normalises /og/../cv to /cv before it
+       is ever sent, so such a test would assert URL parsing rather than
+       anything about this endpoint. */
+    for (const key of ["nonsense", "Arbitrary%20text", "writing-not-a-piece"]) {
+      const response = await request.get(`/og/${key}`);
+      expect(response.status(), `/og/${key} should not render`).toBeGreaterThanOrEqual(400);
+    }
+  });
+
+  test("every page points at a card that exists", async ({ page }) => {
+    /* The card titles live beside the pages rather than inside them, so this
+       is the check that keeps the two from drifting: whatever a page asks for
+       has to be a card the build actually produced. */
+    for (const route of routes) {
+      await page.goto(route);
+      const image = await page.locator('meta[property="og:image"]').getAttribute("content");
+      expect(image, `${route} has no og:image`).toBeTruthy();
+
+      const key = new URL(image!).pathname.replace(/^\/og\//, "");
+      expect(
+        shareCards.map((card) => card.key),
+        `${route} points at a card that is not built`,
+      ).toContain(key);
+    }
   });
 });
 

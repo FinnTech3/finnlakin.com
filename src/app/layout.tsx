@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from "next/font/google";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
+import { ogImageUrl } from "@/lib/metadata";
 import { siteDescription, siteTitle, siteUrl } from "@/lib/site";
 import "./globals.css";
 
@@ -44,20 +45,23 @@ export const metadata: Metadata = {
     template: `%s · ${siteTitle}`,
   },
   description: siteDescription,
-  alternates: { canonical: "/" },
+  alternates: {
+    canonical: "/",
+    types: { "application/atom+xml": `${siteUrl}/feed.xml` },
+  },
   openGraph: {
     type: "website",
     siteName: siteTitle,
     title: siteTitle,
     description: siteDescription,
     url: siteUrl,
-    images: [{ url: "/api/og", width: 1200, height: 630, alt: siteTitle }],
+    images: [{ url: ogImageUrl("/"), width: 1200, height: 630, alt: siteTitle }],
   },
   twitter: {
     card: "summary_large_image",
     title: siteTitle,
     description: siteDescription,
-    images: ["/api/og"],
+    images: [ogImageUrl("/")],
   },
 };
 

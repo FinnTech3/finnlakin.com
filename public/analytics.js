@@ -128,8 +128,13 @@
   var depthQueued = false;
   function onScroll() {
     /* Coalesced into one frame. A listener that measures layout on every
-       scroll event is how a page starts to feel heavy. */
-    if (depthQueued) return;
+       scroll event is how a page starts to feel heavy.
+
+       The slug check comes before the frame is queued, not inside it. Reading
+       depth only happens on a write-up, so scheduling a frame on every scroll
+       of the home page, the longest document on the site, only to bail out
+       inside it, was work bought for a measurement that is never taken. */
+    if (depthQueued || !readingSlug()) return;
     depthQueued = true;
     requestAnimationFrame(function () {
       depthQueued = false;

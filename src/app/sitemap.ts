@@ -8,13 +8,34 @@ import { writing } from "@/lib/writing";
    cached function, return an empty array, and that empty array is stored as a
    success and silently empties the sitemap for the life of the cache entry. */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date();
+  /* The index pages carry a real date because it is derivable: publishing a
+     write-up is what changes them. The rest carry none at all.
+
+     lastModified used to be new Date(), which is build time, so every deploy
+     told crawlers that four pages had changed whether or not anything had.
+     A date that is wrong is worth less than no date: the field is optional,
+     and omitting it says "unknown", which is true, rather than "today", which
+     was not. */
+  const newestPiece = writing
+    .map((piece) => new Date(piece.published).getTime())
+    .reduce((latest, at) => Math.max(latest, at), 0);
+  const writingUpdated = newestPiece > 0 ? new Date(newestPiece) : undefined;
 
   return [
-    { url: `${siteUrl}/`, lastModified: now, changeFrequency: "monthly", priority: 1 },
-    { url: `${siteUrl}/writing`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${siteUrl}/cv`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
-    { url: `${siteUrl}/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },
+    {
+      url: `${siteUrl}/`,
+      lastModified: writingUpdated,
+      changeFrequency: "monthly",
+      priority: 1,
+    },
+    {
+      url: `${siteUrl}/writing`,
+      lastModified: writingUpdated,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    { url: `${siteUrl}/cv`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${siteUrl}/privacy`, changeFrequency: "yearly", priority: 0.2 },
     ...writing.map((piece) => ({
       url: `${siteUrl}/writing/${piece.slug}`,
       lastModified: new Date(piece.published),

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+import { writing } from "../src/lib/writing";
 import { PUBLIC_ROUTES } from "./site-routes";
 
 test.describe("sitemap and robots", () => {
@@ -66,5 +67,56 @@ test.describe("structured data", () => {
     expect(article.headline).toContain("Eleven thousand violations");
     expect(Number.isNaN(Date.parse(article.datePublished))).toBe(false);
     expect(article.url).toMatch(/\/writing\/marked-to-model$/);
+  });
+});
+
+test.describe("the feed", () => {
+  test.skip(({ isMobile }) => Boolean(isMobile), "not viewport dependent");
+
+  test("is well-formed Atom and carries every piece", async ({ request }) => {
+    const response = await request.get("/feed.xml");
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("application/atom+xml");
+
+    const xml = await response.text();
+    expect(xml.startsWith("<?xml")).toBe(true);
+    expect(xml).toContain('xmlns="http://www.w3.org/2005/Atom"');
+
+    /* Counted rather than searched: a feed that lists three of four pieces
+       still contains the string for each of the three. */
+    const entries = xml.match(/<entry>/g) ?? [];
+    expect(entries.length, "one entry per write-up").toBe(writing.length);
+
+    for (const piece of writing) {
+      expect(xml, `feed is missing ${piece.slug}`).toContain(`/writing/${piece.slug}</id>`);
+    }
+
+    /* Unescaped copy is how a feed stops parsing in somebody's reader. */
+    const withoutEntities = xml.replace(/&(amp|lt|gt|quot|apos|#\d+);/g, "");
+    expect(withoutEntities.includes("&"), "an unescaped ampersand").toBe(false);
+  });
+
+  test("is advertised on every page", async ({ page }) => {
+    for (const route of PUBLIC_ROUTES) {
+      await page.goto(route);
+      const href = await page
+        .locator('link[rel="alternate"][type="application/atom+xml"]')
+        .first()
+        .getAttribute("href");
+      expect(href, `${route} does not advertise the feed`).toContain("/feed.xml");
+    }
+  });
+});
+
+test.describe("routes that should not exist", () => {
+  test.skip(({ isMobile }) => Boolean(isMobile), "not viewport dependent");
+
+  test("an unknown write-up slug 404s", async ({ request }) => {
+    /* dynamicParams = false is what makes this a static 404 rather than a
+       lambda that renders the whole module graph before calling notFound. */
+    for (const slug of ["does-not-exist", "marked-to-model-x", "123"]) {
+      const response = await request.get(`/writing/${slug}`);
+      expect(response.status(), `/writing/${slug} should 404`).toBe(404);
+    }
   });
 });

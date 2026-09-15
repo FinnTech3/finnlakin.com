@@ -58,10 +58,25 @@ const nextConfig: NextConfig = {
     return [
       { source: "/:path*", headers: securityHeaders },
       {
-        /* Generated once per build and content-hashed by name, so it can be
-           cached indefinitely. */
+        /* Served from public/ at a stable, unhashed path, so it cannot be
+           cached indefinitely: a change to the beacon has to reach browsers
+           that already hold a copy. An hour with revalidation is the trade.
+           Everything under /_next/static IS content-hashed and Next already
+           marks that immutable, so this rule is only about this one file. */
         source: "/analytics.js",
         headers: [{ key: "Cache-Control", value: "public, max-age=3600, must-revalidate" }],
+      },
+      {
+        /* Share cards are prerendered at build and change only on deploy, and
+           the CDN is purged by the deploy itself, so it can hold them for a
+           long time. The path is unhashed, so browsers still revalidate. */
+        source: "/og/:card",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, s-maxage=31536000, stale-while-revalidate=604800",
+          },
+        ],
       },
     ];
   },

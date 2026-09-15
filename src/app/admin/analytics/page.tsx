@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { after } from "next/server";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { ADMIN_COOKIE, adminConfigured, verifyToken } from "@/lib/admin-auth";
@@ -6,6 +7,7 @@ import {
   RETENTION_DAYS,
   loadDashboard,
   parseDays,
+  pruneOldRows,
   type Dashboard,
   type Row,
 } from "@/lib/analytics-queries";
@@ -124,15 +126,18 @@ function Dashboard({ data, days }: { data: Dashboard; days: number }) {
           <dd className="font-mono text-3xl tabular-nums">{days}d</dd>
         </div>
         <div className="flex flex-col gap-1">
-          <dt className="font-mono text-[11px] uppercase tracking-[0.13em] text-muted">Pruned</dt>
-          <dd className="font-mono text-3xl tabular-nums">{data.pruned}</dd>
+          <dt className="font-mono text-[11px] uppercase tracking-[0.13em] text-muted">
+            Retention
+          </dt>
+          <dd className="font-mono text-3xl tabular-nums">{RETENTION_DAYS}d</dd>
         </div>
       </dl>
 
       <p className="mt-3 text-xs text-muted">
         Visitors are counted per UTC day and cannot be matched across days, so the
         figure above is the sum of daily uniques rather than distinct people.
-        Rows older than {RETENTION_DAYS} days are deleted on this request.
+        Rows older than {RETENTION_DAYS} days are deleted after this request,
+        in batches, rather than while the page is being rendered.
       </p>
 
       <div className="mt-8 grid gap-5 sm:grid-cols-2">
@@ -191,6 +196,27 @@ export default async function AnalyticsPage({
 
   const rawDays = params.days;
   const days = parseDays(typeof rawDays === "string" ? rawDays : undefined);
+
+  /* There is deliberately no loading.tsx beside this file. One was added to
+     paint a shell while the seven queries resolve, and it broke the property
+     the whole route is built on: a loading boundary streams, so the 200 status
+     line goes out before notFound() runs and an unauthenticated probe gets 200
+     with a skeleton instead of a 404. Being indistinguishable from a route
+     that does not exist is worth more here than a faster first paint for the
+     one person who ever signs in.
+
+     Retention runs after the response rather than in front of it. There is no
+     scheduler on the host, so it has to hang off a request that reliably
+     happens, and this is the one; it does not have to be a request anybody is
+     waiting on. Failures here are swallowed deliberately: a full table is a
+     better outcome than a dashboard that will not load. */
+  after(async () => {
+    try {
+      await pruneOldRows();
+    } catch {
+      /* next load tries again */
+    }
+  });
 
   let data: Dashboard;
   try {

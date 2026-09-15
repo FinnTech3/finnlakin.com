@@ -81,3 +81,37 @@ test("the a11y gate excuses a cross-origin frame, and nothing else", async ({ pa
 
   expect(summarise(await dropCrossOriginFrames(page, raw))).toEqual([]);
 });
+
+/* heading-order is a moderate-impact rule, and the gate above only fails on
+   serious and critical, so /writing shipped with an h1 followed straight by
+   four h3s and every suite stayed green. Structure is how a screen reader user
+   skims a page, so it gets its own assertion at its own severity rather than
+   a lowered threshold everywhere. */
+test.describe("heading structure", () => {
+  test.skip(({ isMobile }) => Boolean(isMobile), "markup is identical across viewports");
+
+  for (const route of routes) {
+    test(`${route} never skips a heading level`, async ({ page }) => {
+      await page.goto(route);
+
+      const levels = await page
+        .locator("h1, h2, h3, h4, h5, h6")
+        .evaluateAll((nodes) => nodes.map((node) => Number(node.tagName.slice(1))));
+
+      expect(levels.length, `${route} has no headings at all`).toBeGreaterThan(0);
+      expect(levels[0], `${route} does not start at h1`).toBe(1);
+      expect(
+        levels.filter((level) => level === 1).length,
+        `${route} has more than one h1`,
+      ).toBe(1);
+
+      const skips: string[] = [];
+      levels.forEach((level, index) => {
+        if (index > 0 && level > levels[index - 1]! + 1) {
+          skips.push(`h${levels[index - 1]} -> h${level}`);
+        }
+      });
+      expect(skips, `${route} skips heading levels`).toEqual([]);
+    });
+  }
+});

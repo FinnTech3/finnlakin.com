@@ -44,6 +44,12 @@ export function SiteFooter() {
           >
             GitHub
           </a>
+          <a
+            href="/feed.xml"
+            className="font-mono text-[12px] text-muted hover:text-accent"
+          >
+            Feed
+          </a>
           <Link
             href="/privacy"
             className="font-mono text-[12px] text-muted hover:text-accent"

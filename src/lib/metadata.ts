@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cardPathForPage } from "./share-cards";
 import { siteDescription, siteTitle, siteUrl } from "./site";
 
 type BuildMetadataOptions = {
@@ -7,15 +8,13 @@ type BuildMetadataOptions = {
   title?: string;
   description?: string;
   type?: "website" | "article";
-  /* Small label printed above the title on the share card. */
-  kicker?: string;
   noindex?: boolean;
 };
 
-export function ogImageUrl(title: string, kicker?: string): string {
-  const params = new URLSearchParams({ title });
-  if (kicker) params.set("kicker", kicker);
-  return `/api/og?${params.toString()}`;
+/* The card is addressed by page, not by text. See src/lib/share-cards.ts for
+   why the endpoint no longer takes a title. */
+export function ogImageUrl(path: string): string {
+  return cardPathForPage(path);
 }
 
 /* Next merges metadata per key, not per field. A page declaring a partial
@@ -28,18 +27,22 @@ export function buildMetadata({
   title,
   description = siteDescription,
   type = "website",
-  kicker,
   noindex = false,
 }: BuildMetadataOptions): Metadata {
   const canonical = `${siteUrl}${path === "/" ? "" : path}`;
   const fullTitle = title ? `${title} · ${siteTitle}` : siteTitle;
   const cardTitle = title ?? siteTitle;
-  const image = ogImageUrl(cardTitle, kicker);
+  const image = ogImageUrl(path);
 
   return {
     title: title ?? { absolute: siteTitle },
     description,
-    alternates: { canonical },
+    alternates: {
+      canonical,
+      /* Declared on every page, not just /writing, so a reader who subscribes
+         from wherever they landed finds it. */
+      types: { "application/atom+xml": `${siteUrl}/feed.xml` },
+    },
     robots: noindex ? { index: false, follow: false } : undefined,
     openGraph: {
       type,

@@ -24,8 +24,12 @@
   --flag: #a8321f;
 }
 
+/* Dark follows the operating system and nothing else. There was a matching
+   :root[data-theme] pair here for a toggle that was never built, so it could
+   not apply under any circumstance: the attribute was never set by anything on
+   the site. Dead rules that look live are worse than no rules. */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root {
     color-scheme: dark;
 
     --paper: #101215;
@@ -43,25 +47,6 @@
     --pass: #3fbfa3;
     --flag: #f0836b;
   }
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-
-  --paper: #101215;
-  --panel: #171a1e;
-  --ink: #ecedea;
-  --ink-soft: #c8ccd1;
-  --muted: #9ba1a8;
-  --rule: #262a2f;
-  --rule-strong: #363b42;
-
-  --accent: #8ea3ff;
-  --accent-ink: #0d1016;
-  --accent-soft: rgb(142 163 255 / 0.14);
-
-  --pass: #3fbfa3;
-  --flag: #f0836b;
 }
 
 @theme inline {
@@ -259,5 +244,72 @@ button {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Print. The CV is the page somebody will actually put on paper or save as a
+   PDF from the browser, and until now it printed the site chrome, a navigation
+   bar that cannot be clicked, and body text in a grey that renders as a weak
+   wash on a laser printer. Long-form gets the same treatment because a reader
+   who prints an essay wants the essay.
+
+   Colours are forced to ink on white rather than left to the tokens: the dark
+   palette is the one the browser picks up if the reader's system is dark, and
+   printing that wastes toner and reads badly. */
+@media print {
+  :root {
+    --paper: #ffffff;
+    --panel: #ffffff;
+    --ink: #000000;
+    --ink-soft: #1a1a1a;
+    --muted: #3a3a3a;
+    --rule: #bbbbbb;
+    --rule-strong: #888888;
+    --accent: #000000;
+    --pass: #000000;
+    --flag: #000000;
+  }
+
+  body {
+    background: #ffffff;
+    color: #000000;
+  }
+
+  /* The site chrome only. These are the layout's own direct children; a bare
+     `header` selector also matched the CV's name-and-contact block, which
+     printed a CV with no name on it. Navigation of any kind is useless on
+     paper, so that one stays broad. */
+  body > header,
+  body > footer,
+  nav,
+  .print-hidden {
+    display: none !important;
+  }
+
+  /* A URL a reader cannot click is worth nothing on paper, so print it. Only
+     for external links: an in-page anchor printed as a bare fragment is noise,
+     and mailto is already legible as the address itself. */
+  .longform a[href^="http"]::after,
+  .cv-print a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    word-break: break-all;
+  }
+
+  /* Nothing should be orphaned from the thing it describes. */
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+
+  figure,
+  li,
+  tr {
+    break-inside: avoid;
+  }
+
+  a {
+    text-decoration: underline;
   }
 }

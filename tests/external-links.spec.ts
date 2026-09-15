@@ -7,7 +7,7 @@ import { PUBLIC_ROUTES as pages } from "./site-routes";
    be caught offline. Run it before launching and whenever a link changes. */
 test.describe("external links resolve", () => {
   test.skip(({ isMobile }) => Boolean(isMobile), "network check, once is enough");
-  test.describe.configure({ timeout: 120_000 });
+  test.describe.configure({ timeout: 240_000 });
 
   test("every outbound link on the site returns a usable status", async ({ page, request }) => {
     const found = new Set<string>();
@@ -34,12 +34,25 @@ test.describe("external links resolve", () => {
     const botGuarded = [/^https:\/\/(www\.)?linkedin\.com\//];
     const isGuarded = (href: string) => botGuarded.some((pattern) => pattern.test(href));
 
+    /* Render's free tier spins the demo down when idle and takes roughly
+       forty-five seconds to wake, which the project card already tells the
+       reader. A 25s ceiling therefore failed a link that works, so this host
+       gets long enough to actually wake up. The timeout is raised rather than
+       the check excused: if it cannot answer inside seventy seconds, the
+       recruiter clicking it has a dead link, and this should say so. */
+    const slowToWake = [/^https:\/\/[a-z0-9-]+\.onrender\.com\//];
+    const timeoutFor = (href: string) =>
+      slowToWake.some((pattern) => pattern.test(href)) ? 70_000 : 25_000;
+
     const failures: string[] = [];
     const unverified: string[] = [];
 
     for (const href of found) {
       try {
-        const response = await request.get(href, { timeout: 25_000, maxRedirects: 5 });
+        const response = await request.get(href, {
+          timeout: timeoutFor(href),
+          maxRedirects: 5,
+        });
         const status = response.status();
         if (status < 400) continue;
         if (isGuarded(href)) unverified.push(`${status} ${href}`);

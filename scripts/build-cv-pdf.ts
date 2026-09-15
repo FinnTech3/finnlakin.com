@@ -23,7 +23,7 @@ const doc = new PDFDocument({
   size: "A4",
   margin: MARGIN,
   info: {
-    Title: `${person.name} — Curriculum Vitae`,
+    Title: `${person.name} · Curriculum Vitae`,
     Author: person.name,
     Subject: person.course,
   },
@@ -104,14 +104,14 @@ rule();
 
 sectionTitle("Experience");
 for (const item of timeline.filter((t) => t.kind === "work")) {
-  entry(item.title, item.org, item.location, `${item.start} — ${item.end}`, item.points);
+  entry(item.title, item.org, item.location, `${item.start} – ${item.end}`, item.points);
 }
 
 rule();
 
 sectionTitle("Education");
 for (const item of timeline.filter((t) => t.kind === "education")) {
-  entry(item.title, item.org, item.location, `${item.start} — ${item.end}`, item.points);
+  entry(item.title, item.org, item.location, `${item.start} – ${item.end}`, item.points);
 }
 
 rule();
