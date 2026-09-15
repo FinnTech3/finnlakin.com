@@ -13,16 +13,26 @@ async function measure(
   page: import("@playwright/test").Page,
   route: string,
 ): Promise<Measurement> {
-  let javascriptBytes = 0;
-  let totalBytes = 0;
+  /* Buffered, then filtered by origin once the page has actually navigated.
+     The origin cannot be read before goto, because the page is still on
+     about:blank and guessing a port would compare against the wrong origin.
+
+     Same origin only, because the whose-inflation piece frames a tool deployed
+     from another repository. Counting what that tool loads budgets somebody
+     else's bundle as this site's: 640KB against a page that ships 466KB. It
+     also made the figure depend on whether the runner could reach GitHub
+     Pages, so a local run and a CI run measured different things and only CI
+     noticed. What this site serves is what this site answers for. */
+  const seen: { url: string; javascript: boolean; length: number }[] = [];
 
   page.on("response", async (response) => {
     try {
       const body = await response.body();
-      totalBytes += body.length;
-      if ((response.headers()["content-type"] ?? "").includes("javascript")) {
-        javascriptBytes += body.length;
-      }
+      seen.push({
+        url: response.url(),
+        javascript: (response.headers()["content-type"] ?? "").includes("javascript"),
+        length: body.length,
+      });
     } catch {
       /* redirects and cached responses have no retrievable body */
     }
@@ -49,6 +59,21 @@ async function measure(
         setTimeout(() => resolve({ lcp: Math.round(lcp), cls }), 300);
       }),
   );
+
+  const origin = new URL(page.url()).origin;
+  let javascriptBytes = 0;
+  let totalBytes = 0;
+  for (const response of seen) {
+    let sameOrigin = false;
+    try {
+      sameOrigin = new URL(response.url).origin === origin;
+    } catch {
+      sameOrigin = false;
+    }
+    if (!sameOrigin) continue;
+    totalBytes += response.length;
+    if (response.javascript) javascriptBytes += response.length;
+  }
 
   return { ...vitals, javascriptBytes, totalBytes };
 }
@@ -105,15 +130,46 @@ test.describe("performance budget", () => {
   test("a write-up is lighter than the home page, not heavier", async ({ page, context }) => {
     /* The budget above only covers the home page. A write-up carries charts,
        an embed and long prose, so it is the route most likely to grow without
-       anybody noticing. */
+       anybody noticing.
+
+       The embed is stubbed with a deliberately enormous script. That does two
+       things: it makes the measurement identical here and on a runner that can
+       actually reach GitHub Pages, and it proves the same-origin filter is
+       doing something rather than being asserted in a comment. Without the
+       filter this page measured 640KB, because the framed tool's bundle was
+       being counted as this site's. */
+    const PADDING = 400_000;
+    await context.route("https://finntech3.github.io/**", (route) =>
+      route.request().url().endsWith(".js")
+        ? route.fulfill({
+            status: 200,
+            contentType: "application/javascript",
+            body: `/*${"x".repeat(PADDING)}*/`,
+          })
+        : route.fulfill({
+            status: 200,
+            contentType: "text/html",
+            body: `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>stub</title>
+              <script src="https://finntech3.github.io/stub-bundle.js"></script></head>
+              <body><main><p>stub</p></main></body></html>`,
+          }),
+    );
+
     const home = await measure(page, "/");
     const second = await context.newPage();
     const piece = await measure(second, "/writing/whose-inflation");
+
+    const frameLoaded = second.frames().length > 1;
     await second.close();
 
     expect(piece.javascriptBytes / 1024, "write-up JavaScript, KB").toBeLessThan(500);
     expect(piece.cls, "write-up layout shift").toBeLessThan(0.05);
     expect(piece.javascriptBytes).toBeLessThanOrEqual(home.javascriptBytes);
+
+    /* If the frame never loaded, the assertions above passed without the
+       filter ever being exercised, which is the failure mode this whole test
+       exists to avoid. */
+    expect(frameLoaded, "the embed never loaded, so nothing was filtered").toBe(true);
   });
 
   test("charts cost nothing on the client", async ({ page, context }) => {
