@@ -270,6 +270,23 @@ button {
     --flag: #000000;
   }
 
+  /* Pass and flag are verdicts, not decoration: one says a reconstruction held
+     and the other says it did not. Forcing both to black above makes them
+     identical on paper, so the distinction has to come back some other way.
+
+     Weight, not a second grey. A lighter grey for flag would read as less
+     important, which is backwards, and hue cannot be relied on either: a
+     colour printer would show green and red, while a monochrome one renders
+     both as a mid grey fainter than the body text around them. Weight survives
+     both, and it is already the site's own device, since the hero sets a
+     flagged deviation in a heavier weight alongside the colour.
+
+     Only flag moves. Forcing a weight on pass as well would drop it below the
+     untoned figures beside it, which would say something untrue about it. */
+  .text-flag {
+    font-weight: 600;
+  }
+
   body {
     background: #ffffff;
     color: #000000;
