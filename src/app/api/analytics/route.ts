@@ -101,7 +101,7 @@ export async function POST(request: Request) {
     try {
       await ensureSchema();
       await getPool().query(
-        `INSERT INTO analytics_events
+        `INSERT INTO site_analytics
            (event, visitor_id, ip_hash, path, country, region, city, meta)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [

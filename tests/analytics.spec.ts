@@ -32,7 +32,7 @@ const tag = (name: string) => `/t/${RUN}/${name}`;
 
 async function rowsFor(path: string) {
   const result = await pool.query(
-    "SELECT * FROM analytics_events WHERE path = $1 ORDER BY id",
+    "SELECT * FROM site_analytics WHERE path = $1 ORDER BY id",
     [path],
   );
   return result.rows;
@@ -341,7 +341,7 @@ test.describe("the interface actually emits what it declares", () => {
      matching a unique path, because these fire on real routes. */
   async function countEvent(event: string): Promise<number> {
     const result = await pool.query<{ n: string }>(
-      "SELECT count(*) AS n FROM analytics_events WHERE event = $1",
+      "SELECT count(*) AS n FROM site_analytics WHERE event = $1",
       [event],
     );
     return Number(result.rows[0]?.n ?? 0);
@@ -371,7 +371,7 @@ test.describe("the interface actually emits what it declares", () => {
       .toBeGreaterThan(before);
 
     const row = await pool.query<{ meta: Record<string, unknown> }>(
-      "SELECT meta FROM analytics_events WHERE event = 'writing_progress' ORDER BY id DESC LIMIT 1",
+      "SELECT meta FROM site_analytics WHERE event = 'writing_progress' ORDER BY id DESC LIMIT 1",
     );
     expect(row.rows[0].meta.slug).toBe("marked-to-model");
     expect(Number(row.rows[0].meta.depth)).toBeGreaterThan(0);
@@ -388,7 +388,7 @@ test.describe("the interface actually emits what it declares", () => {
        them rather than this page. No depth event should ever carry a path that
        is not a write-up. */
     const stray = await pool.query<{ path: string }>(
-      `SELECT DISTINCT path FROM analytics_events
+      `SELECT DISTINCT path FROM site_analytics
        WHERE event = 'writing_progress' AND (path IS NULL OR path NOT LIKE '/writing/%')`,
     );
     expect(stray.rows.map((row) => row.path)).toEqual([]);

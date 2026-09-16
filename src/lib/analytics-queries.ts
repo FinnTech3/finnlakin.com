@@ -22,9 +22,9 @@ const PRUNE_BATCH = 10_000;
 
 export async function pruneOldRows(): Promise<number> {
   const result = await getPool().query(
-    `DELETE FROM analytics_events
+    `DELETE FROM site_analytics
       WHERE id IN (
-        SELECT id FROM analytics_events
+        SELECT id FROM site_analytics
          WHERE created_at < now() - ($1 || ' days')::interval
          LIMIT ${PRUNE_BATCH}
       )`,
@@ -53,27 +53,27 @@ export async function loadDashboard(days: number): Promise<Dashboard> {
       `SELECT
          count(*) FILTER (WHERE event = 'page_view')      AS views,
          count(DISTINCT visitor_id)                       AS visitors
-       FROM analytics_events
+       FROM site_analytics
        WHERE created_at > now() - $1::interval`,
       [since],
     ),
     pool.query<{ label: string; count: string }>(
       `SELECT coalesce(path, '(unknown)') AS label, count(*) AS count
-       FROM analytics_events
+       FROM site_analytics
        WHERE event = 'page_view' AND created_at > now() - $1::interval
        GROUP BY 1 ORDER BY count(*) DESC LIMIT 20`,
       [since],
     ),
     pool.query<{ label: string; count: string }>(
       `SELECT coalesce(country, '(unknown)') AS label, count(DISTINCT visitor_id) AS count
-       FROM analytics_events
+       FROM site_analytics
        WHERE created_at > now() - $1::interval
        GROUP BY 1 ORDER BY count(DISTINCT visitor_id) DESC LIMIT 15`,
       [since],
     ),
     pool.query<{ label: string; count: string }>(
       `SELECT meta->>'referrer_host' AS label, count(*) AS count
-       FROM analytics_events
+       FROM site_analytics
        WHERE event = 'page_view'
          AND meta->>'referrer_host' IS NOT NULL
          AND created_at > now() - $1::interval
@@ -88,7 +88,7 @@ export async function loadDashboard(days: number): Promise<Dashboard> {
          SELECT coalesce(path, '(unknown)') AS label,
                 visitor_id,
                 max((meta->>'seconds')::numeric) AS max_seconds
-         FROM analytics_events
+         FROM site_analytics
          WHERE event = 'heartbeat'
            AND meta ? 'seconds'
            AND created_at > now() - $1::interval
@@ -99,7 +99,7 @@ export async function loadDashboard(days: number): Promise<Dashboard> {
     ),
     pool.query<{ label: string; count: string }>(
       `SELECT coalesce(meta->>'target', '(unknown)') AS label, count(*) AS count
-       FROM analytics_events
+       FROM site_analytics
        WHERE event IN ('outbound_click', 'cv_download')
          AND created_at > now() - $1::interval
        GROUP BY 1 ORDER BY count(*) DESC LIMIT 15`,
@@ -108,7 +108,7 @@ export async function loadDashboard(days: number): Promise<Dashboard> {
     pool.query<{ label: string; count: string }>(
       `SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS label,
               count(*) FILTER (WHERE event = 'page_view') AS count
-       FROM analytics_events
+       FROM site_analytics
        WHERE created_at > now() - $1::interval
        GROUP BY 1 ORDER BY 1`,
       [since],

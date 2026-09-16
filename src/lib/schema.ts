@@ -4,9 +4,23 @@ import { getPool } from "./db";
    new columns are appended as ALTER ... ADD COLUMN IF NOT EXISTS *after* the
    create rather than edited into it: a deployed database already has the
    table, so it skips a modified CREATE entirely and never sees the new
-   column. */
+   column.
+
+   The table is `site_analytics` rather than the obvious `analytics_events`
+   because that obvious name was already taken. Another of Finn's sites keeps
+   an `analytics_events` of its own, with a UUID id, `event_name` instead of
+   `event`, `occurred_at` instead of `created_at`, and two NOT NULL foreign
+   keys this schema knows nothing about. Point both sites at one database and
+   whichever ran first owns the name: the second CREATE IF NOT EXISTS quietly
+   does nothing, and every insert afterwards fails on columns that are not
+   there.
+
+   That failure is invisible from the outside. The write happens in after()
+   and the collector answers 204 whatever occurs, by design, so the symptom is
+   an empty dashboard and no error anywhere. A name nobody else would choose
+   costs nothing and removes the whole class. Use a separate database anyway. */
 const STATEMENTS = [
-  `CREATE TABLE IF NOT EXISTS analytics_events (
+  `CREATE TABLE IF NOT EXISTS site_analytics (
      id          BIGSERIAL PRIMARY KEY,
      created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
      event       TEXT NOT NULL,
@@ -18,10 +32,10 @@ const STATEMENTS = [
      city        TEXT,
      meta        JSONB NOT NULL DEFAULT '{}'::jsonb
    )`,
-  `CREATE INDEX IF NOT EXISTS analytics_events_created_at_idx
-     ON analytics_events (created_at DESC)`,
-  `CREATE INDEX IF NOT EXISTS analytics_events_event_created_idx
-     ON analytics_events (event, created_at DESC)`,
+  `CREATE INDEX IF NOT EXISTS site_analytics_created_at_idx
+     ON site_analytics (created_at DESC)`,
+  `CREATE INDEX IF NOT EXISTS site_analytics_event_created_idx
+     ON site_analytics (event, created_at DESC)`,
   // Append future ALTER TABLE ... ADD COLUMN IF NOT EXISTS statements below.
 ];
 
