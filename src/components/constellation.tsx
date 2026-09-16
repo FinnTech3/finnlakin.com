@@ -57,42 +57,62 @@ export function Constellation({ className }: { className?: string }) {
     let laid = measure();
 
     /* Stored, never acted on per event. The loop reads it once a frame.
-       Coordinates are relative to this element, not the page, because that is
-       what the cloud is laid out in. */
+
+       Normalised to minus one through one about the element's centre, because
+       the cloud turns towards the pointer rather than being pushed by it: the
+       number the renderer wants is an angle, not a pixel. */
     let pointer: Vec | null = null;
     const onPointerMove = (event: PointerEvent) => {
-      const box = host.getBoundingClientRect();
-      pointer = { x: event.clientX - box.left, y: event.clientY - box.top };
+      const box = element.getBoundingClientRect();
+      if (box.width < 2 || box.height < 2) return;
+      pointer = {
+        x: ((event.clientX - box.left) / box.width) * 2 - 1,
+        y: ((event.clientY - box.top) / box.height) * 2 - 1,
+      };
     };
     const onPointerLeave = () => {
       pointer = null;
     };
 
+    /* How far the cloud has travelled through the viewport, minus one below and
+       one above. This is the parallax: the brain turns as the page scrolls
+       past it. Read on scroll, never inside the frame loop, so the loop never
+       forces a layout. */
+    let scroll = 0;
+    const onScroll = () => {
+      const box = element.getBoundingClientRect();
+      const middle = box.top + box.height / 2;
+      const travel = window.innerHeight + box.height;
+      scroll = Math.max(-1, Math.min(1, (window.innerHeight / 2 - middle) / (travel / 2)));
+    };
+
     if (stillOnly) {
-      if (laid) brain.draw(1, 0, null, true);
+      onScroll();
+      if (laid) brain.draw(0, null, scroll, true);
       const observer = new ResizeObserver(() => {
         laid = measure();
-        if (laid) brain.draw(1, 0, null, true);
+        onScroll();
+        if (laid) brain.draw(0, null, scroll, true);
       });
       observer.observe(host);
       return () => observer.disconnect();
     }
 
-    host.addEventListener("pointermove", onPointerMove, { passive: true });
-    host.addEventListener("pointerleave", onPointerLeave, { passive: true });
+    element.addEventListener("pointermove", onPointerMove, { passive: true });
+    element.addEventListener("pointerleave", onPointerLeave, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
 
     let frame: number | null = null;
     let running = true;
     let visible = true;
     let frames = 0;
     let sampleStart = 0;
-    let previous = 0;
     const start = performance.now();
 
     const pump = () => {
       if (!running || frame !== null) return;
       if (document.hidden || !visible) return;
-      previous = 0;
       frame = requestAnimationFrame(tick);
     };
 
@@ -106,9 +126,7 @@ export function Constellation({ className }: { className?: string }) {
       if (!running) return;
       if (!laid) laid = measure();
 
-      const step = previous === 0 ? 1 : Math.min(3, Math.max(0.5, (now - previous) / 16.667));
-      previous = now;
-      brain.draw(step, (now - start) / 1000, pointer, false);
+      brain.draw((now - start) / 1000, pointer, scroll, false);
 
       frames += 1;
       if (frames === WARMUP_FRAMES) sampleStart = now;
@@ -117,7 +135,7 @@ export function Constellation({ className }: { className?: string }) {
         if (perFrame > SLOW_FRAME_MS) {
           running = false;
           /* The finished picture, not whatever frame it stalled on. */
-          brain.draw(1, 0, null, true);
+          brain.draw(0, null, scroll, true);
           element.dataset.constellation = "still";
           return;
         }
@@ -159,8 +177,9 @@ export function Constellation({ className }: { className?: string }) {
       seen.disconnect();
       observer.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
-      host.removeEventListener("pointermove", onPointerMove);
-      host.removeEventListener("pointerleave", onPointerLeave);
+      element.removeEventListener("pointermove", onPointerMove);
+      element.removeEventListener("pointerleave", onPointerLeave);
+      window.removeEventListener("scroll", onScroll);
     };
   }, []);
 

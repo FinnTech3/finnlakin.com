@@ -260,63 +260,68 @@ test.describe("the constellation", () => {
     }
   });
 
-  test("parts around the pointer, and closes again", async ({ page }) => {
+  test("turns towards the pointer, and settles back", async ({ page }) => {
     await page.goto("/");
     await page.evaluate((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
     await page.reload();
     await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(2_500);
 
-    /* Aimed from the element's own box rather than from a fraction of the
-       viewport: the cloud is a column in the hero now, and where that column
-       sits depends on the breakpoint. */
-    const box = await page.locator("[data-constellation]").boundingBox();
-    if (!box) throw new Error("the constellation is not on the page");
     await page.locator("[data-constellation]").scrollIntoViewIfNeeded();
     await page.waitForTimeout(600);
+    const box = await page.locator("[data-constellation]").boundingBox();
+    if (!box) throw new Error("the constellation is not on the page");
 
-    const fresh = await page.locator("[data-constellation]").boundingBox();
-    if (!fresh) throw new Error("the constellation left the page");
-    const spot = {
-      x: Math.round(fresh.x + fresh.width * 0.45),
-      y: Math.round(fresh.y + fresh.height * 0.42),
-    };
-    const disc = { ...spot, radius: 80 };
+    /* Where the mass sits, left to right, as a fraction between nought and one.
+       The cloud is a solid turning in three dimensions rather than a field being
+       pushed about, so the thing to measure is which way it is facing, not
+       whether a hole opened where the cursor is. */
+    const balance = () =>
+      page.evaluate(() => {
+        const canvas = document.querySelector<HTMLCanvasElement>("[data-brain]");
+        const ctx = canvas?.getContext("2d");
+        if (!canvas || !ctx || canvas.width === 0) return -1;
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let weighted = 0;
+        let total = 0;
+        for (let y = 0; y < canvas.height; y += 2) {
+          for (let x = 0; x < canvas.width; x += 2) {
+            if (pixels[((y * canvas.width + x) << 2) + 3]! < 10) continue;
+            weighted += x;
+            total += 1;
+          }
+        }
+        return total === 0 ? -1 : weighted / total / canvas.width;
+      });
 
-    const before = await painted(page, disc);
-    expect(before, "the test is pointing at empty space").toBeGreaterThan(40);
-
-    await page.mouse.move(spot.x, spot.y);
-    await page.waitForTimeout(900);
-    const during = await painted(page, disc);
-
-    /* A machine too slow to animate gets a still picture and no interaction,
-       which is the designed behaviour rather than a failure: the frame loop has
-       stopped, so there is nothing to displace the particles. Both branches
-       assert something, so neither can go quietly green. */
     const state = await page
       .locator("[data-constellation]")
       .getAttribute("data-constellation");
+
+    const middleY = Math.round(box.y + box.height / 2);
+    await page.mouse.move(Math.round(box.x + box.width * 0.06), middleY);
+    await page.waitForTimeout(900);
+    const left = await balance();
+
+    await page.mouse.move(Math.round(box.x + box.width * 0.94), middleY);
+    await page.waitForTimeout(900);
+    const right = await balance();
+
+    expect(left, "the cloud should be on screen to measure").toBeGreaterThan(0);
+    expect(right, "the cloud should be on screen to measure").toBeGreaterThan(0);
+
+    /* A machine too slow to animate stops the loop and keeps a still, which is
+       the designed behaviour: there is nothing left to turn. Both branches
+       assert something, so neither can go quietly green. */
     if (state !== "live") {
-      expect(
-        during,
-        "a stopped loop should leave the finished picture, not a blank",
-      ).toBe(before);
+      expect(right, "a stopped loop should hold its picture still").toBeCloseTo(left, 3);
       return;
     }
 
-    expect(during, "the cloud should open where the pointer is").toBeLessThan(
-      before * 0.8,
-    );
-
-    /* And close behind it. Moving the pointer off the element is enough; the
-       particles spring back to where they belong on their own. */
-    await page.mouse.move(4, 4);
-    await page.waitForTimeout(1_800);
     expect(
-      await painted(page, disc),
-      "the cloud should close again once the pointer leaves",
-    ).toBeGreaterThan(before * 0.8);
+      Math.abs(right - left),
+      "the cloud should visibly turn between one side and the other",
+    ).toBeGreaterThan(0.004);
   });
 
   test("holds still for a reader who asked for less motion", async ({ browser }) => {

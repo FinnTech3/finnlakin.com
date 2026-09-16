@@ -1,251 +1,220 @@
-import {
-  buildSprites,
-  offscreenPoint,
-  Particle,
-  readTints,
-  samplePoints,
-  shuffle,
-  type Vec,
-} from "./particles";
+import { readTints, type Vec } from "./particles";
 
-/* The constellation behind the hero. The design reference calls this the site's
-   defining visual: thousands of outlined triangles forming a brain, animated
-   rather than a static image.
+/* The constellation: a brain as a cloud of small triangles in three dimensions.
 
-   It is a module rather than a component because it does not own a frame loop.
-   The backdrop already runs one for the gradient, with a slow-renderer guard, a
-   hidden-tab pause and a reduced-motion still frame around it. A second loop
-   would double the cost of the thing those guards exist to control: measured,
-   the canvases already together drop to thirty frames a second on a software
-   rasteriser. So this exposes a draw step and the backdrop calls it. */
+   The first version of this was flat. It traced a brain outline and its folds
+   as two dimensional curves and sampled them into particles, which reads as a
+   diagram. The reference is not a diagram: it is a point cloud on the surface
+   of a three dimensional brain, seen in perspective, with the near face bright
+   and dense and the far face dim and sparse. That difference is not a matter of
+   tuning, so this was rebuilt rather than adjusted.
 
-/* Long edge of the drawing buffer. Higher than the gradient's, because a
-   gradient has no detail to lose to upscaling and a field of seven pixel
-   triangles does. */
-const MAX_EDGE = 1400;
+   It is drawn on a 2D canvas rather than in WebGL. The site the reference comes
+   from uses WebGL with instanced geometry, which is the right tool at this
+   particle count; a library to do it here would cost more than the entire
+   JavaScript budget this site holds itself to. What is here instead is a hand
+   rolled projection: rotate, project, sort by depth, stamp a sprite. It is
+   honest about its limit, which is the particle count, and it carries a guard
+   that stops it if the machine cannot keep up. */
 
-/* Sampling strides for the two passes, in buffer pixels. The volume is walked
-   coarsely because it is an area and a fine stride there would run to tens of
-   thousands of particles; the structure is walked finely because it is a set of
-   lines and it is what makes the cloud read as a brain. */
-const VOLUME_STRIDE = 9;
-const STRUCTURE_STRIDE = 4;
+/* Points on the cortical surface. Cut down on a small screen, where the cloud
+   is a fraction of the size and nobody can see the difference. */
+const POINTS_WIDE = 9000;
+const POINTS_NARROW = 3600;
+const CEREBELLUM_SHARE = 0.16;
 
-/* Smaller than the opening animation's, because this cloud is dense and a seven
-   pixel triangle at this spacing merges into a sheet. */
-const SPRITE = 5;
+/* Depth buckets for ordering the draw. A comparison sort of nine thousand
+   entries every frame is affordable but wasteful; this is linear and the
+   ordering only has to be right to within a bucket for sprites this small. */
+const BUCKETS = 96;
 
-/* How far the pointer reaches, and how far it pushes, in CSS pixels. Not buffer
-   pixels: the buffer is scaled per device, so the same number meant a reach of
-   140 CSS pixels on a laptop and 79 on a phone, and the interaction was a
-   different size depending on the screen. Measured, the cloud parted a third as
-   much on a phone as on a desktop for the same gesture. */
-const POINTER_RADIUS = 140;
-const POINTER_PUSH = 85;
+const SPRITE = 10;
 
-/* Amplitude of the idle wander, in buffer pixels. Small on purpose: this sits
-   behind a headline and a table of figures, and anything more reads as the page
-   being unsteady. */
-const DRIFT = 3.2;
+/* Amber dominant, white second, violet and teal as punctuation. Taken from the
+   reference's own hero image rather than from the palette document, which lists
+   the brand colours but not their proportions. */
+const TINT_TOKENS = ["--spark", "--bone", "--iris", "--verdant"];
+const TINT_FALLBACKS = ["#ffb829", "#ffffff", "#926aff", "#189b81"];
+const TINT_WEIGHTS = [0.62, 0.2, 0.1, 0.08];
 
-/* The shape. Two passes over the same geometry, not one.
-
-   The first version traced the outline and the folds as lines and sampled only
-   those, which gave a sparse wireframe: a diagram of a brain rather than the
-   thing the reference asks for, which is a dense cloud of thousands of
-   particles with an organic shape. So the volume is filled and sampled at a
-   coarse stride, and the structure is stroked and sampled at a fine one, and
-   the two are concatenated. The result is dense everywhere and denser along the
-   folds, which is what gives it depth instead of flatness.
-
-   Three earlier attempts at the structure are worth recording, because the
-   difference is not obvious until it is on screen. Nested smooth rings look
-   like a contour map. Horizontal wavy lines look like a planet. What reads as
-   folds is rings pulled inward, perturbed at high frequency and broken into
-   arcs, which is what gyri actually do. */
-
-type Lobe = { cx: number; cy: number; rx: number; ry: number; tilt: number };
-
-function geometry(width: number, height: number) {
-  return {
-    cerebrum: {
-      cx: 0.42 * width,
-      cy: 0.42 * height,
-      rx: 0.33 * width,
-      ry: 0.3 * height,
-      tilt: -0.12,
-    } as Lobe,
-    cerebellum: {
-      cx: 0.685 * width,
-      cy: 0.715 * height,
-      rx: 0.115 * width,
-      ry: 0.082 * height,
-      tilt: 0.14,
-    } as Lobe,
-  };
-}
-
-function at(lobe: Lobe, angle: number, radius: number): Vec {
-  const px = Math.cos(angle) * lobe.rx * radius;
-  const py = Math.sin(angle) * lobe.ry * radius;
-  return {
-    x: lobe.cx + px * Math.cos(lobe.tilt) - py * Math.sin(lobe.tilt),
-    y: lobe.cy + px * Math.sin(lobe.tilt) + py * Math.cos(lobe.tilt),
-  };
-}
-
-/* Gentle lobing only. Stronger modulation turns the silhouette into a lump
-   rather than a head-shaped mass. */
-const shell = (t: number) => 1 + 0.05 * Math.sin(3 * t + 0.6) + 0.028 * Math.sin(5 * t + 2);
-
-function ring(
-  ctx: CanvasRenderingContext2D,
-  lobe: Lobe,
-  radius: (t: number) => number,
-  steps: number,
-) {
-  ctx.beginPath();
-  for (let i = 0; i <= steps; i++) {
-    const t = (i / steps) * Math.PI * 2;
-    const point = at(lobe, t, radius(t));
-    if (i === 0) ctx.moveTo(point.x, point.y);
-    else ctx.lineTo(point.x, point.y);
-  }
-  ctx.closePath();
-}
-
-/* The mass, filled. Sampled coarsely, this is the cloud the particles live in. */
-function drawVolume(ctx: CanvasRenderingContext2D, width: number, height: number) {
-  const { cerebrum, cerebellum } = geometry(width, height);
-  ctx.fillStyle = "#ffffff";
-  ring(ctx, cerebrum, shell, 240);
-  ctx.fill();
-  ring(ctx, cerebellum, (t) => 1 + 0.05 * Math.sin(6 * t + 1), 200);
-  ctx.fill();
-
-  /* The stem, as a filled taper rather than two lines, so it has volume too. */
-  ctx.beginPath();
-  ctx.moveTo(0.545 * width, 0.62 * height);
-  ctx.bezierCurveTo(
-    0.562 * width,
-    0.75 * height,
-    0.558 * width,
-    0.83 * height,
-    0.552 * width,
-    0.9 * height,
-  );
-  ctx.lineTo(0.606 * width, 0.9 * height);
-  ctx.bezierCurveTo(
-    0.62 * width,
-    0.84 * height,
-    0.626 * width,
-    0.76 * height,
-    0.612 * width,
-    0.64 * height,
-  );
-  ctx.closePath();
-  ctx.fill();
-}
-
-/* The folds, stroked. Sampled finely, this is what makes the cloud read as a
-   brain rather than as a blob. */
-function drawStructure(ctx: CanvasRenderingContext2D, width: number, height: number) {
-  const { cerebrum, cerebellum } = geometry(width, height);
-  const stroke = Math.max(1.6, Math.min(width, height) / 300);
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = stroke;
-  ctx.lineCap = "round";
-
-  ring(ctx, cerebrum, shell, 240);
-  ctx.stroke();
-
-  ctx.save();
-  ring(ctx, cerebrum, (t) => shell(t) * 0.99, 240);
-  ctx.clip();
-  [0.9, 0.81, 0.72, 0.63, 0.54, 0.45, 0.36, 0.27, 0.18].forEach((base, index) => {
-    const phase = index * 2.1;
-    let drawing = false;
-    ctx.beginPath();
-    for (let i = 0; i <= 560; i++) {
-      const t = (i / 560) * Math.PI * 2;
-      /* The pen lifts here, which is what turns a closed ring into a run of
-         folds. */
-      if (Math.sin(3.5 * t + phase * 1.7) < -0.72) {
-        drawing = false;
-        continue;
-      }
-      const wiggle =
-        1 + 0.045 * Math.sin(11 * t + phase) + 0.022 * Math.sin(19 * t + phase * 2.3);
-      const point = at(cerebrum, t, shell(t) * base * wiggle);
-      if (drawing) ctx.lineTo(point.x, point.y);
-      else {
-        ctx.moveTo(point.x, point.y);
-        drawing = true;
-      }
-    }
-    ctx.stroke();
-  });
-  ctx.restore();
-
-  /* The cerebellum's own texture is finer and more regular than the cerebrum's,
-     which is true of the real thing and is what stops it reading as a second
-     small brain. */
-  ring(ctx, cerebellum, (t) => 1 + 0.05 * Math.sin(6 * t + 1), 200);
-  ctx.stroke();
-  ctx.save();
-  ctx.clip();
-  ctx.lineWidth = stroke * 0.7;
-  for (let n = 0; n < 11; n++) {
-    ctx.beginPath();
-    for (let u = -1.25; u <= 1.25; u += 0.03) {
-      const px = u * cerebellum.rx;
-      const py =
-        (n / 10 - 0.5) * cerebellum.ry * 1.9 + cerebellum.ry * 0.07 * Math.sin(u * 9 + n);
-      ctx.lineTo(
-        cerebellum.cx + px * Math.cos(cerebellum.tilt) - py * Math.sin(cerebellum.tilt),
-        cerebellum.cy + px * Math.sin(cerebellum.tilt) + py * Math.cos(cerebellum.tilt),
-      );
-    }
-    ctx.stroke();
-  }
-  ctx.restore();
-}
+/* Camera. */
+const DISTANCE = 3.5;
+const FOCAL = 0.95;
 
 export type Brain = {
-  /* Fits the shape to the canvas's own box, given in CSS pixels. */
   layout: (width: number, height: number) => void;
-  draw: (step: number, seconds: number, pointer: Vec | null, settle: boolean) => void;
+  draw: (seconds: number, pointer: Vec | null, scroll: number, settle: boolean) => void;
   clear: () => void;
   count: () => number;
 };
+
+/* Deterministic per-index noise. A point keeps its colour, its jitter and its
+   size for the life of the page without any of that having to be stored. */
+function noise(index: number, salt: number) {
+  const value = Math.sin(index * 127.1 + salt * 311.7) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function tintFor(random: number) {
+  let cumulative = 0;
+  for (let i = 0; i < TINT_WEIGHTS.length; i++) {
+    cumulative += TINT_WEIGHTS[i]!;
+    if (random < cumulative) return i;
+  }
+  return 0;
+}
+
+function buildSprites(tints: string[]): HTMLCanvasElement[] {
+  return tints.map((tint) => {
+    const sprite = document.createElement("canvas");
+    sprite.width = SPRITE;
+    sprite.height = SPRITE;
+    const ctx = sprite.getContext("2d");
+    if (!ctx) return sprite;
+    ctx.strokeStyle = tint;
+    ctx.lineWidth = 1.1;
+    ctx.lineJoin = "miter";
+    ctx.beginPath();
+    ctx.moveTo(SPRITE / 2, 1.2);
+    ctx.lineTo(SPRITE - 1, SPRITE - 1.4);
+    ctx.lineTo(1, SPRITE - 1.4);
+    ctx.closePath();
+    ctx.stroke();
+    return sprite;
+  });
+}
+
+type Cloud = {
+  x: Float32Array;
+  y: Float32Array;
+  z: Float32Array;
+  /* How far out of a fold a point sits, nought in the depth of a sulcus and one
+     on the crest of a gyrus. It drives size and brightness, and it is what makes
+     the surface read as folded rather than as a solid mass. */
+  ridge: Float32Array;
+  tint: Uint8Array;
+  size: Float32Array;
+  count: number;
+};
+
+/* The cortical surface, as a displaced ellipsoid.
+
+   Points come off a Fibonacci sphere, which covers evenly with no crowding at
+   the poles, then the ellipsoid is pushed into a brain: flat underneath, a
+   temporal bulge low and forward, a tapered occipital pole at the back, a
+   groove down the midline, and folds displacing the surface along its normal.
+
+   Points deep in a sulcus are thinned out rather than merely dimmed. That is
+   what separates this from a solid shell of triangles. */
+function buildCloud(target: number): Cloud {
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const cortex = Math.round(target * (1 - CEREBELLUM_SHARE));
+  const cerebellum = target - cortex;
+
+  const x = new Float32Array(target);
+  const y = new Float32Array(target);
+  const z = new Float32Array(target);
+  const ridge = new Float32Array(target);
+  const tint = new Uint8Array(target);
+  const size = new Float32Array(target);
+  let count = 0;
+
+  const keep = (px: number, py: number, pz: number, crest: number, index: number) => {
+    x[count] = px;
+    y[count] = py;
+    z[count] = pz;
+    ridge[count] = crest;
+    tint[count] = tintFor(noise(index, 7));
+    size[count] = 0.8 + noise(index, 6) * 0.4;
+    count += 1;
+  };
+
+  for (let i = 0; i < cortex; i++) {
+    const unit = 1 - (i / Math.max(1, cortex - 1)) * 2;
+    const band = Math.sqrt(Math.max(0, 1 - unit * unit));
+    const angle = golden * i;
+
+    /* Negative x so the frontal pole faces left, the way the reference sits. */
+    let px = -Math.cos(angle) * band * 1.32;
+    let py = unit * 0.82;
+    let pz = Math.sin(angle) * band * 0.7;
+
+    if (py < 0) py *= 0.55 + 0.45 * Math.min(1, Math.abs(px));
+
+    const temporal = Math.exp(-((px + 0.3) ** 2 * 2.6 + (py + 0.4) ** 2 * 5.5));
+    py -= temporal * 0.22;
+    pz *= 1 + temporal * 0.1;
+
+    const back = Math.max(0, (px - 0.55) / 0.8);
+    py *= 1 - back * 0.16;
+    pz *= 1 - back * 0.14;
+
+    const front = Math.max(0, (-px - 0.7) / 0.7);
+    pz *= 1 - front * 0.12;
+
+    const phase =
+      Math.sin(px * 5.2 + pz * 2.1) * 0.55 +
+      Math.sin(py * 6.2 + px * 2.6) * 0.3 +
+      Math.sin(pz * 7.4 + py * 3.2) * 0.15;
+    const length = Math.hypot(px, py, pz) || 1;
+    const displacement = phase * 0.085;
+    px += (px / length) * displacement;
+    py += (py / length) * displacement;
+    pz += (pz / length) * displacement;
+
+    /* The longitudinal fissure, down the midline on top. */
+    py -= Math.exp(-(pz * pz) * 45) * Math.max(0, py) * 0.16;
+
+    px += (noise(i, 1) - 0.5) * 0.022;
+    py += (noise(i, 2) - 0.5) * 0.022;
+    pz += (noise(i, 3) - 0.5) * 0.022;
+
+    const crest = (phase + 1) / 2;
+    if (noise(i, 8) > 0.3 + crest * 0.8) continue;
+    keep(px, py, pz, crest, i);
+  }
+
+  /* The cerebellum, its own denser cluster behind and below, with a finer
+     texture than the cortex. */
+  for (let i = 0; i < cerebellum; i++) {
+    const unit = 1 - (i / Math.max(1, cerebellum - 1)) * 2;
+    const band = Math.sqrt(Math.max(0, 1 - unit * unit));
+    const angle = golden * i;
+    const px = Math.cos(angle) * band * 0.32;
+    const py = unit * 0.2;
+    const pz = Math.sin(angle) * band * 0.28;
+    const phase = Math.sin(px * 30) * Math.sin(py * 26);
+    keep(px + 0.92 + phase * 0.02, py - 0.5 + phase * 0.02, pz, (phase + 1) / 2, i + 20000);
+  }
+
+  return { x, y, z, ridge, tint, size, count };
+}
 
 export function createBrain(canvas: HTMLCanvasElement): Brain | null {
   const context = canvas.getContext("2d", { alpha: true });
   if (!context) return null;
   const ctx = context;
 
-  const tints = readTints(
-    ["--iris", "--spark", "--verdant"],
-    ["#8052ff", "#ffb829", "#15846e"],
-  );
-  /* No bone. A white particle in the background was measured lifting the
-     brightest background pixel enough to drop the quietest grey on the site to
-     4.29:1, under AA, while an ordinary scan still reported a pass. */
-  const sprites = buildSprites(tints, SPRITE);
+  const sprites = buildSprites(readTints(TINT_TOKENS, TINT_FALLBACKS));
 
-  /* Full strength. The cloud used to sit behind the text under the scrim, which
-     capped how bright it could be: amber has three times the relative luminance
-     of the violet and the teal, so it set the contrast ceiling for the whole
-     site. In its own column with no text over it there is nothing to protect,
-     and the reference is explicit that these are saturated colours. */
-  const alphas = [1, 0.9, 1];
-
-  let particles: Particle[] = [];
+  let cloud: Cloud | null = null;
   let scale = 1;
+  let centreX = 0;
+  let centreY = 0;
+  let focal = 600;
+
+  /* Reused every frame. Allocating these per frame is what turns a smooth
+     animation into a sawtooth of garbage collections. */
+  let rx = new Float32Array(0);
+  let ry = new Float32Array(0);
+  let rz = new Float32Array(0);
+  let order = new Int32Array(0);
+  let bucketCount = new Int32Array(BUCKETS);
+  let bucketStart = new Int32Array(BUCKETS);
 
   function layout(cssWidth: number, cssHeight: number) {
     const longEdge = Math.max(cssWidth, cssHeight, 1);
-    scale = Math.min(window.devicePixelRatio || 1, MAX_EDGE / longEdge);
+    scale = Math.min(window.devicePixelRatio || 1, 1400 / longEdge);
     const width = Math.max(2, Math.round(cssWidth * scale));
     const height = Math.max(2, Math.round(cssHeight * scale));
     if (canvas.width !== width || canvas.height !== height) {
@@ -253,121 +222,86 @@ export function createBrain(canvas: HTMLCanvasElement): Brain | null {
       canvas.height = height;
     }
 
-    /* The shape is fitted inside its box with a margin, so the cloud has room
-       to be pushed around by a pointer without clipping at the edges. */
-    const inset = 0.08;
-    const boxWidth = Math.round(width * (1 - inset * 2));
-    const boxHeight = Math.round(height * (1 - inset * 2));
-    const offsetX = Math.round(width * inset);
-    const offsetY = Math.round(height * inset);
+    centreX = width / 2;
+    centreY = height * 0.47;
+    focal = Math.min(width, height * 1.5) * FOCAL;
 
-    const dense = longEdge >= 520;
-    /* Two passes. The volume carries the cloud and the structure carries the
-       folds, so the folds are sampled about three times as finely. */
-    const points = shuffle([
-      ...samplePoints(boxWidth, boxHeight, dense ? VOLUME_STRIDE : VOLUME_STRIDE + 3, (paint) =>
-        drawVolume(paint, boxWidth, boxHeight),
-      ),
-      ...samplePoints(
-        boxWidth,
-        boxHeight,
-        dense ? STRUCTURE_STRIDE : STRUCTURE_STRIDE + 2,
-        (paint) => drawStructure(paint, boxWidth, boxHeight),
-      ),
-    ]);
-
-    points.forEach((point, index) => {
-      let particle = particles[index];
-      if (!particle) {
-        particle = new Particle();
-        particle.pos = offscreenPoint(width, height);
-        /* Slower than the opening animation's particles. This one is ambient;
-           it should settle rather than arrive. */
-        particle.maxSpeed = Math.random() * 5 + 7;
-        particle.maxForce = particle.maxSpeed * 0.16;
-        particle.closeEnough = 110;
-        particle.tint = Math.floor(Math.random() * sprites.length);
-        particle.seed = Math.random() * Math.PI * 2;
-        particles.push(particle);
-      }
-      particle.home = { x: offsetX + point.x, y: offsetY + point.y };
-    });
-
-    /* A resize can sample fewer points than last time. Anything spare goes out
-       of frame rather than sitting where the shape no longer is. */
-    if (points.length < particles.length) {
-      particles = particles.slice(0, points.length);
+    const target = cssWidth < 560 ? POINTS_NARROW : POINTS_WIDE;
+    if (!cloud || cloud.x.length !== target) {
+      cloud = buildCloud(target);
+      rx = new Float32Array(cloud.count);
+      ry = new Float32Array(cloud.count);
+      rz = new Float32Array(cloud.count);
+      order = new Int32Array(cloud.count);
+      bucketCount = new Int32Array(BUCKETS);
+      bucketStart = new Int32Array(BUCKETS);
     }
   }
 
-  function draw(step: number, seconds: number, pointer: Vec | null, settle: boolean) {
+  function draw(seconds: number, pointer: Vec | null, scroll: number, settle: boolean) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (particles.length === 0) return;
+    if (!cloud) return;
+    const { x, y, z, ridge, tint, size, count } = cloud;
 
-    /* A settled frame is the finished picture, not the first frame of the
-       animation towards it. Drawn without this, every particle is still at the
-       spawn point it was going to fly in from and one ninth of the way through
-       its fade, which is a still frame of very nearly nothing. It is what a
-       reader who asked for less motion was getting. */
-    if (settle) {
-      for (const particle of particles) {
-        particle.pos = { x: particle.home.x, y: particle.home.y };
-        particle.vel = { x: 0, y: 0 };
-        particle.alpha = 1;
-        ctx.globalAlpha = alphas[particle.tint]!;
-        ctx.drawImage(
-          sprites[particle.tint]!,
-          particle.pos.x - SPRITE / 2,
-          particle.pos.y - SPRITE / 2,
-        );
-      }
-      ctx.globalAlpha = 1;
-      return;
+    /* Three things turn the cloud, and they add rather than compete: a slow
+       idle drift, the scroll position, and the pointer. Scroll is the parallax
+       the reference has, and it is the reason the cloud is worth having on a
+       page somebody scrolls. */
+    const drift = settle ? 0 : Math.sin(seconds * 0.16) * 0.1;
+    const yaw = -0.3 + drift + scroll * 0.85 + (pointer ? pointer.x * 0.28 : 0);
+    const pitch = -0.08 - scroll * 0.18 + (pointer ? pointer.y * 0.2 : 0);
+
+    const cosYaw = Math.cos(yaw);
+    const sinYaw = Math.sin(yaw);
+    const cosPitch = Math.cos(pitch);
+    const sinPitch = Math.sin(pitch);
+
+    let near = Infinity;
+    let far = -Infinity;
+    for (let i = 0; i < count; i++) {
+      const px = x[i]!;
+      const py = y[i]!;
+      const pz = z[i]!;
+      const ax = px * cosYaw + pz * sinYaw;
+      let az = -px * sinYaw + pz * cosYaw;
+      const ay = py * cosPitch - az * sinPitch;
+      az = py * sinPitch + az * cosPitch;
+      rx[i] = ax;
+      ry[i] = ay;
+      rz[i] = az;
+      if (az < near) near = az;
+      if (az > far) far = az;
     }
 
-    const px = pointer ? pointer.x * scale : 0;
-    const py = pointer ? pointer.y * scale : 0;
-    const reach = POINTER_RADIUS * scale;
-    const push = POINTER_PUSH * scale;
+    /* Counting sort into depth buckets: linear, and precise enough that two
+       sprites ten pixels across never visibly swap. */
+    const span = Math.max(1e-6, far - near);
+    bucketCount.fill(0);
+    for (let i = 0; i < count; i++) {
+      const bucket = Math.min(BUCKETS - 1, ((rz[i]! - near) / span * BUCKETS) | 0);
+      bucketCount[bucket]! += 1;
+    }
+    let running = 0;
+    for (let b = 0; b < BUCKETS; b++) {
+      bucketStart[b] = running;
+      running += bucketCount[b]!;
+    }
+    for (let i = 0; i < count; i++) {
+      const bucket = Math.min(BUCKETS - 1, ((rz[i]! - near) / span * BUCKETS) | 0);
+      order[bucketStart[bucket]!] = i;
+      bucketStart[bucket]! += 1;
+    }
 
-    for (const particle of particles) {
-      const home = particle.home;
-
-      /* Idle wander, out of phase per particle so the field breathes rather
-         than pulses. Off entirely when the caller asks for a settled frame,
-         which is what a reader who wants less motion gets. */
-      let targetX = home.x;
-      let targetY = home.y;
-      if (!settle) {
-        targetX += Math.sin(seconds * 0.55 + particle.seed) * DRIFT;
-        targetY += Math.cos(seconds * 0.43 + particle.seed * 1.3) * DRIFT;
-      }
-
-      /* The cloud parts around the pointer and closes behind it. Nothing
-         follows the cursor: this displaces the targets the particles were
-         already heading for, and they spring back on their own. */
-      if (pointer) {
-        const dx = home.x - px;
-        const dy = home.y - py;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance < reach && distance > 0.001) {
-          const falloff = 1 - distance / reach;
-          const displacement = falloff * falloff * push;
-          targetX += (dx / distance) * displacement;
-          targetY += (dy / distance) * displacement;
-        }
-      }
-
-      particle.target.x = targetX;
-      particle.target.y = targetY;
-      particle.move(step);
-
-      ctx.globalAlpha = particle.alpha * alphas[particle.tint]!;
-      ctx.drawImage(
-        sprites[particle.tint]!,
-        particle.pos.x - SPRITE / 2,
-        particle.pos.y - SPRITE / 2,
-      );
+    for (let k = 0; k < count; k++) {
+      const i = order[k]!;
+      const depth = DISTANCE - rz[i]!;
+      const sx = centreX + (rx[i]! * focal) / depth;
+      const sy = centreY - (ry[i]! * focal) / depth;
+      const nearness = (rz[i]! - near) / span;
+      const crest = ridge[i]!;
+      const width = SPRITE * (0.5 + nearness * 0.8) * (0.7 + crest * 0.55) * size[i]!;
+      ctx.globalAlpha = (0.2 + nearness * 0.7) * (0.4 + crest * 0.6);
+      ctx.drawImage(sprites[tint[i]!]!, sx - width / 2, sy - width / 2, width, width);
     }
     ctx.globalAlpha = 1;
   }
@@ -376,6 +310,6 @@ export function createBrain(canvas: HTMLCanvasElement): Brain | null {
     layout,
     draw,
     clear: () => ctx.clearRect(0, 0, canvas.width, canvas.height),
-    count: () => particles.length,
+    count: () => cloud?.count ?? 0,
   };
 }
