@@ -188,9 +188,13 @@ test.describe("the constellation", () => {
       const scale = canvas.width / Math.max(1, canvas.clientWidth);
       const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
 
+      /* The spot arrives in page coordinates. The canvas is an element in the
+         layout now rather than a fixed sheet over the viewport, so it has to be
+         moved into the canvas's own box before it means anything. */
+      const box = canvas.getBoundingClientRect();
       let count = 0;
-      const cx = spot ? spot.x * scale : 0;
-      const cy = spot ? spot.y * scale : 0;
+      const cx = spot ? (spot.x - box.left) * scale : 0;
+      const cy = spot ? (spot.y - box.top) * scale : 0;
       const r2 = spot ? (spot.radius * scale) ** 2 : 0;
       for (let y = 0; y < canvas.height; y += 2) {
         for (let x = 0; x < canvas.width; x += 2) {
@@ -216,21 +220,44 @@ test.describe("the constellation", () => {
     ).toBeGreaterThan(2_000);
   });
 
-  test("stops painting once it has scrolled away", async ({ page }) => {
+  test("stops animating once it has scrolled out of view", async ({ page }) => {
     await page.goto("/");
     await page.evaluate((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
     await page.reload();
     await page.waitForTimeout(2_000);
     expect(await painted(page)).toBeGreaterThan(2_000);
 
-    /* Past the opening screen the canvas is cleared rather than drawn
-       invisibly, which is most of a session's frames. */
+    /* The cloud lives in the hero's second column now, so it scrolls away with
+       the page rather than being faded out by hand. What has to be true is that
+       it stops costing anything once it is gone: the frame loop is parked by an
+       IntersectionObserver, so two reads a second apart are identical. */
     await page.evaluate(() => window.scrollTo(0, 2_400));
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(700);
+    const first = await painted(page);
+    await page.waitForTimeout(1_000);
     expect(
       await painted(page),
-      "nothing should still be drawn once it is off stage",
-    ).toBe(0);
+      "the loop should be parked while the cloud is off screen",
+    ).toBe(first);
+
+    /* And picks up again on the way back, unless the machine was too slow to
+       animate in the first place: the guard stops the loop for good, which is
+       the designed behaviour. Both branches assert something. */
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(1_200);
+    const resumed = await painted(page);
+    await page.waitForTimeout(700);
+    const again = await painted(page);
+
+    const state = await page
+      .locator("[data-constellation]")
+      .getAttribute("data-constellation");
+    if (state === "live") {
+      expect(again, "and should start again once it is back in view").not.toBe(resumed);
+    } else {
+      expect(again, "a stopped loop should hold its finished picture").toBe(resumed);
+      expect(again, "and that picture should not be blank").toBeGreaterThan(2_000);
+    }
   });
 
   test("parts around the pointer, and closes again", async ({ page }) => {
@@ -240,14 +267,24 @@ test.describe("the constellation", () => {
     await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(2_500);
 
-    const size = page.viewportSize();
-    if (!size) throw new Error("no viewport");
-    /* Inside the cloud, and clear of the headline and the table. */
-    const spot = { x: Math.round(size.width * 0.52), y: Math.round(size.height * 0.3) };
-    const disc = { ...spot, radius: 90 };
+    /* Aimed from the element's own box rather than from a fraction of the
+       viewport: the cloud is a column in the hero now, and where that column
+       sits depends on the breakpoint. */
+    const box = await page.locator("[data-constellation]").boundingBox();
+    if (!box) throw new Error("the constellation is not on the page");
+    await page.locator("[data-constellation]").scrollIntoViewIfNeeded();
+    await page.waitForTimeout(600);
+
+    const fresh = await page.locator("[data-constellation]").boundingBox();
+    if (!fresh) throw new Error("the constellation left the page");
+    const spot = {
+      x: Math.round(fresh.x + fresh.width * 0.45),
+      y: Math.round(fresh.y + fresh.height * 0.42),
+    };
+    const disc = { ...spot, radius: 80 };
 
     const before = await painted(page, disc);
-    expect(before, "the test is pointing at empty space").toBeGreaterThan(20);
+    expect(before, "the test is pointing at empty space").toBeGreaterThan(40);
 
     await page.mouse.move(spot.x, spot.y);
     await page.waitForTimeout(900);
@@ -255,11 +292,11 @@ test.describe("the constellation", () => {
 
     /* A machine too slow to animate gets a still picture and no interaction,
        which is the designed behaviour rather than a failure: the frame loop has
-       stopped, so there is nothing to displace the particles. Asserting the
-       interaction unconditionally made this test fail whenever the suite ran
-       two browsers at once, which is exactly when the guard fires. Both
-       branches assert something, so neither can go quietly green. */
-    const state = await page.locator(".backdrop").getAttribute("data-backdrop");
+       stopped, so there is nothing to displace the particles. Both branches
+       assert something, so neither can go quietly green. */
+    const state = await page
+      .locator("[data-constellation]")
+      .getAttribute("data-constellation");
     if (state !== "live") {
       expect(
         during,
@@ -269,17 +306,17 @@ test.describe("the constellation", () => {
     }
 
     expect(during, "the cloud should open where the pointer is").toBeLessThan(
-      before * 0.75,
+      before * 0.8,
     );
 
-    /* And close behind it. Moving the pointer far away is enough; the particles
-       spring back to where they belong on their own. */
-    await page.mouse.move(4, size.height - 4);
+    /* And close behind it. Moving the pointer off the element is enough; the
+       particles spring back to where they belong on their own. */
+    await page.mouse.move(4, 4);
     await page.waitForTimeout(1_800);
-    const after = await painted(page, disc);
-    expect(after, "the cloud should close again once the pointer leaves").toBeGreaterThan(
-      before * 0.75,
-    );
+    expect(
+      await painted(page, disc),
+      "the cloud should close again once the pointer leaves",
+    ).toBeGreaterThan(before * 0.8);
   });
 
   test("holds still for a reader who asked for less motion", async ({ browser }) => {

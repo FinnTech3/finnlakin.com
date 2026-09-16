@@ -1,3 +1,4 @@
+import { Constellation } from "@/components/constellation";
 import { reconstructions } from "@/lib/reconstructions";
 import { person } from "@/lib/site";
 
@@ -16,11 +17,11 @@ export function Hero() {
         Available Summer 2026
       </p>
 
-      <h1 className="t-display mt-8 text-ink">{person.name}</h1>
-
-      <div className="mt-14 grid gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-20">
+      <div className="mt-8 grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
         <div>
-          <p className="t-sub max-w-[20ch] text-pretty text-ink">
+          <h1 className="t-display text-ink">{person.name}</h1>
+
+          <p className="t-sub mt-10 max-w-[22ch] text-pretty text-ink">
             I rebuild published numbers from primitives and report the gap.{" "}
             <em className="text-spark not-italic">Sometimes the gap is the finding.</em>
           </p>
@@ -40,7 +41,13 @@ export function Hero() {
           </a>
         </div>
 
-        <table className="w-full border-collapse text-left">
+        {/* The other half of the opening screen, which is where the design
+            reference puts its signature visual and where Finn asked for it.
+            It is decoration: every figure on this page is real text below. */}
+        <Constellation className="pointer-events-auto relative h-[clamp(20rem,46vw,34rem)] w-full" />
+      </div>
+
+      <table className="mt-20 w-full border-collapse text-left">
           <caption className="t-label pb-4 text-left text-muted">
             Four reconstructions, against the published series
           </caption>
@@ -93,8 +100,7 @@ export function Hero() {
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+      </table>
 
       <p className="measure mt-14 border-t border-rule pt-7 text-[16px] leading-relaxed font-extralight text-muted">
         The yield curve reproduces to less than half a basis point. The premium

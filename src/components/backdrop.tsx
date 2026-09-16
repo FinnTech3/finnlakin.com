@@ -2,8 +2,6 @@
 
 import { useEffect, useRef } from "react";
 
-import { brainBox, createBrain } from "./brain";
-import type { Vec } from "./particles";
 
 /* The gradient behind the whole site. Adapted from the shader Finn supplied
    rather than dropped in, for three reasons that only showed up when it was
@@ -265,13 +263,11 @@ function createShader(canvas: HTMLCanvasElement, host: HTMLElement): Shader | nu
 export function Backdrop() {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const brainRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const host = hostRef.current;
     const canvas = canvasRef.current;
-    const brainCanvas = brainRef.current;
-    if (!host || !canvas || !brainCanvas) return;
+    if (!host || !canvas) return;
 
     const settle = (state: "live" | "still" | "fallback") => {
       host.dataset.backdrop = state;
@@ -282,16 +278,10 @@ export function Backdrop() {
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const shader = createShader(canvas, host);
-    const brain = createBrain(brainCanvas);
 
     /* The host keeps its CSS gradient when the shader will not start, which is
-       what it was already painting before this effect ran, so nothing flashes.
-       The constellation carries on regardless. */
+       what it was already painting before this effect ran, so nothing flashes. */
     if (!shader) settle("fallback");
-
-    /* How tall the opening screen is, which is how far the constellation stays
-       on stage. Read once here and again on resize, never in the frame loop. */
-    let heroHeight = host.clientHeight;
 
     const layout = () => {
       shader?.resize();
@@ -299,43 +289,18 @@ export function Backdrop() {
       const height = host.clientHeight;
       if (width === 0 || height === 0) return;
 
-      const hero = document.getElementById("hero");
-      heroHeight = hero ? hero.getBoundingClientRect().height : height;
-
-      /* Laid into the viewport rather than into the hero's own box, because the
-         canvas is fixed: the page scrolls under it and the shape would have to
-         be resampled on every frame to track an element. It is faded out by
-         scroll position instead. brainBox is shared with the opening animation,
-         which scatters towards the same place. */
-      brain?.layout(brainBox(width, height), { x: 0, y: 0, width, height });
     };
 
     layout();
-
-    /* Stored, never acted on per event. The loop reads it once a frame. */
-    let pointer: Vec | null = null;
-    const onPointerMove = (event: PointerEvent) => {
-      pointer = { x: event.clientX, y: event.clientY };
-    };
-    const onPointerLeave = () => {
-      pointer = null;
-    };
-
-    if (!stillOnly) {
-      window.addEventListener("pointermove", onPointerMove, { passive: true });
-      window.addEventListener("pointerleave", onPointerLeave, { passive: true });
-    }
 
     /* One frame and nothing else. A reader who has asked for less motion gets
        the composition without the movement, rather than a blank rectangle. */
     if (stillOnly) {
       shader?.draw(2.4);
-      brain?.draw(1, 0, null, true);
       settle("still");
       const observer = new ResizeObserver(() => {
         layout();
         shader?.draw(2.4);
-        brain?.draw(1, 0, null, true);
       });
       observer.observe(host);
       return () => {
@@ -344,44 +309,16 @@ export function Backdrop() {
       };
     }
 
-    /* Scroll drives the constellation's fade, not the frame loop. The two were
-       the same thing until the slow-renderer guard stopped the loop: a machine
-       slow enough to trip it was left with a frozen cloud painted over the
-       whole page, because the only code that could have cleared it had stopped
-       running. Now the fade happens whether or not anything is animating. */
-    let onStage = true;
-    let cleared = false;
-
-    const restage = () => {
-      if (!brain) return;
-      const fade = 1 - Math.min(1, window.scrollY / Math.max(1, heroHeight * 0.8));
-      onStage = fade > 0.01;
-      brainCanvas.style.opacity = String(Math.max(0, fade));
-      if (!onStage && !cleared) {
-        brain.clear();
-        cleared = true;
-      } else if (onStage && cleared) {
-        cleared = false;
-        /* Back in view with nothing animating: paint the finished picture once
-           rather than leaving a gap where the cloud should be. */
-        if (!running) brain.draw(1, 0, null, true);
-      }
-    };
-
     let frame: number | null = null;
     let running = true;
     let frames = 0;
     let sampleStart = 0;
-    let previous = 0;
     const start = performance.now();
 
     const stop = (state: "still" | "fallback") => {
       running = false;
       if (frame !== null) cancelAnimationFrame(frame);
       frame = null;
-      /* Leave the constellation as a finished still, the same as the gradient
-         keeps its last frame. */
-      if (brain && onStage) brain.draw(1, 0, null, true);
       settle(state);
     };
 
@@ -389,16 +326,6 @@ export function Backdrop() {
       if (!running) return;
       const seconds = (now - start) / 1000;
       shader?.draw(seconds * 0.14);
-
-      /* The constellation is only on stage for the opening screen. Past it
-         nothing is drawn at all rather than drawn invisibly, which is most of a
-         session's frames. How far off stage it is comes from the scroll
-         handler, never from reading layout in here. */
-      if (brain && onStage) {
-        const step = previous === 0 ? 1 : Math.min(3, Math.max(0.5, (now - previous) / 16.667));
-        brain.draw(step, seconds, pointer, false);
-      }
-      previous = now;
 
       frames += 1;
       if (frames === WARMUP_FRAMES) sampleStart = now;
@@ -421,7 +348,6 @@ export function Backdrop() {
         if (frame !== null) cancelAnimationFrame(frame);
         frame = null;
       } else if (frame === null) {
-        previous = 0;
         frame = requestAnimationFrame(tick);
       }
     };
@@ -436,13 +362,8 @@ export function Backdrop() {
 
     canvas.addEventListener("webglcontextlost", onContextLost);
     document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("scroll", restage, { passive: true });
-    const observer = new ResizeObserver(() => {
-      layout();
-      restage();
-    });
+    const observer = new ResizeObserver(layout);
     observer.observe(host);
-    restage();
 
     if (shader) settle("live");
     frame = requestAnimationFrame(tick);
@@ -452,9 +373,6 @@ export function Backdrop() {
       if (frame !== null) cancelAnimationFrame(frame);
       canvas.removeEventListener("webglcontextlost", onContextLost);
       document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerleave", onPointerLeave);
-      window.removeEventListener("scroll", restage);
       observer.disconnect();
       shader?.dispose();
     };
@@ -476,7 +394,6 @@ export function Backdrop() {
       }}
     >
       <canvas ref={canvasRef} className="absolute inset-0 block size-full" />
-      <canvas ref={brainRef} data-brain="" className="absolute inset-0 block size-full" />
     </div>
   );
 }

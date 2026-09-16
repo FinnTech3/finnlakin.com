@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 
-import { brainBox } from "./brain";
 import {
   buildSprites,
   offscreenPoint,
@@ -37,11 +36,11 @@ const STORAGE_KEY = "fl-intro-played";
    picture made of 4px triangles. */
 const MAX_EDGE = 1100;
 
-/* Sampling stride through the rendered text, in buffer pixels. Six lands
-   between nine hundred and fourteen hundred particles at every viewport this
-   site sees, which is enough for a glyph to read and few enough to draw in
-   software. */
-const STRIDE = 6;
+/* Sampling stride through the rendered text, in buffer pixels. It came down
+   from six when the words came down to a third of the screen: the stride has to
+   scale with the letterform, or a smaller word is drawn with proportionally
+   fewer particles and stops reading. */
+const STRIDE = 4;
 
 type Phase = { lines: string[]; at: number };
 
@@ -133,11 +132,28 @@ export function Intro() {
 
       const spots = shuffle(
         samplePoints(width, height, STRIDE, (paint) => {
-          let size = Math.round(height / (lines.length * 1.5 + 0.5));
+          /* The words sit inside the middle third of the screen, not across it.
+             Two limits, and whichever bites first wins: the block may not be
+             taller than a third of the height, and it may not be wider than
+             WIDTH_SHARE of the width.
+
+             The width share is not the same everywhere. A third of a laptop is
+             a comfortable measure; a third of a phone is four characters wide
+             and the word would be unreadable, so a narrow screen gets most of
+             its width and the height limit is what holds the block in the
+             middle band. */
+          const narrow = width < height;
+          const widthShare = narrow ? 0.82 : 0.38;
+          const lineCount = lines.length;
+
+          /* Start from the height limit, then pull back to the width limit if
+             the longest line overruns it. */
+          let size = Math.floor((height / 3) / (lineCount * 1.18));
           paint.font = `600 ${size}px ${family}`;
           const measured = paint.measureText(longest).width;
-          const limit = width * 0.9;
-          if (measured > limit) size = Math.max(16, Math.floor((size * limit) / measured));
+          const limit = width * widthShare;
+          if (measured > limit) size = Math.floor((size * limit) / measured);
+          size = Math.max(12, size);
 
           /* Weight 600, where the page sets its display type at 400. A headline
              at a hundred points can afford a light stroke; the same letterform
@@ -147,8 +163,8 @@ export function Intro() {
           paint.fillStyle = "#ffffff";
           paint.textAlign = "center";
           paint.textBaseline = "middle";
-          const leading = size * 1.14;
-          const top = height / 2 - ((lines.length - 1) * leading) / 2;
+          const leading = size * 1.18;
+          const top = height / 2 - ((lineCount - 1) * leading) / 2;
           lines.forEach((line, index) => {
             paint.fillText(line, width / 2, top + index * leading);
           });
@@ -208,19 +224,26 @@ export function Intro() {
         /* Towards the constellation, not away from everything. The overlay is
            about to lift onto a field of the same triangles, so the last thing
            the word does is fly at where that field is, and the animation
-           visibly becomes the thing that stays. brainBox is the one definition
-           of where that is, shared with the backdrop that draws it.
+           visibly becomes the thing that stays.
 
-           A third of them still leave the frame. All of them converging would
-           read as a second word forming rather than as a cloud dispersing. */
-        const box = brainBox(rect.width, rect.height);
+           Where that is comes from the element itself rather than from a number
+           copied into this file: the cloud lives in the hero's second column
+           now, so its box is whatever the layout gives it. If it is not on the
+           page, the particles simply leave, which is what happens on every
+           route that has no hero.
+
+           A third of them leave regardless. All of them converging would read
+           as a second word forming rather than as a cloud dispersing. */
+        const target = document
+          .querySelector("[data-constellation]")
+          ?.getBoundingClientRect();
         for (const particle of particles) {
           particle.scattered = true;
           particle.target =
-            Math.random() < 0.66
+            target && Math.random() < 0.66
               ? {
-                  x: (box.x + Math.random() * box.width) * scale,
-                  y: (box.y + Math.random() * box.height) * scale,
+                  x: (target.left + Math.random() * target.width) * scale,
+                  y: (target.top + Math.random() * target.height) * scale,
                 }
               : offscreenPoint(width, height);
           particle.maxSpeed *= 2.2;

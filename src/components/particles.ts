@@ -97,21 +97,21 @@ export function offscreenPoint(width: number, height: number): Vec {
 /* One sprite per palette colour, stroked once and stamped after that. Stroking
    a thousand paths a frame is what makes a canvas animation stutter in
    software; drawImage of a seven pixel bitmap does not. */
-export function buildSprites(tints: string[]): HTMLCanvasElement[] {
+export function buildSprites(tints: string[], size = TRIANGLE): HTMLCanvasElement[] {
   return tints.map((tint) => {
     const sprite = document.createElement("canvas");
-    sprite.width = TRIANGLE;
-    sprite.height = TRIANGLE;
+    sprite.width = size;
+    sprite.height = size;
     const ctx = sprite.getContext("2d");
     if (!ctx) return sprite;
-    const inset = 1;
+    const inset = size <= 5 ? 0.5 : 1;
     ctx.strokeStyle = tint;
     ctx.lineWidth = 1;
     ctx.lineJoin = "miter";
     ctx.beginPath();
-    ctx.moveTo(TRIANGLE / 2, inset);
-    ctx.lineTo(TRIANGLE - inset, TRIANGLE - inset);
-    ctx.lineTo(inset, TRIANGLE - inset);
+    ctx.moveTo(size / 2, inset);
+    ctx.lineTo(size - inset, size - inset);
+    ctx.lineTo(inset, size - inset);
     ctx.closePath();
     ctx.stroke();
     return sprite;

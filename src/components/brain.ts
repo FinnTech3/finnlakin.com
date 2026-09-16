@@ -5,7 +5,6 @@ import {
   readTints,
   samplePoints,
   shuffle,
-  TRIANGLE,
   type Vec,
 } from "./particles";
 
@@ -25,11 +24,16 @@ import {
    triangles does. */
 const MAX_EDGE = 1400;
 
-/* Sampling stride through the drawn shape. Six left five hundred particles,
-   which is a sketch rather than the cloud the reference describes. Four lands
-   around seventeen hundred at desktop width. */
-const STRIDE = 4;
-const PHONE_STRIDE = 6;
+/* Sampling strides for the two passes, in buffer pixels. The volume is walked
+   coarsely because it is an area and a fine stride there would run to tens of
+   thousands of particles; the structure is walked finely because it is a set of
+   lines and it is what makes the cloud read as a brain. */
+const VOLUME_STRIDE = 9;
+const STRUCTURE_STRIDE = 4;
+
+/* Smaller than the opening animation's, because this cloud is dense and a seven
+   pixel triangle at this spacing merges into a sheet. */
+const SPRITE = 5;
 
 /* How far the pointer reaches, and how far it pushes, in CSS pixels. Not buffer
    pixels: the buffer is scaled per device, so the same number meant a reach of
@@ -44,96 +48,126 @@ const POINTER_PUSH = 85;
    being unsteady. */
 const DRIFT = 3.2;
 
-export type Rect = { x: number; y: number; width: number; height: number };
+/* The shape. Two passes over the same geometry, not one.
 
-/* Where the constellation sits in the viewport, in CSS pixels. Exported because
-   two things need to agree on it: the backdrop, which lays the shape out, and
-   the opening animation, which scatters its particles towards it on the way out
-   rather than away from everything. That was the brief, that the two share
-   their shapes, and a number duplicated in two files would not stay shared.
+   The first version traced the outline and the folds as lines and sampled only
+   those, which gave a sparse wireframe: a diagram of a brain rather than the
+   thing the reference asks for, which is a dense cloud of thousands of
+   particles with an organic shape. So the volume is filled and sampled at a
+   coarse stride, and the structure is stroked and sampled at a fine one, and
+   the two are concatenated. The result is dense everywhere and denser along the
+   folds, which is what gives it depth instead of flatness.
 
-   Nearly the full width, and centred. The first attempt sized it at 62% and put
-   it right of centre, which is where the reference's two column hero puts its
-   visual, and on this page that is exactly where the reconstruction table sits:
-   the two fought, and the constellation read as a picture squeezed behind a
-   table rather than as the field the content floats on. */
-export function brainBox(width: number, height: number): Rect {
-  const size = Math.min(width * 0.96, height * 1.9);
+   Three earlier attempts at the structure are worth recording, because the
+   difference is not obvious until it is on screen. Nested smooth rings look
+   like a contour map. Horizontal wavy lines look like a planet. What reads as
+   folds is rings pulled inward, perturbed at high frequency and broken into
+   arcs, which is what gyri actually do. */
+
+type Lobe = { cx: number; cy: number; rx: number; ry: number; tilt: number };
+
+function geometry(width: number, height: number) {
   return {
-    x: width * 0.52 - size / 2,
-    y: height * 0.46 - (size * 0.62) / 2,
-    width: size,
-    height: size * 0.62,
+    cerebrum: {
+      cx: 0.42 * width,
+      cy: 0.42 * height,
+      rx: 0.33 * width,
+      ry: 0.3 * height,
+      tilt: -0.12,
+    } as Lobe,
+    cerebellum: {
+      cx: 0.685 * width,
+      cy: 0.715 * height,
+      rx: 0.115 * width,
+      ry: 0.082 * height,
+      tilt: 0.14,
+    } as Lobe,
   };
 }
 
-/* The shape, drawn once to an offscreen canvas and sampled. Strokes rather than
-   a fill: a filled silhouette sampled at this stride is a solid blob, and the
-   reference's brain reads as a structure being traced.
+function at(lobe: Lobe, angle: number, radius: number): Vec {
+  const px = Math.cos(angle) * lobe.rx * radius;
+  const py = Math.sin(angle) * lobe.ry * radius;
+  return {
+    x: lobe.cx + px * Math.cos(lobe.tilt) - py * Math.sin(lobe.tilt),
+    y: lobe.cy + px * Math.sin(lobe.tilt) + py * Math.cos(lobe.tilt),
+  };
+}
 
-   Three earlier attempts are worth recording, because the difference is not
-   obvious until it is on screen. Nested smooth rings look like a contour map.
-   Horizontal wavy lines look like a planet. What reads as a brain is rings
-   pulled inward, perturbed at high frequency and broken into arcs, which is
-   what gyri actually do. */
-function drawBrain(ctx: CanvasRenderingContext2D, width: number, height: number) {
-  const stroke = Math.max(2, Math.min(width, height) / 260);
+/* Gentle lobing only. Stronger modulation turns the silhouette into a lump
+   rather than a head-shaped mass. */
+const shell = (t: number) => 1 + 0.05 * Math.sin(3 * t + 0.6) + 0.028 * Math.sin(5 * t + 2);
+
+function ring(
+  ctx: CanvasRenderingContext2D,
+  lobe: Lobe,
+  radius: (t: number) => number,
+  steps: number,
+) {
+  ctx.beginPath();
+  for (let i = 0; i <= steps; i++) {
+    const t = (i / steps) * Math.PI * 2;
+    const point = at(lobe, t, radius(t));
+    if (i === 0) ctx.moveTo(point.x, point.y);
+    else ctx.lineTo(point.x, point.y);
+  }
+  ctx.closePath();
+}
+
+/* The mass, filled. Sampled coarsely, this is the cloud the particles live in. */
+function drawVolume(ctx: CanvasRenderingContext2D, width: number, height: number) {
+  const { cerebrum, cerebellum } = geometry(width, height);
+  ctx.fillStyle = "#ffffff";
+  ring(ctx, cerebrum, shell, 240);
+  ctx.fill();
+  ring(ctx, cerebellum, (t) => 1 + 0.05 * Math.sin(6 * t + 1), 200);
+  ctx.fill();
+
+  /* The stem, as a filled taper rather than two lines, so it has volume too. */
+  ctx.beginPath();
+  ctx.moveTo(0.545 * width, 0.62 * height);
+  ctx.bezierCurveTo(
+    0.562 * width,
+    0.75 * height,
+    0.558 * width,
+    0.83 * height,
+    0.552 * width,
+    0.9 * height,
+  );
+  ctx.lineTo(0.606 * width, 0.9 * height);
+  ctx.bezierCurveTo(
+    0.62 * width,
+    0.84 * height,
+    0.626 * width,
+    0.76 * height,
+    0.612 * width,
+    0.64 * height,
+  );
+  ctx.closePath();
+  ctx.fill();
+}
+
+/* The folds, stroked. Sampled finely, this is what makes the cloud read as a
+   brain rather than as a blob. */
+function drawStructure(ctx: CanvasRenderingContext2D, width: number, height: number) {
+  const { cerebrum, cerebellum } = geometry(width, height);
+  const stroke = Math.max(1.6, Math.min(width, height) / 300);
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = stroke;
   ctx.lineCap = "round";
 
-  const cerebrum = {
-    cx: 0.42 * width,
-    cy: 0.42 * height,
-    rx: 0.33 * width,
-    ry: 0.3 * height,
-    tilt: -0.12,
-  };
-  const cerebellum = {
-    cx: 0.685 * width,
-    cy: 0.715 * height,
-    rx: 0.115 * width,
-    ry: 0.082 * height,
-    tilt: 0.14,
-  };
-
-  type Lobe = typeof cerebrum;
-  const at = (lobe: Lobe, angle: number, radius: number): Vec => {
-    const px = Math.cos(angle) * lobe.rx * radius;
-    const py = Math.sin(angle) * lobe.ry * radius;
-    return {
-      x: lobe.cx + px * Math.cos(lobe.tilt) - py * Math.sin(lobe.tilt),
-      y: lobe.cy + px * Math.sin(lobe.tilt) + py * Math.cos(lobe.tilt),
-    };
-  };
-
-  /* Gentle lobing only. Stronger modulation turns the silhouette into a lump
-     rather than a head-shaped mass. */
-  const shell = (t: number) => 1 + 0.05 * Math.sin(3 * t + 0.6) + 0.028 * Math.sin(5 * t + 2);
-
-  const ring = (lobe: Lobe, radius: (t: number) => number, steps: number) => {
-    ctx.beginPath();
-    for (let i = 0; i <= steps; i++) {
-      const t = (i / steps) * Math.PI * 2;
-      const point = at(lobe, t, radius(t));
-      if (i === 0) ctx.moveTo(point.x, point.y);
-      else ctx.lineTo(point.x, point.y);
-    }
-    ctx.closePath();
-  };
-
-  ring(cerebrum, shell, 240);
+  ring(ctx, cerebrum, shell, 240);
   ctx.stroke();
 
   ctx.save();
-  ring(cerebrum, (t) => shell(t) * 0.99, 240);
+  ring(ctx, cerebrum, (t) => shell(t) * 0.99, 240);
   ctx.clip();
-  [0.88, 0.77, 0.66, 0.55, 0.44, 0.33, 0.22].forEach((base, index) => {
+  [0.9, 0.81, 0.72, 0.63, 0.54, 0.45, 0.36, 0.27, 0.18].forEach((base, index) => {
     const phase = index * 2.1;
     let drawing = false;
     ctx.beginPath();
-    for (let i = 0; i <= 520; i++) {
-      const t = (i / 520) * Math.PI * 2;
+    for (let i = 0; i <= 560; i++) {
+      const t = (i / 560) * Math.PI * 2;
       /* The pen lifts here, which is what turns a closed ring into a run of
          folds. */
       if (Math.sin(3.5 * t + phase * 1.7) < -0.72) {
@@ -156,17 +190,17 @@ function drawBrain(ctx: CanvasRenderingContext2D, width: number, height: number)
   /* The cerebellum's own texture is finer and more regular than the cerebrum's,
      which is true of the real thing and is what stops it reading as a second
      small brain. */
-  ring(cerebellum, (t) => 1 + 0.05 * Math.sin(6 * t + 1), 200);
+  ring(ctx, cerebellum, (t) => 1 + 0.05 * Math.sin(6 * t + 1), 200);
   ctx.stroke();
   ctx.save();
   ctx.clip();
-  ctx.lineWidth = stroke * 0.68;
-  for (let n = 0; n < 9; n++) {
+  ctx.lineWidth = stroke * 0.7;
+  for (let n = 0; n < 11; n++) {
     ctx.beginPath();
     for (let u = -1.25; u <= 1.25; u += 0.03) {
       const px = u * cerebellum.rx;
       const py =
-        (n / 8 - 0.5) * cerebellum.ry * 1.9 + cerebellum.ry * 0.07 * Math.sin(u * 9 + n);
+        (n / 10 - 0.5) * cerebellum.ry * 1.9 + cerebellum.ry * 0.07 * Math.sin(u * 9 + n);
       ctx.lineTo(
         cerebellum.cx + px * Math.cos(cerebellum.tilt) - py * Math.sin(cerebellum.tilt),
         cerebellum.cy + px * Math.sin(cerebellum.tilt) + py * Math.cos(cerebellum.tilt),
@@ -175,45 +209,14 @@ function drawBrain(ctx: CanvasRenderingContext2D, width: number, height: number)
     ctx.stroke();
   }
   ctx.restore();
-  ctx.lineWidth = stroke;
-
-  ctx.beginPath();
-  ctx.moveTo(0.545 * width, 0.645 * height);
-  ctx.bezierCurveTo(
-    0.562 * width,
-    0.75 * height,
-    0.558 * width,
-    0.83 * height,
-    0.552 * width,
-    0.9 * height,
-  );
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(0.606 * width, 0.665 * height);
-  ctx.bezierCurveTo(
-    0.62 * width,
-    0.76 * height,
-    0.614 * width,
-    0.84 * height,
-    0.606 * width,
-    0.9 * height,
-  );
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(0.552 * width, 0.9 * height);
-  ctx.quadraticCurveTo(0.579 * width, 0.925 * height, 0.606 * width, 0.9 * height);
-  ctx.stroke();
 }
 
 export type Brain = {
-  /* Lays the shape into a box given in CSS pixels relative to the viewport. */
-  layout: (box: Rect, viewport: Rect) => void;
+  /* Fits the shape to the canvas's own box, given in CSS pixels. */
+  layout: (width: number, height: number) => void;
   draw: (step: number, seconds: number, pointer: Vec | null, settle: boolean) => void;
   clear: () => void;
   count: () => number;
-  /* Where the cloud sits, in CSS pixels, so the opening animation can scatter
-     towards it instead of away from everything. */
-  centre: () => Vec | null;
 };
 
 export function createBrain(canvas: HTMLCanvasElement): Brain | null {
@@ -228,49 +231,56 @@ export function createBrain(canvas: HTMLCanvasElement): Brain | null {
   /* No bone. A white particle in the background was measured lifting the
      brightest background pixel enough to drop the quietest grey on the site to
      4.29:1, under AA, while an ordinary scan still reported a pass. */
-  const sprites = buildSprites(tints);
+  const sprites = buildSprites(tints, SPRITE);
 
-  /* One opacity per colour, not one for the field. Amber has three times the
-     relative luminance of the violet and the teal, so a single opacity means
-     the amber sets the contrast ceiling for the whole site and the other two
-     are held far below what they could be. Holding amber back lets the other
-     two run at full strength: measured, that reads denser on screen while the
-     brightest pixel the backdrop paints goes down rather than up. */
-  const alphas = [1, 0.42, 1];
+  /* Full strength. The cloud used to sit behind the text under the scrim, which
+     capped how bright it could be: amber has three times the relative luminance
+     of the violet and the teal, so it set the contrast ceiling for the whole
+     site. In its own column with no text over it there is nothing to protect,
+     and the reference is explicit that these are saturated colours. */
+  const alphas = [1, 0.9, 1];
 
   let particles: Particle[] = [];
   let scale = 1;
-  let centre: Vec | null = null;
 
-  function layout(box: Rect, viewport: Rect) {
-    const longEdge = Math.max(viewport.width, viewport.height, 1);
+  function layout(cssWidth: number, cssHeight: number) {
+    const longEdge = Math.max(cssWidth, cssHeight, 1);
     scale = Math.min(window.devicePixelRatio || 1, MAX_EDGE / longEdge);
-    const bufferWidth = Math.max(2, Math.round(viewport.width * scale));
-    const bufferHeight = Math.max(2, Math.round(viewport.height * scale));
-    if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
-      canvas.width = bufferWidth;
-      canvas.height = bufferHeight;
+    const width = Math.max(2, Math.round(cssWidth * scale));
+    const height = Math.max(2, Math.round(cssHeight * scale));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
     }
 
-    const shapeWidth = Math.max(2, Math.round(box.width * scale));
-    const shapeHeight = Math.max(2, Math.round(box.height * scale));
-    const stride = viewport.width < 760 ? PHONE_STRIDE : STRIDE;
+    /* The shape is fitted inside its box with a margin, so the cloud has room
+       to be pushed around by a pointer without clipping at the edges. */
+    const inset = 0.08;
+    const boxWidth = Math.round(width * (1 - inset * 2));
+    const boxHeight = Math.round(height * (1 - inset * 2));
+    const offsetX = Math.round(width * inset);
+    const offsetY = Math.round(height * inset);
 
-    const points = shuffle(
-      samplePoints(shapeWidth, shapeHeight, stride, (paint) =>
-        drawBrain(paint, shapeWidth, shapeHeight),
+    const dense = longEdge >= 520;
+    /* Two passes. The volume carries the cloud and the structure carries the
+       folds, so the folds are sampled about three times as finely. */
+    const points = shuffle([
+      ...samplePoints(boxWidth, boxHeight, dense ? VOLUME_STRIDE : VOLUME_STRIDE + 3, (paint) =>
+        drawVolume(paint, boxWidth, boxHeight),
       ),
-    );
-
-    const offsetX = box.x * scale;
-    const offsetY = box.y * scale;
-    centre = { x: box.x + box.width * 0.45, y: box.y + box.height * 0.45 };
+      ...samplePoints(
+        boxWidth,
+        boxHeight,
+        dense ? STRUCTURE_STRIDE : STRUCTURE_STRIDE + 2,
+        (paint) => drawStructure(paint, boxWidth, boxHeight),
+      ),
+    ]);
 
     points.forEach((point, index) => {
       let particle = particles[index];
       if (!particle) {
         particle = new Particle();
-        particle.pos = offscreenPoint(bufferWidth, bufferHeight);
+        particle.pos = offscreenPoint(width, height);
         /* Slower than the opening animation's particles. This one is ambient;
            it should settle rather than arrive. */
         particle.maxSpeed = Math.random() * 5 + 7;
@@ -307,8 +317,8 @@ export function createBrain(canvas: HTMLCanvasElement): Brain | null {
         ctx.globalAlpha = alphas[particle.tint]!;
         ctx.drawImage(
           sprites[particle.tint]!,
-          particle.pos.x - TRIANGLE / 2,
-          particle.pos.y - TRIANGLE / 2,
+          particle.pos.x - SPRITE / 2,
+          particle.pos.y - SPRITE / 2,
         );
       }
       ctx.globalAlpha = 1;
@@ -355,8 +365,8 @@ export function createBrain(canvas: HTMLCanvasElement): Brain | null {
       ctx.globalAlpha = particle.alpha * alphas[particle.tint]!;
       ctx.drawImage(
         sprites[particle.tint]!,
-        particle.pos.x - TRIANGLE / 2,
-        particle.pos.y - TRIANGLE / 2,
+        particle.pos.x - SPRITE / 2,
+        particle.pos.y - SPRITE / 2,
       );
     }
     ctx.globalAlpha = 1;
@@ -367,6 +377,5 @@ export function createBrain(canvas: HTMLCanvasElement): Brain | null {
     draw,
     clear: () => ctx.clearRect(0, 0, canvas.width, canvas.height),
     count: () => particles.length,
-    centre: () => centre,
   };
 }
