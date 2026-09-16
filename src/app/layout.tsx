@@ -1,35 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from "next/font/google";
+import { Inter } from "next/font/google";
+import { AmbientField, Backdrop, Scrim } from "@/components/backdrop";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
+import { Intro, IntroBoot } from "@/components/intro";
 import { ogImageUrl } from "@/lib/metadata";
 import { siteDescription, siteTitle, siteUrl } from "@/lib/site";
 import "./globals.css";
 
-/* Only 400 and 500 are used. The single 600 on the site is `.longform strong`,
-   which sits on Newsreader, so a semibold Plex Sans was being downloaded and
-   never painted. */
-const plexSans = IBM_Plex_Sans({
-  variable: "--font-plex-sans",
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  display: "swap",
-});
+/* One family, where there used to be three. The design reference is explicit
+   that a single typeface carries every context and that hierarchy comes from
+   scale rather than weight, and Inter is the substitute it names.
 
-const plexMono = IBM_Plex_Mono({
-  variable: "--font-plex-mono",
+   No weight array, which gets the variable font: one file covering 100 to 900
+   instead of a static face per weight. This site uses five of them (200 body,
+   300 long-form, 400 display and figures, 500 emphasis, 600 labels), so as
+   static faces that would have been five downloads. */
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["400", "500"],
-  display: "swap",
-});
-
-/* Italic is declared explicitly. Without it the browser synthesises an oblique
-   by slanting the upright, which is what the hero's emphasis and every <em> in
-   the long-form were getting: wrong letterforms, and conspicuously so on a
-   serif, where true italic is a different design rather than a tilt. */
-const newsreader = Newsreader({
-  variable: "--font-newsreader",
-  subsets: ["latin"],
-  style: ["normal", "italic"],
   display: "swap",
 });
 
@@ -65,29 +53,39 @@ export const metadata: Metadata = {
   },
 };
 
-/* Resolved per colour scheme, so the browser chrome matches the page it is
-   framing rather than one of the two themes. */
+/* One colour now, because there is one theme. The pair that used to be here
+   resolved per colour scheme so the browser chrome matched whichever of the
+   two themes was showing; the site is black in both. */
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f7f7f4" },
-    { media: "(prefers-color-scheme: dark)", color: "#101215" },
-  ],
-  colorScheme: "light dark",
+  themeColor: "#000000",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en-GB"
-      className={`${plexSans.variable} ${plexMono.variable} ${newsreader.variable} h-full antialiased`}
-    >
+    <html lang="en-GB" className={`${inter.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
+        {/* First thing in the document, so the decision about the opening
+            animation is made before anything paints. It sets one attribute.
+            See the note in components/intro.tsx. */}
+        <IntroBoot />
+
+        {/* Behind everything: the shader, the settled particle field on top of
+            it, and then the scrim over both. The order matters. The scrim is
+            what fixes the background every contrast ratio on this site is
+            measured against, so nothing decorative may sit above it. All three
+            are decoration and none can be reached by a pointer or a screen
+            reader. */}
+        <Backdrop />
+        <AmbientField />
+        <Scrim />
+
         {/* First focusable element on the page. Visually hidden until it takes
             focus, so a keyboard user can reach the content without tabbing
             through the whole header on every navigation. */}
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:border focus:border-accent focus:bg-panel focus:px-4 focus:py-2.5 focus:font-mono focus:text-xs focus:text-accent"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-70 focus:border focus:border-action focus:bg-black focus:px-4 focus:py-2.5 focus:t-label focus:text-ink"
         >
           Skip to content
         </a>
@@ -96,6 +94,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {children}
         </main>
         <SiteFooter />
+        <Intro />
         {/* Static and deferred rather than a React component, so a page view
             is recorded as soon as the document is parsed instead of waiting
             for hydration. See the note at the top of the file. */}

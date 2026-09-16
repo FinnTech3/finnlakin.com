@@ -84,10 +84,10 @@ export function PaletteTrigger() {
         /* min-h-11 keeps this at a real touch target. The shortcut hint is
            hidden on small screens, where a meta key does not exist, but the
            button itself is how a phone reaches the palette at all. */
-        className="flex min-h-11 items-center gap-2 border border-rule px-3 font-mono text-[11px] text-muted hover:border-accent hover:text-accent sm:min-h-0 sm:py-1.5"
+        className="t-label flex min-h-11 items-center gap-2 rounded-full border border-rule px-4 text-muted hover:border-rule-strong hover:text-ink sm:min-h-0 sm:py-2"
       >
         Search
-        <kbd aria-hidden="true" className="hidden font-mono text-[10px] tracking-wider sm:inline">
+        <kbd aria-hidden="true" className="hidden font-normal tracking-wider text-muted sm:inline">
           ⌘K
         </kbd>
       </button>

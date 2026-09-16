@@ -1,3 +1,4 @@
+import { ReadingScrim } from "@/components/backdrop";
 import { Section } from "@/components/section";
 import { buildMetadata } from "@/lib/metadata";
 import { contact } from "@/lib/site";
@@ -18,6 +19,7 @@ export default function PrivacyPage() {
       title="What this site measures"
       intro="Short version: page views and how long a page was read, with no cookie, nothing stored on your device, and no way to identify you tomorrow from what was recorded today."
     >
+      <ReadingScrim />
       <div className="longform max-w-[68ch]">
         <h2>There is no cookie banner because there is no cookie</h2>
         <p>

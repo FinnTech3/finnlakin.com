@@ -145,7 +145,7 @@ export default function PalettePanel({
           aria-activedescendant={active >= 0 ? optionId(active) : undefined}
           autoComplete="off"
           spellCheck={false}
-          className="border-b border-rule bg-transparent px-4 py-3.5 text-[15px] outline-none placeholder:text-muted"
+          className="border-b border-rule bg-transparent px-5 py-4 text-[16px] font-extralight outline-none placeholder:text-muted"
         />
 
         {/* Announces the count as the query narrows, so a screen reader user
@@ -169,7 +169,7 @@ export default function PalettePanel({
             {results.map((item, index) => {
               const isActive = index === active;
               const className = `flex items-baseline justify-between gap-4 px-4 py-2.5 text-sm ${
-                isActive ? "bg-accent-soft text-accent" : "text-ink-soft"
+                isActive ? "bg-action-soft text-ink" : "text-ink-soft"
               }`;
               const shared = {
                 id: optionId(index),
@@ -187,7 +187,7 @@ export default function PalettePanel({
                       "Repository" down the whole list. */}
                   <span
                     aria-hidden="true"
-                    className="shrink-0 font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted"
+                    className="t-caption shrink-0 uppercase tracking-[0.1em] text-muted"
                   >
                     {item.group}
                   </span>

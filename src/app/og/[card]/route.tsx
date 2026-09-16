@@ -13,11 +13,11 @@ export const dynamicParams = false;
 
 /* Share cards have no viewer theme, so the light palette is hard-coded here
    rather than read from tokens. */
-const PAPER = "#f7f7f4";
-const INK = "#15171a";
-const MUTED = "#5c6167";
-const RULE = "#c9c9c1";
-const ACCENT = "#2e4bd8";
+const PAPER = "#000000";
+const INK = "#ffffff";
+const MUTED = "#9a9a9a";
+const RULE = "#3a3a3a";
+const ACCENT = "#ffb829";
 
 const SIZE = { width: 1200, height: 630 };
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ReadingScrim } from "@/components/backdrop";
 import { ArticleSchema } from "@/components/structured-data";
 import { writingBodies } from "@/content/writing";
 import { buildMetadata } from "@/lib/metadata";
@@ -50,9 +51,11 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
   return (
     <article>
       <ArticleSchema piece={piece} />
-      <header className="border-b border-rule">
-        <div className="mx-auto w-full max-w-5xl px-5 py-14 sm:px-8 sm:py-20">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
+      {/* A second layer of black over the gradient. A shader moving behind two
+          thousand words is a different proposition from one behind a headline. */}
+      <ReadingScrim />
+      <header className="gutter w-full pt-6 pb-16 sm:pt-12 sm:pb-20">
+          <div className="t-caption flex flex-wrap items-center gap-x-3 gap-y-1 uppercase tracking-[0.12em] text-muted">
             <Link href="/writing" className="text-accent hover:underline">
               Writing
             </Link>
@@ -66,11 +69,11 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
             </time>
           </div>
 
-          <h1 className="mt-5 max-w-[20ch] text-pretty font-serif text-[clamp(2rem,6vw,3.4rem)] leading-[1.06] tracking-[-0.025em]">
+          <h1 className="t-hlg mt-6 max-w-[18ch] text-pretty text-ink">
             {piece.title}
           </h1>
 
-          <p className="mt-5 max-w-[62ch] text-[clamp(1rem,2.2vw,1.15rem)] leading-relaxed text-muted">
+          <p className="measure mt-7 text-[19px] leading-relaxed font-extralight text-ink-soft">
             {piece.dek}
           </p>
 
@@ -80,17 +83,16 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
                 <a
                   key={link.href}
                   href={link.href}
-                  className="border-b border-rule-strong pb-0.5 font-mono text-[12px] text-accent hover:border-accent"
+                  className="t-label border-b border-rule pb-1 text-accent hover:border-accent"
                 >
                   {link.label}
                 </a>
               ))}
             </div>
           ) : null}
-        </div>
       </header>
 
-      <div className="mx-auto w-full max-w-5xl px-5 py-14 sm:px-8 sm:py-16">
+      <div className="gutter w-full pb-20">
         <div className="longform">
           <Body />
         </div>
@@ -107,10 +109,8 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
                 href={`/writing/${previous.slug}`}
                 className="group flex flex-col gap-1.5 no-underline"
               >
-                <span className="font-mono text-[10.5px] uppercase tracking-[0.13em] text-muted">
-                  Previous
-                </span>
-                <span className="max-w-[34ch] font-serif text-[1.15rem] leading-[1.2] text-ink group-hover:text-accent">
+                <span className="t-caption uppercase tracking-[0.13em] text-spark">Previous</span>
+                <span className="t-h2xs max-w-[28ch] text-ink group-hover:text-accent">
                   {previous.title}
                 </span>
               </Link>
@@ -122,10 +122,8 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
                 href={`/writing/${next.slug}`}
                 className="group flex flex-col gap-1.5 no-underline sm:items-end sm:text-right"
               >
-                <span className="font-mono text-[10.5px] uppercase tracking-[0.13em] text-muted">
-                  Next
-                </span>
-                <span className="max-w-[34ch] font-serif text-[1.15rem] leading-[1.2] text-ink group-hover:text-accent">
+                <span className="t-caption uppercase tracking-[0.13em] text-spark">Next</span>
+                <span className="t-h2xs max-w-[28ch] text-ink group-hover:text-accent">
                   {next.title}
                 </span>
               </Link>
@@ -134,7 +132,7 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
 
           <Link
             href="/writing"
-            className="font-mono text-[12px] text-accent hover:underline"
+            className="t-label text-accent hover:underline"
           >
             All write-ups
           </Link>
