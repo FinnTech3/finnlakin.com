@@ -22,10 +22,28 @@ mkdirSync(out, { recursive: true });
 const doc = new PDFDocument({
   size: "A4",
   margin: MARGIN,
+  /* lang so a screen reader announces the document in English instead of
+     guessing from the reader's locale, and Keywords because an applicant
+     tracking system reads them. The text layer itself is already extractable:
+     base-14 fonts under WinAnsiEncoding, so no glyph subsetting and no
+     ToUnicode map to get wrong. */
+  lang: "en-GB",
   info: {
     Title: `${person.name} · Curriculum Vitae`,
     Author: person.name,
     Subject: person.course,
+    Keywords: [
+      person.course,
+      person.university,
+      "equity research",
+      "quantitative methods",
+      "financial technology",
+      "Python",
+      "R",
+      "Rust",
+      "TypeScript",
+      "SQL",
+    ].join(", "),
   },
 });
 

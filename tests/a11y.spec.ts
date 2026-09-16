@@ -19,13 +19,29 @@ async function settle(page: Page) {
 }
 
 async function scan(page: Page) {
+  /* best-practice is included deliberately. A sweep at every severity over
+     every route found exactly one thing under it, nested complementary
+     landmarks in the write-up asides, and nothing at all under the WCAG tags,
+     so turning it on costs nothing and the gate gets stricter. The risk worth
+     naming: these rules change between axe releases, so an upgrade can surface
+     something new. That arrives as a test to look at rather than a regression
+     already shipped, which is the right way round. */
   const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"])
     .analyze();
 
-  return results.violations.filter(
-    (violation) => violation.impact === "serious" || violation.impact === "critical",
-  );
+  /* Moderate counts now, not only serious and critical. Widening the tag list
+     alone would have been cosmetic: the landmark rule that prompted this is
+     moderate impact, so the old filter would have dropped it whatever tags
+     were scanned. The sweep found nothing at any severity once the asides were
+     fixed, so this passes today and catches the next structural mistake, which
+     is the level heading-order and landmark rules live at.
+
+     Minor stays out. Those are the most subjective rules and the most likely
+     to churn on an axe upgrade, and nothing there would change what a reader
+     can do. */
+  const blocking = new Set(["critical", "serious", "moderate"]);
+  return results.violations.filter((violation) => blocking.has(violation.impact ?? ""));
 }
 
 function summarise(violations: Awaited<ReturnType<typeof scan>>) {
@@ -37,7 +53,7 @@ function summarise(violations: Awaited<ReturnType<typeof scan>>) {
 }
 
 for (const route of routes) {
-  test(`${route} has no serious or critical accessibility violations`, async ({ page }) => {
+  test(`${route} has no blocking accessibility violations`, async ({ page }) => {
     await page.goto(route);
     await settle(page);
     expect(summarise(await dropCrossOriginFrames(page, await scan(page)))).toEqual([]);
@@ -78,6 +94,16 @@ test("the a11y gate excuses a cross-origin frame, and nothing else", async ({ pa
   expect(insideFrame, "axe never entered the frame, so the filter proves nothing").toContain(
     "color-contrast",
   );
+
+  /* The stub carries a <main> on purpose. axe merges the two documents and
+     reports this page's own #main as a duplicate landmark, which is the second
+     thing the filter has to handle: a node in our document flagged only
+     because of something in the frame. Asserting it appears raw is what stops
+     that branch from being dead code. */
+  expect(
+    raw.map((violation) => violation.id),
+    "the stub no longer provokes a cross-document landmark clash",
+  ).toContain("landmark-unique");
 
   expect(summarise(await dropCrossOriginFrames(page, raw))).toEqual([]);
 });

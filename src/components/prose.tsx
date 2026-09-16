@@ -1,7 +1,13 @@
 import type { ReactNode } from "react";
 
 /* The correction strip. Every one of Finn's READMEs names the wrong turn before
-   it names the result, so it gets a designed slot rather than a footnote. */
+   it names the result, so it gets a designed slot rather than a footnote.
+
+   role="note" rather than <aside>. An aside maps to the complementary landmark,
+   and these sit inside <main>, so axe flagged eight nested landmarks across the
+   four write-ups. They are editorial devices within the argument rather than
+   page-level complementary regions, and note is the role for content that is
+   parenthetic to the main flow without being somewhere to navigate to. */
 export function WrongFirst({
   struck,
   children,
@@ -10,7 +16,10 @@ export function WrongFirst({
   children: ReactNode;
 }) {
   return (
-    <aside className="my-10 flex flex-col gap-3 border-t border-rule pt-5 sm:flex-row sm:gap-5">
+    <div
+      role="note"
+      className="my-10 flex flex-col gap-3 border-t border-rule pt-5 sm:flex-row sm:gap-5"
+    >
       <p className="shrink-0 self-start rounded-xs border border-flag px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-flag">
         Wrong first
       </p>
@@ -18,19 +27,19 @@ export function WrongFirst({
         <p className="text-muted line-through decoration-flag">{struck}</p>
         <p className="text-ink-soft">{children}</p>
       </div>
-    </aside>
+    </div>
   );
 }
 
 /* A note alongside the argument rather than inside it. */
 export function Marginal({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <aside className="my-8 max-w-[58ch] border-l-2 border-accent pl-4 font-sans">
+    <div role="note" className="my-8 max-w-[58ch] border-l-2 border-accent pl-4 font-sans">
       <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-accent">
         {label}
       </p>
       <div className="mt-1.5 text-sm leading-relaxed text-muted">{children}</div>
-    </aside>
+    </div>
   );
 }
 
