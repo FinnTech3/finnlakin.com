@@ -10,7 +10,7 @@ import { person } from "@/lib/site";
    What went is the box around them. */
 export function Hero() {
   return (
-    <section className="gutter w-full pt-8 pb-24 sm:pt-16 sm:pb-32">
+    <section id="hero" className="gutter w-full pt-8 pb-24 sm:pt-16 sm:pb-32">
       <p className="t-label flex items-center gap-2.5 text-pass">
         <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
         Available Summer 2026

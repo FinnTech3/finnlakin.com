@@ -2,6 +2,9 @@
 
 import { useEffect, useRef } from "react";
 
+import { brainBox, createBrain } from "./brain";
+import type { Vec } from "./particles";
+
 /* The gradient behind the whole site. Adapted from the shader Finn supplied
    rather than dropped in, for three reasons that only showed up when it was
    measured rather than read.
@@ -142,108 +145,99 @@ function token(name: string, fallbackHex: string): [number, number, number] {
   ];
 }
 
-export function Backdrop() {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+type Shader = {
+  resize: () => void;
+  draw: (seconds: number) => void;
+  dispose: () => void;
+};
 
-  useEffect(() => {
-    const host = hostRef.current;
-    const canvas = canvasRef.current;
-    if (!host || !canvas) return;
+/* Pulled out of the effect so that the gradient failing is a null rather than an
+   early return. The constellation has to keep running on a machine with no
+   WebGL, and when the two were one straight-line effect, the first `return` took
+   both down. */
+function createShader(canvas: HTMLCanvasElement, host: HTMLElement): Shader | null {
+  let gl: WebGL2RenderingContext | null = null;
+  try {
+    gl = canvas.getContext("webgl2", {
+      alpha: false,
+      antialias: false,
+      depth: false,
+      stencil: false,
+      powerPreference: "low-power",
+    });
+  } catch {
+    gl = null;
+  }
+  if (!gl) return null;
 
-    const settle = (state: "live" | "still" | "fallback") => {
-      host.dataset.backdrop = state;
-    };
+  const context = gl;
 
-    let gl: WebGL2RenderingContext | null = null;
-    try {
-      gl = canvas.getContext("webgl2", {
-        alpha: false,
-        antialias: false,
-        depth: false,
-        stencil: false,
-        powerPreference: "low-power",
-      });
-    } catch {
-      gl = null;
+  const compile = (type: number, source: string) => {
+    const shader = context.createShader(type);
+    if (!shader) return null;
+    context.shaderSource(shader, source);
+    context.compileShader(shader);
+    if (!context.getShaderParameter(shader, context.COMPILE_STATUS)) {
+      context.deleteShader(shader);
+      return null;
     }
+    return shader;
+  };
 
-    /* No WebGL2 at all. The host keeps its CSS gradient, which is what it was
-       already painting before this effect ran, so nothing flashes. */
-    if (!gl) {
-      settle("fallback");
-      return;
-    }
+  const vertex = compile(context.VERTEX_SHADER, VERTEX_SHADER);
+  const fragment = compile(context.FRAGMENT_SHADER, FRAGMENT_SHADER);
+  const program = vertex && fragment ? context.createProgram() : null;
 
-    const context = gl;
+  if (!vertex || !fragment || !program) {
+    if (vertex) context.deleteShader(vertex);
+    if (fragment) context.deleteShader(fragment);
+    return null;
+  }
 
-    const compile = (type: number, source: string) => {
-      const shader = context.createShader(type);
-      if (!shader) return null;
-      context.shaderSource(shader, source);
-      context.compileShader(shader);
-      if (!context.getShaderParameter(shader, context.COMPILE_STATUS)) {
-        context.deleteShader(shader);
-        return null;
-      }
-      return shader;
-    };
+  context.attachShader(program, vertex);
+  context.attachShader(program, fragment);
+  context.linkProgram(program);
+  if (!context.getProgramParameter(program, context.LINK_STATUS)) {
+    context.deleteProgram(program);
+    context.deleteShader(vertex);
+    context.deleteShader(fragment);
+    return null;
+  }
 
-    const vertex = compile(context.VERTEX_SHADER, VERTEX_SHADER);
-    const fragment = compile(context.FRAGMENT_SHADER, FRAGMENT_SHADER);
-    const program = vertex && fragment ? context.createProgram() : null;
+  context.useProgram(program);
 
-    if (!vertex || !fragment || !program) {
-      if (vertex) context.deleteShader(vertex);
-      if (fragment) context.deleteShader(fragment);
-      settle("fallback");
-      return;
-    }
+  const buffer = context.createBuffer();
+  context.bindBuffer(context.ARRAY_BUFFER, buffer);
+  context.bufferData(
+    context.ARRAY_BUFFER,
+    new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+    context.STATIC_DRAW,
+  );
+  const position = context.getAttribLocation(program, "a_position");
+  context.enableVertexAttribArray(position);
+  context.vertexAttribPointer(position, 2, context.FLOAT, false, 0, 0);
 
-    context.attachShader(program, vertex);
-    context.attachShader(program, fragment);
-    context.linkProgram(program);
-    if (!context.getProgramParameter(program, context.LINK_STATUS)) {
-      context.deleteProgram(program);
-      context.deleteShader(vertex);
-      context.deleteShader(fragment);
-      settle("fallback");
-      return;
-    }
+  const uniform = (name: string) => context.getUniformLocation(program, name);
+  const uTime = uniform("u_time");
+  const uResolution = uniform("u_resolution");
 
-    context.useProgram(program);
+  /* Black, violet, black: the gradient is a bloom of the brand colour rising
+     out of the void and sinking back into it. None of the six supplied
+     presets are in this palette. */
+  const [r2, g2, b2] = token("--iris", "#8052ff");
+  context.uniform4f(uniform("u_color1"), 0, 0, 0, 1);
+  context.uniform4f(uniform("u_color2"), r2, g2, b2, 1);
+  context.uniform4f(uniform("u_color3"), 0, 0, 0, 1);
+  context.uniform1f(uniform("u_scale"), 0.62);
+  context.uniform1f(uniform("u_proportion"), 0.18);
+  context.uniform1f(uniform("u_softness"), 1);
+  context.uniform1f(uniform("u_shapeScale"), 0.26);
+  context.uniform1f(uniform("u_distortion"), 0.06);
+  context.uniform1f(uniform("u_swirl"), 0.55);
+  context.uniform1f(uniform("u_swirlIterations"), SWIRL_ITERATIONS);
 
-    const buffer = context.createBuffer();
-    context.bindBuffer(context.ARRAY_BUFFER, buffer);
-    context.bufferData(
-      context.ARRAY_BUFFER,
-      new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
-      context.STATIC_DRAW,
-    );
-    const position = context.getAttribLocation(program, "a_position");
-    context.enableVertexAttribArray(position);
-    context.vertexAttribPointer(position, 2, context.FLOAT, false, 0, 0);
-
-    const uniform = (name: string) => context.getUniformLocation(program, name);
-    const uTime = uniform("u_time");
-    const uResolution = uniform("u_resolution");
-
-    /* Black, violet, black: the gradient is a bloom of the brand colour rising
-       out of the void and sinking back into it. None of the six supplied
-       presets are in this palette. */
-    const [r2, g2, b2] = token("--iris", "#8052ff");
-    context.uniform4f(uniform("u_color1"), 0, 0, 0, 1);
-    context.uniform4f(uniform("u_color2"), r2, g2, b2, 1);
-    context.uniform4f(uniform("u_color3"), 0, 0, 0, 1);
-    context.uniform1f(uniform("u_scale"), 0.62);
-    context.uniform1f(uniform("u_proportion"), 0.18);
-    context.uniform1f(uniform("u_softness"), 1);
-    context.uniform1f(uniform("u_shapeScale"), 0.26);
-    context.uniform1f(uniform("u_distortion"), 0.06);
-    context.uniform1f(uniform("u_swirl"), 0.55);
-    context.uniform1f(uniform("u_swirlIterations"), SWIRL_ITERATIONS);
-
-    const resize = () => {
+  return {
+    resize: () => {
       const { width, height } = host.getBoundingClientRect();
       if (width === 0 || height === 0) return;
       const scale = Math.min(1, MAX_EDGE / Math.max(width, height));
@@ -254,54 +248,157 @@ export function Backdrop() {
       canvas.height = bufferHeight;
       context.viewport(0, 0, bufferWidth, bufferHeight);
       context.uniform2f(uResolution, bufferWidth, bufferHeight);
-    };
-
-    resize();
-
-    const draw = (seconds: number) => {
+    },
+    draw: (seconds: number) => {
       context.uniform1f(uTime, seconds);
       context.drawArrays(context.TRIANGLES, 0, 6);
+    },
+    dispose: () => {
+      context.deleteProgram(program);
+      context.deleteShader(vertex);
+      context.deleteShader(fragment);
+      context.deleteBuffer(buffer);
+    },
+  };
+}
+
+export function Backdrop() {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const brainRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    const canvas = canvasRef.current;
+    const brainCanvas = brainRef.current;
+    if (!host || !canvas || !brainCanvas) return;
+
+    const settle = (state: "live" | "still" | "fallback") => {
+      host.dataset.backdrop = state;
     };
 
     const stillOnly =
       typeof window.matchMedia === "function" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    const shader = createShader(canvas, host);
+    const brain = createBrain(brainCanvas);
+
+    /* The host keeps its CSS gradient when the shader will not start, which is
+       what it was already painting before this effect ran, so nothing flashes.
+       The constellation carries on regardless. */
+    if (!shader) settle("fallback");
+
+    /* How tall the opening screen is, which is how far the constellation stays
+       on stage. Read once here and again on resize, never in the frame loop. */
+    let heroHeight = host.clientHeight;
+
+    const layout = () => {
+      shader?.resize();
+      const width = host.clientWidth;
+      const height = host.clientHeight;
+      if (width === 0 || height === 0) return;
+
+      const hero = document.getElementById("hero");
+      heroHeight = hero ? hero.getBoundingClientRect().height : height;
+
+      /* Laid into the viewport rather than into the hero's own box, because the
+         canvas is fixed: the page scrolls under it and the shape would have to
+         be resampled on every frame to track an element. It is faded out by
+         scroll position instead. brainBox is shared with the opening animation,
+         which scatters towards the same place. */
+      brain?.layout(brainBox(width, height), { x: 0, y: 0, width, height });
+    };
+
+    layout();
+
+    /* Stored, never acted on per event. The loop reads it once a frame. */
+    let pointer: Vec | null = null;
+    const onPointerMove = (event: PointerEvent) => {
+      pointer = { x: event.clientX, y: event.clientY };
+    };
+    const onPointerLeave = () => {
+      pointer = null;
+    };
+
+    if (!stillOnly) {
+      window.addEventListener("pointermove", onPointerMove, { passive: true });
+      window.addEventListener("pointerleave", onPointerLeave, { passive: true });
+    }
+
     /* One frame and nothing else. A reader who has asked for less motion gets
        the composition without the movement, rather than a blank rectangle. */
     if (stillOnly) {
-      draw(2.4);
+      shader?.draw(2.4);
+      brain?.draw(1, 0, null, true);
       settle("still");
       const observer = new ResizeObserver(() => {
-        resize();
-        draw(2.4);
+        layout();
+        shader?.draw(2.4);
+        brain?.draw(1, 0, null, true);
       });
       observer.observe(host);
       return () => {
         observer.disconnect();
-        context.deleteProgram(program);
-        context.deleteShader(vertex);
-        context.deleteShader(fragment);
-        context.deleteBuffer(buffer);
+        shader?.dispose();
       };
     }
+
+    /* Scroll drives the constellation's fade, not the frame loop. The two were
+       the same thing until the slow-renderer guard stopped the loop: a machine
+       slow enough to trip it was left with a frozen cloud painted over the
+       whole page, because the only code that could have cleared it had stopped
+       running. Now the fade happens whether or not anything is animating. */
+    let onStage = true;
+    let cleared = false;
+
+    const restage = () => {
+      if (!brain) return;
+      const fade = 1 - Math.min(1, window.scrollY / Math.max(1, heroHeight * 0.8));
+      onStage = fade > 0.01;
+      brainCanvas.style.opacity = String(Math.max(0, fade));
+      if (!onStage && !cleared) {
+        brain.clear();
+        cleared = true;
+      } else if (onStage && cleared) {
+        cleared = false;
+        /* Back in view with nothing animating: paint the finished picture once
+           rather than leaving a gap where the cloud should be. */
+        if (!running) brain.draw(1, 0, null, true);
+      }
+    };
 
     let frame: number | null = null;
     let running = true;
     let frames = 0;
     let sampleStart = 0;
+    let previous = 0;
     const start = performance.now();
 
     const stop = (state: "still" | "fallback") => {
       running = false;
       if (frame !== null) cancelAnimationFrame(frame);
       frame = null;
+      /* Leave the constellation as a finished still, the same as the gradient
+         keeps its last frame. */
+      if (brain && onStage) brain.draw(1, 0, null, true);
       settle(state);
     };
 
     const tick = (now: number) => {
       if (!running) return;
-      draw(((now - start) / 1000) * 0.14);
+      const seconds = (now - start) / 1000;
+      shader?.draw(seconds * 0.14);
+
+      /* The constellation is only on stage for the opening screen. Past it
+         nothing is drawn at all rather than drawn invisibly, which is most of a
+         session's frames. How far off stage it is comes from the scroll
+         handler, never from reading layout in here. */
+      if (brain && onStage) {
+        const step = previous === 0 ? 1 : Math.min(3, Math.max(0.5, (now - previous) / 16.667));
+        brain.draw(step, seconds, pointer, false);
+      }
+      previous = now;
 
       frames += 1;
       if (frames === WARMUP_FRAMES) sampleStart = now;
@@ -324,6 +421,7 @@ export function Backdrop() {
         if (frame !== null) cancelAnimationFrame(frame);
         frame = null;
       } else if (frame === null) {
+        previous = 0;
         frame = requestAnimationFrame(tick);
       }
     };
@@ -338,10 +436,15 @@ export function Backdrop() {
 
     canvas.addEventListener("webglcontextlost", onContextLost);
     document.addEventListener("visibilitychange", onVisibility);
-    const observer = new ResizeObserver(resize);
+    window.addEventListener("scroll", restage, { passive: true });
+    const observer = new ResizeObserver(() => {
+      layout();
+      restage();
+    });
     observer.observe(host);
+    restage();
 
-    settle("live");
+    if (shader) settle("live");
     frame = requestAnimationFrame(tick);
 
     return () => {
@@ -349,11 +452,11 @@ export function Backdrop() {
       if (frame !== null) cancelAnimationFrame(frame);
       canvas.removeEventListener("webglcontextlost", onContextLost);
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerleave", onPointerLeave);
+      window.removeEventListener("scroll", restage);
       observer.disconnect();
-      context.deleteProgram(program);
-      context.deleteShader(vertex);
-      context.deleteShader(fragment);
-      context.deleteBuffer(buffer);
+      shader?.dispose();
     };
   }, []);
 
@@ -372,7 +475,8 @@ export function Backdrop() {
           "#000000",
       }}
     >
-      <canvas ref={canvasRef} className="block size-full" />
+      <canvas ref={canvasRef} className="absolute inset-0 block size-full" />
+      <canvas ref={brainRef} data-brain="" className="absolute inset-0 block size-full" />
     </div>
   );
 }
@@ -402,78 +506,5 @@ export function ReadingScrim() {
       aria-hidden="true"
       className="pointer-events-none fixed inset-0 -z-10 bg-black/55"
     />
-  );
-}
-
-/* What the intro leaves behind. The brief was that the animation "remains
-   where it finished", and the design reference calls for an ambient field of
-   the same outlined triangles scattered at low opacity behind the content, so
-   this is that field: the intro's particles, settled.
-
-   It sits at the same depth as the shader, beneath the scrim. That is not a
-   detail: at -z-10 it painted on top of the black layer that fixes what every
-   contrast ratio on this site is measured against, and a single pale triangle
-   behind a line of grey text was enough to fail AA.
-
-   It is static SVG in the server HTML rather than a third canvas. A drifting
-   version would mean another requestAnimationFrame loop on every page for a
-   decoration nobody looks at directly, and an infinite CSS animation instead
-   would never resolve, which matters because the accessibility suite waits on
-   document.getAnimations() before it scans. Positions come from a golden angle
-   walk, so they are spread rather than clustered, and identical on the server
-   and the client. */
-const AMBIENT_COUNT = 64;
-const GOLDEN_ANGLE = 137.508;
-
-export function AmbientField() {
-  /* No white. Measured against the rendered page, a bone triangle at a quarter
-     opacity lifted the brightest background pixel to a luminance of 0.0369,
-     which drops the quietest grey on the site to 4.29:1 and fails AA. The
-     gradient alone measures 0.0069 and 6.55:1. Nothing here is worth a
-     contrast failure, so the field keeps the three chromatic tints, which are
-     all darker than the type that sits over them. */
-  const tints = ["var(--iris)", "var(--spark)", "var(--verdant)"];
-  const triangles = Array.from({ length: AMBIENT_COUNT }, (_, index) => {
-    const angle = (index * GOLDEN_ANGLE * Math.PI) / 180;
-    const radius = Math.sqrt((index + 0.5) / AMBIENT_COUNT);
-    const x = 50 + Math.cos(angle) * radius * 52;
-    const y = 50 + Math.sin(angle) * radius * 52;
-    /* About a centimetre across at most. The first pass sized these at five to
-       nine viewBox units, which on a wide screen came out as hundred pixel
-       outlines: not an ambient field, just some large triangles. */
-    const size = 0.8 + ((index * 3) % 5) * 0.22;
-    return {
-      key: index,
-      x: Number(x.toFixed(3)),
-      y: Number(y.toFixed(3)),
-      size: Number(size.toFixed(3)),
-      rotation: (index * 47) % 360,
-      tint: tints[index % tints.length],
-      opacity: 0.14 + ((index * 7) % 5) * 0.05,
-    };
-  });
-
-  return (
-    <svg
-      aria-hidden="true"
-      className="pointer-events-none fixed inset-0 -z-20 size-full"
-      viewBox="0 0 100 100"
-      /* slice, not none. Stretching the viewBox to the viewport turned every
-         triangle into a lopsided wedge on a wide screen. */
-      preserveAspectRatio="xMidYMid slice"
-    >
-      {triangles.map((triangle) => (
-        <polygon
-          key={triangle.key}
-          points="0,-0.66 0.58,0.34 -0.58,0.34"
-          fill="none"
-          stroke={triangle.tint}
-          strokeWidth={0.6}
-          opacity={triangle.opacity}
-          transform={`translate(${triangle.x} ${triangle.y}) rotate(${triangle.rotation}) scale(${triangle.size})`}
-          vectorEffect="non-scaling-stroke"
-        />
-      ))}
-    </svg>
   );
 }

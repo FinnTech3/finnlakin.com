@@ -2,6 +2,17 @@
 
 import { useEffect, useRef } from "react";
 
+import { brainBox } from "./brain";
+import {
+  buildSprites,
+  offscreenPoint,
+  Particle,
+  readTints,
+  samplePoints,
+  shuffle,
+  TRIANGLE,
+} from "./particles";
+
 /* The opening animation. Adapted from the particle text effect Finn supplied:
    the flocking maths is his, everything around it is new, because the original
    could not run here as written.
@@ -32,12 +43,6 @@ const MAX_EDGE = 1100;
    software. */
 const STRIDE = 6;
 
-/* Small enough that two neighbouring samples do not merge. At nine pixels on a
-   six pixel stride every triangle overlapped its neighbours, which thickened
-   each stroke by ten pixels and closed the counters of the letters: the word
-   came out as a bar rather than as text. */
-const TRIANGLE = 7;
-
 type Phase = { lines: string[]; at: number };
 
 /* Two phases, then the dissolve.
@@ -60,118 +65,6 @@ const DISSOLVE_MS = 900;
 /* Nothing may leave the overlay up longer than this, whatever the animation is
    doing. A stalled frame loop is not allowed to hold the page hostage. */
 const CEILING_MS = 6800;
-
-type Vec = { x: number; y: number };
-
-class Particle {
-  pos: Vec = { x: 0, y: 0 };
-  vel: Vec = { x: 0, y: 0 };
-  target: Vec = { x: 0, y: 0 };
-  maxSpeed = 5;
-  maxForce = 0.25;
-  closeEnough = 140;
-  tint = 0;
-  alpha = 0;
-  scattered = false;
-
-  /* Finn's steering: accelerate towards the target, ease off inside a radius so
-     particles settle instead of orbiting.
-
-     What is new is `step`, the frame's length measured against sixty a second.
-     The original advanced by a fixed amount per frame, which means the
-     animation runs at whatever speed the machine happens to draw at. Measured
-     here, the two canvases together drop to thirty frames a second on a
-     software rasteriser and twenty at the ninetieth percentile, so the word was
-     still assembling when the next phase began. Stepping by time rather than by
-     frame makes the intro take the same three seconds everywhere, and simply
-     look coarser where the machine is slower. */
-  move(step: number) {
-    const dx = this.target.x - this.pos.x;
-    const dy = this.target.y - this.pos.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    const proximity = distance < this.closeEnough ? distance / this.closeEnough : 1;
-
-    let desiredX = 0;
-    let desiredY = 0;
-    if (distance > 0) {
-      desiredX = (dx / distance) * this.maxSpeed * proximity;
-      desiredY = (dy / distance) * this.maxSpeed * proximity;
-    }
-
-    /* Clamped to maxForce, not set to it. The original normalised this vector
-       unconditionally, so a particle sitting on its target still received a
-       full strength correction every frame and jittered around it forever. At a
-       fixed sixty frames a second that reads as a slight shimmer and looks
-       deliberate. Stepped by elapsed time it is not slight: the correction
-       scales with the frame length and the cloud never resolves into letters at
-       all, which is what a screenshot of it showed. */
-    let steerX = desiredX - this.vel.x;
-    let steerY = desiredY - this.vel.y;
-    const steer = Math.sqrt(steerX * steerX + steerY * steerY);
-    if (steer > this.maxForce) {
-      steerX = (steerX / steer) * this.maxForce;
-      steerY = (steerY / steer) * this.maxForce;
-    }
-
-    this.vel.x += steerX * step;
-    this.vel.y += steerY * step;
-    this.pos.x += this.vel.x * step;
-    this.pos.y += this.vel.y * step;
-
-    if (this.alpha < 1) this.alpha = Math.min(1, this.alpha + 0.09 * step);
-  }
-}
-
-/* Just beyond the frame rather than a full canvas away. Paired with the speeds
-   below, a phase forms in about three quarters of a second; the first version
-   spawned particles a diagonal out and was still gathering them when the next
-   phase started. */
-function offscreenPoint(width: number, height: number): Vec {
-  const angle = Math.random() * Math.PI * 2;
-  const radius = Math.max(width, height) * 0.62;
-  return {
-    x: width / 2 + Math.cos(angle) * radius,
-    y: height / 2 + Math.sin(angle) * radius,
-  };
-}
-
-/* One sprite per palette colour, stroked once and stamped after that. Stroking
-   a thousand paths a frame is what makes a canvas animation stutter in
-   software; drawImage of a ten pixel bitmap does not. */
-function buildSprites(tints: string[]): HTMLCanvasElement[] {
-  return tints.map((tint) => {
-    const sprite = document.createElement("canvas");
-    sprite.width = TRIANGLE;
-    sprite.height = TRIANGLE;
-    const ctx = sprite.getContext("2d");
-    if (!ctx) return sprite;
-    const inset = 1;
-    ctx.strokeStyle = tint;
-    ctx.lineWidth = 1;
-    ctx.lineJoin = "miter";
-    ctx.beginPath();
-    ctx.moveTo(TRIANGLE / 2, inset);
-    ctx.lineTo(TRIANGLE - inset, TRIANGLE - inset);
-    ctx.lineTo(inset, TRIANGLE - inset);
-    ctx.closePath();
-    ctx.stroke();
-    return sprite;
-  });
-}
-
-function readTints(): string[] {
-  const fallbacks = ["#8052ff", "#ffb829", "#15846e", "#ffffff"];
-  try {
-    const root = getComputedStyle(document.documentElement);
-    const resolved = ["--iris", "--spark", "--verdant", "--bone"].map((name, index) => {
-      const value = root.getPropertyValue(name).trim();
-      return /^#[0-9a-f]{3,8}$/i.test(value) ? value : fallbacks[index]!;
-    });
-    return resolved;
-  } catch {
-    return fallbacks;
-  }
-}
 
 export function Intro() {
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -198,7 +91,10 @@ export function Intro() {
 
     let done = false;
     const particles: Particle[] = [];
-    const tints = readTints();
+    const tints = readTints(
+      ["--iris", "--spark", "--verdant", "--bone"],
+      ["#8052ff", "#ffb829", "#15846e", "#ffffff"],
+    );
     const sprites = buildSprites(tints);
 
     const rect = host.getBoundingClientRect();
@@ -228,53 +124,36 @@ export function Intro() {
       }
     }
 
-    /* Renders a phase to an offscreen canvas, reads back the pixels it covered
-       and hands each one to a particle. Sampling is a proper two dimensional
-       walk: the original stepped through the flat RGBA array, which strides in
-       x but visits every row, so it produced several times the particles it
-       looked like it would. */
+    /* Sets the word, then hands each covered point to a particle. The sampling
+       and the shuffle are shared with the constellation behind the hero: see
+       samplePoints in ./particles. */
     function retarget(lines: string[]) {
-      const sheet = document.createElement("canvas");
-      sheet.width = width;
-      sheet.height = height;
-      const paint = sheet.getContext("2d");
-      if (!paint) return;
-
       const family = getComputedStyle(document.body).fontFamily || "sans-serif";
       const longest = lines.reduce((a, b) => (a.length > b.length ? a : b));
-      let size = Math.round(height / (lines.length * 1.5 + 0.5));
-      paint.font = `600 ${size}px ${family}`;
-      const measured = paint.measureText(longest).width;
-      const limit = width * 0.9;
-      if (measured > limit) size = Math.max(16, Math.floor((size * limit) / measured));
 
-      /* Weight 600, where the page sets its display type at 400. A headline at
-         a hundred points can afford a light stroke; the same letterform sampled
-         at a sixth of that size and stamped with a triangle every six pixels
-         cannot. */
-      paint.font = `600 ${size}px ${family}`;
-      paint.fillStyle = "#ffffff";
-      paint.textAlign = "center";
-      paint.textBaseline = "middle";
-      const leading = size * 1.14;
-      const top = height / 2 - ((lines.length - 1) * leading) / 2;
-      lines.forEach((line, index) => {
-        paint.fillText(line, width / 2, top + index * leading);
-      });
+      const spots = shuffle(
+        samplePoints(width, height, STRIDE, (paint) => {
+          let size = Math.round(height / (lines.length * 1.5 + 0.5));
+          paint.font = `600 ${size}px ${family}`;
+          const measured = paint.measureText(longest).width;
+          const limit = width * 0.9;
+          if (measured > limit) size = Math.max(16, Math.floor((size * limit) / measured));
 
-      const pixels = paint.getImageData(0, 0, width, height).data;
-      const spots: Vec[] = [];
-      for (let y = 0; y < height; y += STRIDE) {
-        const row = y * width;
-        for (let x = 0; x < width; x += STRIDE) {
-          if (pixels[(row + x) * 4 + 3]! > 128) spots.push({ x, y });
-        }
-      }
-
-      for (let i = spots.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [spots[i], spots[j]] = [spots[j]!, spots[i]!];
-      }
+          /* Weight 600, where the page sets its display type at 400. A headline
+             at a hundred points can afford a light stroke; the same letterform
+             sampled at a sixth of that size and stamped with a triangle every
+             six pixels cannot. */
+          paint.font = `600 ${size}px ${family}`;
+          paint.fillStyle = "#ffffff";
+          paint.textAlign = "center";
+          paint.textBaseline = "middle";
+          const leading = size * 1.14;
+          const top = height / 2 - ((lines.length - 1) * leading) / 2;
+          lines.forEach((line, index) => {
+            paint.fillText(line, width / 2, top + index * leading);
+          });
+        }),
+      );
 
       spots.forEach((spot, index) => {
         let particle = particles[index];
@@ -326,9 +205,24 @@ export function Intro() {
 
       const dissolving = elapsed >= DISSOLVE_AT;
       if (dissolving && particles.length > 0 && !particles[0]!.scattered) {
+        /* Towards the constellation, not away from everything. The overlay is
+           about to lift onto a field of the same triangles, so the last thing
+           the word does is fly at where that field is, and the animation
+           visibly becomes the thing that stays. brainBox is the one definition
+           of where that is, shared with the backdrop that draws it.
+
+           A third of them still leave the frame. All of them converging would
+           read as a second word forming rather than as a cloud dispersing. */
+        const box = brainBox(rect.width, rect.height);
         for (const particle of particles) {
           particle.scattered = true;
-          particle.target = offscreenPoint(width, height);
+          particle.target =
+            Math.random() < 0.66
+              ? {
+                  x: (box.x + Math.random() * box.width) * scale,
+                  y: (box.y + Math.random() * box.height) * scale,
+                }
+              : offscreenPoint(width, height);
           particle.maxSpeed *= 2.2;
         }
       }

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import { AmbientField, Backdrop, Scrim } from "@/components/backdrop";
+import { Backdrop, Scrim } from "@/components/backdrop";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { Intro, IntroBoot } from "@/components/intro";
 import { ogImageUrl } from "@/lib/metadata";
@@ -70,14 +70,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             See the note in components/intro.tsx. */}
         <IntroBoot />
 
-        {/* Behind everything: the shader, the settled particle field on top of
-            it, and then the scrim over both. The order matters. The scrim is
-            what fixes the background every contrast ratio on this site is
-            measured against, so nothing decorative may sit above it. All three
-            are decoration and none can be reached by a pointer or a screen
-            reader. */}
+        {/* Behind everything: the shader and the constellation, then the scrim
+            over both. The order matters. The scrim is what fixes the background
+            every contrast ratio on this site is measured against, so nothing
+            decorative may sit above it. Both are decoration and neither can be
+            reached by a pointer or a screen reader. */}
         <Backdrop />
-        <AmbientField />
         <Scrim />
 
         {/* First focusable element on the page. Visually hidden until it takes

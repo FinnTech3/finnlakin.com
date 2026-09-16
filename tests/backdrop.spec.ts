@@ -3,6 +3,10 @@ import { expect, test } from "@playwright/test";
 type Browser = import("@playwright/test").Browser;
 type Page = import("@playwright/test").Page;
 
+/* The key the opening animation writes so it plays once a session. Tests that
+   are not about the intro set it to get straight to the page. */
+const INTRO_KEY = "fl-intro-played";
+
 /* The gradient and the opening animation are the two things the redesign added
    that can fail in ways nothing else on the site can: a machine with no WebGL,
    a machine whose WebGL is software and too slow to animate, a reader who has
@@ -166,6 +170,134 @@ test.describe("the opening animation", () => {
   });
 });
 
+/* The constellation. It is decoration, so none of this is about what it looks
+   like: it is about the three ways a background canvas can go wrong without
+   anybody noticing. It can fail to paint at all, it can keep painting forever
+   after it has scrolled out of sight, and it can keep moving for a reader who
+   asked it not to. */
+test.describe("the constellation", () => {
+  /* Counts the pixels the constellation has actually painted, optionally only
+     those within a radius of a point. Reading the canvas directly rather than
+     diffing screenshots, because the field drifts: any two frames differ, so a
+     pixel diff would pass whatever happened. */
+  async function painted(page: Page, near?: { x: number; y: number; radius: number }) {
+    return page.evaluate((spot) => {
+      const canvas = document.querySelector<HTMLCanvasElement>("[data-brain]");
+      const ctx = canvas?.getContext("2d");
+      if (!canvas || !ctx || canvas.width === 0) return -1;
+      const scale = canvas.width / Math.max(1, canvas.clientWidth);
+      const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+      let count = 0;
+      const cx = spot ? spot.x * scale : 0;
+      const cy = spot ? spot.y * scale : 0;
+      const r2 = spot ? (spot.radius * scale) ** 2 : 0;
+      for (let y = 0; y < canvas.height; y += 2) {
+        for (let x = 0; x < canvas.width; x += 2) {
+          if (pixels[((y * canvas.width + x) << 2) + 3]! < 8) continue;
+          if (spot && (x - cx) ** 2 + (y - cy) ** 2 > r2) continue;
+          count += 1;
+        }
+      }
+      return count;
+    }, near);
+  }
+
+  test("paints behind the opening screen", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
+    await page.reload();
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(2_500);
+
+    expect(
+      await painted(page),
+      "the constellation should have particles on screen",
+    ).toBeGreaterThan(2_000);
+  });
+
+  test("stops painting once it has scrolled away", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
+    await page.reload();
+    await page.waitForTimeout(2_000);
+    expect(await painted(page)).toBeGreaterThan(2_000);
+
+    /* Past the opening screen the canvas is cleared rather than drawn
+       invisibly, which is most of a session's frames. */
+    await page.evaluate(() => window.scrollTo(0, 2_400));
+    await page.waitForTimeout(600);
+    expect(
+      await painted(page),
+      "nothing should still be drawn once it is off stage",
+    ).toBe(0);
+  });
+
+  test("parts around the pointer, and closes again", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
+    await page.reload();
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(2_500);
+
+    const size = page.viewportSize();
+    if (!size) throw new Error("no viewport");
+    /* Inside the cloud, and clear of the headline and the table. */
+    const spot = { x: Math.round(size.width * 0.52), y: Math.round(size.height * 0.3) };
+    const disc = { ...spot, radius: 90 };
+
+    const before = await painted(page, disc);
+    expect(before, "the test is pointing at empty space").toBeGreaterThan(20);
+
+    await page.mouse.move(spot.x, spot.y);
+    await page.waitForTimeout(900);
+    const during = await painted(page, disc);
+
+    /* A machine too slow to animate gets a still picture and no interaction,
+       which is the designed behaviour rather than a failure: the frame loop has
+       stopped, so there is nothing to displace the particles. Asserting the
+       interaction unconditionally made this test fail whenever the suite ran
+       two browsers at once, which is exactly when the guard fires. Both
+       branches assert something, so neither can go quietly green. */
+    const state = await page.locator(".backdrop").getAttribute("data-backdrop");
+    if (state !== "live") {
+      expect(
+        during,
+        "a stopped loop should leave the finished picture, not a blank",
+      ).toBe(before);
+      return;
+    }
+
+    expect(during, "the cloud should open where the pointer is").toBeLessThan(
+      before * 0.75,
+    );
+
+    /* And close behind it. Moving the pointer far away is enough; the particles
+       spring back to where they belong on their own. */
+    await page.mouse.move(4, size.height - 4);
+    await page.waitForTimeout(1_800);
+    const after = await painted(page, disc);
+    expect(after, "the cloud should close again once the pointer leaves").toBeGreaterThan(
+      before * 0.75,
+    );
+  });
+
+  test("holds still for a reader who asked for less motion", async ({ browser }) => {
+    const context = await browser.newContext({ reducedMotion: "reduce" });
+    const page = await context.newPage();
+    await page.goto("/");
+    await page.waitForTimeout(1_200);
+
+    const first = await painted(page);
+    expect(first, "a still frame is still a frame").toBeGreaterThan(1_000);
+
+    /* Same count twice, a second apart. A drifting field would not hold. */
+    await page.waitForTimeout(1_000);
+    expect(await painted(page)).toBe(first);
+    await context.close();
+  });
+});
+
 /* The one thing an accessibility scanner cannot check on this site. axe reads
    computed styles, and the gradient lives in a canvas it cannot read, so it
    composites text against the opaque black on <html> and reports a ratio that
@@ -186,7 +318,7 @@ test.describe("contrast against what is really painted", () => {
     browser,
   }) => {
     await page.goto("/");
-    await page.evaluate(() => sessionStorage.setItem("fl-intro-played", "1"));
+    await page.evaluate((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
     await page.reload();
     await page.evaluate(() => document.fonts.ready);
     await expect
@@ -255,7 +387,6 @@ test.describe("contrast against what is really painted", () => {
       flag: ratio(0.3624),
     };
 
-    // eslint-disable-next-line no-console
     console.log(
       `brightest background luminance ${brightest.toFixed(5)}; ` +
         Object.entries(measured)
