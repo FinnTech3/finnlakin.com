@@ -63,7 +63,9 @@ export const DEFAULTS: ParticleBrainConfig = {
   bloomRadius: 1,
   vignetteOffset: 0.3,
   vignetteDarkness: 4,
-  grainStrength: 0.035,
+  /* Down from a thirtieth, which was visibly noisy across the whole frame.
+     The specification asks for grain that cannot be pointed at. */
+  grainStrength: 0.006,
   noiseAmplitude: 0.619,
   colourFactor: 1.3,
 };

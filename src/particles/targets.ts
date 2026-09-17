@@ -72,7 +72,10 @@ function scaleFor(random: () => number) {
 function colourFor(shape: Shape, index: number, random: () => number) {
   if (random() < WARM_SHARE) return hexToLinear(WARM);
   const height = shape[index * 3 + 1] ?? 0.5;
-  const t = Math.min(1, Math.max(0, (height - 0.28) / 0.44 + (random() - 0.5) * 0.45));
+  /* Held short of the top of the ramp. Run to the end, the crest of the cortex
+     came out pure white, and once the bloom is over it there is no colour left
+     in the brightest third of the cloud at all. */
+  const t = Math.min(0.84, Math.max(0, (height - 0.3) / 0.46 + (random() - 0.5) * 0.4));
   return sampleRamp(t);
 }
 

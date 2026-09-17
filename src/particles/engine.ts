@@ -12,6 +12,7 @@ import {
   type Capability,
   type Tier,
 } from "./quality";
+import { PostChain } from "./post";
 import { ParticleRenderer } from "./renderer";
 import { ScrollController } from "./scroll";
 import { ParticleSimulation } from "./simulation";
@@ -96,8 +97,13 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   const set = buildTargetSet(brainTargets(config.gridSize * config.gridSize, SEED), config.gridSize);
   const simulation = ParticleSimulation.create(context, capability, fullscreen, set);
   const renderer = simulation ? ParticleRenderer.create(context, config.gridSize) : null;
+  /* The post chain is allowed to fail on its own. Without it the particles are
+     drawn straight to the screen, which is a quieter picture but a complete
+     one, and that is a much better outcome than no cloud at all. */
+  const post = renderer ? PostChain.create(context, capability, fullscreen) : null;
   if (!simulation || !renderer) {
     simulation?.dispose();
+    post?.dispose();
     fullscreen.dispose();
     return null;
   }
@@ -119,6 +125,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   let show = reducedMotion ? 1 : 0;
   let lastFrameMs = 0;
   let accumulator = 0;
+  let postUsable = Boolean(post);
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
@@ -140,6 +147,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
       canvas.height = height;
     }
     renderer!.resize(width, height);
+    if (post && !post.resize(width, height)) postUsable = false;
     scroll.measure();
   }
 
@@ -214,10 +222,33 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
       mobile,
     };
 
-    context.bindFramebuffer(context.FRAMEBUFFER, null);
-    context.viewport(0, 0, width, height);
+    const chain = postUsable && post ? post : null;
+    const scene = chain?.sceneTarget ?? null;
+
+    /* The depth pass first, because the defocus needs it and because it wants
+       the depth buffer cleared before the colour pass, which does not use it. */
+    if (chain && tier.post === "full") {
+      const depth = chain.depthTarget;
+      if (depth) {
+        context.bindFramebuffer(context.FRAMEBUFFER, depth.framebuffer);
+        context.viewport(0, 0, depth.width, depth.height);
+        context.clearColor(0, 0, 0, 1);
+        context.clearDepth(1);
+        context.clear(context.COLOR_BUFFER_BIT | context.DEPTH_BUFFER_BIT);
+        renderer!.drawDepth(
+          inputs,
+          config,
+          simulation!.positionTexture,
+          simulation!.scale,
+          simulation!.colour,
+        );
+      }
+    }
+
+    context.bindFramebuffer(context.FRAMEBUFFER, scene ? scene.framebuffer : null);
+    context.viewport(0, 0, scene ? scene.width : width, scene ? scene.height : height);
     context.clearColor(0, 0, 0, 0);
-    context.clear(context.COLOR_BUFFER_BIT | context.DEPTH_BUFFER_BIT);
+    context.clear(context.COLOR_BUFFER_BIT);
 
     renderer!.drawColour(
       inputs,
@@ -226,6 +257,8 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
       simulation!.scale,
       simulation!.colour,
     );
+
+    if (chain) chain.render(tier.post, config, seconds);
 
     lastFrameMs = performance.now() - started;
 
@@ -254,6 +287,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     dispose() {
       simulation.dispose();
       renderer.dispose();
+      post?.dispose();
       fullscreen.dispose();
       const lose = context.getExtension("WEBGL_lose_context");
       lose?.loseContext();
