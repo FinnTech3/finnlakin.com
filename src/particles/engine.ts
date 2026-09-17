@@ -258,7 +258,16 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
       simulation!.colour,
     );
 
-    if (chain) chain.render(tier.post, config, seconds);
+    if (chain) {
+      chain.render(tier.post, config, seconds, state.contentDim);
+    } else {
+      /* No post chain means no final pass, so the one place the dimming lives
+         is not running. The canvas element carries it instead: a single style
+         property, set only when it changes, which the compositor applies for
+         free. Contrast is not something to leave to a fallback path. */
+      const opacity = (1 - state.contentDim).toFixed(3);
+      if (canvas.style.opacity !== opacity) canvas.style.opacity = opacity;
+    }
 
     lastFrameMs = performance.now() - started;
 

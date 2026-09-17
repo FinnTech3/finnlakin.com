@@ -56,7 +56,6 @@ const UNIFORMS = [
   "u_colourFactor",
   "u_progress",
   "u_explode",
-  "u_contentDim",
   "u_mobileRotation",
   "u_offset",
   "u_rotation",
@@ -200,7 +199,6 @@ export class ParticleRenderer {
     gl.uniform1f(uniforms.u_colourFactor ?? null, config.colourFactor);
     gl.uniform1f(uniforms.u_progress ?? null, timeline.progress);
     gl.uniform1f(uniforms.u_explode ?? null, timeline.explode);
-    gl.uniform1f(uniforms.u_contentDim ?? null, timeline.contentDim);
     gl.uniform1f(uniforms.u_mobileRotation ?? null, inputs.mobile ? 1 : 0);
     gl.uniform3f(uniforms.u_offset ?? null, timeline.offset.x, timeline.offset.y, timeline.offset.z);
     gl.uniform3f(

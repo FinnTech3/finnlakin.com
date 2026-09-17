@@ -339,26 +339,57 @@ test.describe("the constellation", () => {
     await context.close();
   });
 });
+/* The one thing an accessibility scanner cannot check on this site.
 
-/* The one thing an accessibility scanner cannot check on this site. axe reads
-   computed styles, and the gradient lives in a canvas it cannot read, so it
-   composites text against the opaque black on <html> and reports a ratio that
-   is right only if the scrim is doing its job. This measures the pixels that
-   actually reach a reader instead.
+   axe reads computed styles. The gradient and the particle cloud both live in
+   canvases it cannot read, so it composites text against the opaque black on
+   <html> and reports a ratio that is only right if nothing decorative is
+   painted between them. This measures the pixels that actually reach a reader.
 
-   It decodes the screenshot in a second browser page rather than in Node,
-   because the browser already has a PNG decoder and the alternative is a
-   hand-written one in the test suite. */
-test.describe("contrast against what is really painted", () => {
-  /* Both viewports, deliberately. The palette does not change with the screen
-     but the shader does: it is a function of resolution, so a phone gets a
-     different frame from a laptop and there is no reason to assume the darker
-     one. */
+   It used to take the brightest pixel anywhere in the viewport with the content
+   hidden, which was the right test when everything decorative sat under a
+   scrim. It is the wrong test now. The particle cloud is painted above the
+   scrim so that its colours run at full strength, and in the opening screen it
+   occupies the half of the page that has no text in it: a measurement over the
+   whole viewport would fail on pixels no word will ever sit on, and the only
+   way to pass it would be to dim the cloud everywhere.
 
-  test("the brightest pixel the backdrop reaches still clears AA", async ({
+   So this measures contrast where the text actually is. Every element carrying
+   text is located, the content is hidden, and the brightest background pixel
+   inside each element's own box is compared against that element's own colour.
+   It is a stricter test in the place that matters and it says nothing about the
+   places that do not. */
+
+type TextBox = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  colour: [number, number, number];
+  large: boolean;
+  label: string;
+};
+
+/* Eight samples across the six section timeline. The cloud moves, disperses,
+   reforms and changes brightness as the page scrolls, so one position proves
+   nothing about the others. */
+const SAMPLE_POINTS = [0, 0.5, 1, 2, 3, 4, 5, 6];
+
+function relativeLuminance(rgb: [number, number, number]) {
+  const channel = (value: number) => {
+    const v = value / 255;
+    return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * channel(rgb[0]) + 0.7152 * channel(rgb[1]) + 0.0722 * channel(rgb[2]);
+}
+
+test.describe("contrast where the words actually are", () => {
+  test("every run of text clears AA against the pixels behind it", async ({
     page,
     browser,
   }) => {
+    test.slow();
+
     await page.goto("/");
     await page.evaluate((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
     await page.reload();
@@ -366,84 +397,159 @@ test.describe("contrast against what is really painted", () => {
     await expect
       .poll(() => page.locator(".backdrop").getAttribute("data-backdrop"))
       .toBe("live");
-    await page.waitForTimeout(1_500);
 
-    /* Hide the content and measure the background on its own. Text can land
-       anywhere on this layout, so the number that matters is the brightest
-       pixel the backdrop produces anywhere in the viewport, not the brightest
-       one in whatever gap the content happens to leave. */
-    await page.addStyleTag({
-      content: "body > header, body > main, body > footer { visibility: hidden !important }",
-    });
-    await page.waitForTimeout(400);
-
-    const shot = (await page.screenshot()).toString("base64");
     const decoder = await browser.newPage();
-    const brightest = await decoder.evaluate(async (data: string) => {
-      const image = new Image();
-      image.src = `data:image/png;base64,${data}`;
-      await image.decode();
-      const canvas = document.createElement("canvas");
-      canvas.width = image.width;
-      canvas.height = image.height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return 1;
-      ctx.drawImage(image, 0, 0);
-      const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    const worst: { ratio: number; label: string; at: number }[] = [];
 
-      const channel = (value: number) => {
-        const v = value / 255;
-        return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-      };
+    for (const point of SAMPLE_POINTS) {
+      await page.evaluate((target) => {
+        const ids = ["hero", "work", "about", "timeline", "skills", "endorsements", "contact"];
+        const tops = ids.map((id) => {
+          const element = document.getElementById(id);
+          return element ? element.getBoundingClientRect().top + window.scrollY : 0;
+        });
+        const index = Math.min(tops.length - 2, Math.floor(target));
+        const fraction = target - index;
+        window.scrollTo(0, tops[index]! + (tops[index + 1]! - tops[index]!) * fraction);
+      }, point);
 
-      /* The whole frame, because the caller hides the content first. Picking a
-         region instead means picking one the gradient happens to be dark in,
-         and the gradient moves. */
-      let max = 0;
-      for (let y = 0; y < canvas.height; y += 2) {
-        for (let x = 0; x < canvas.width; x += 2) {
-          const i = (y * canvas.width + x) << 2;
-          const luminance =
-            0.2126 * channel(pixels[i]!) +
-            0.7152 * channel(pixels[i + 1]!) +
-            0.0722 * channel(pixels[i + 2]!);
-          if (luminance > max) max = luminance;
+      /* Long enough for the eased timeline to arrive and for the spring to
+         settle, because the transient between two states is brighter than
+         either of them. */
+      await page.waitForTimeout(2_500);
+
+      const boxes: TextBox[] = await page.evaluate(() => {
+        const found: TextBox[] = [];
+        const view = { width: window.innerWidth, height: window.innerHeight };
+
+        for (const element of Array.from(document.body.querySelectorAll<HTMLElement>("*"))) {
+          /* Only elements that carry their own words. A wrapper's box covers
+             its children's whitespace, which would measure background that no
+             glyph sits on. */
+          const own = Array.from(element.childNodes).some(
+            (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim().length > 1,
+          );
+          if (!own) continue;
+
+          const style = getComputedStyle(element);
+          if (style.visibility === "hidden" || style.display === "none") continue;
+          if (Number.parseFloat(style.opacity) < 0.95) continue;
+
+          const box = element.getBoundingClientRect();
+          if (box.width < 4 || box.height < 4) continue;
+          if (box.bottom <= 0 || box.top >= view.height) continue;
+
+          const match = style.color.match(/-?\d+(\.\d+)?/g);
+          if (!match || match.length < 3) continue;
+          const colour: [number, number, number] = [
+            Number(match[0]),
+            Number(match[1]),
+            Number(match[2]),
+          ];
+          if (match.length > 3 && Number(match[3]) < 0.95) continue;
+
+          const size = Number.parseFloat(style.fontSize);
+          const weight = Number.parseInt(style.fontWeight, 10) || 400;
+          /* The WCAG definition of large text, which is allowed 3:1. */
+          const large = size >= 24 || (size >= 18.66 && weight >= 700);
+
+          found.push({
+            x: Math.max(0, box.left),
+            y: Math.max(0, box.top),
+            width: Math.min(view.width, box.right) - Math.max(0, box.left),
+            height: Math.min(view.height, box.bottom) - Math.max(0, box.top),
+            colour,
+            large,
+            label: (element.textContent ?? "").trim().slice(0, 40),
+          });
         }
-      }
-      return max;
-    }, shot);
+        return found;
+      });
+
+      expect(boxes.length, `no text found at section progress ${point}`).toBeGreaterThan(0);
+
+      await page.addStyleTag({
+        content: "body > header, body > main, body > footer { visibility: hidden !important }",
+      });
+      const shot = (await page.screenshot()).toString("base64");
+      /* Put it back, or the next sample measures a page with no text on it. */
+      await page.evaluate(() => {
+        const sheets = Array.from(document.head.querySelectorAll("style"));
+        const last = sheets[sheets.length - 1];
+        if (last && last.textContent?.includes("visibility: hidden")) last.remove();
+      });
+
+      const brightest: number[] = await decoder.evaluate(
+        async ({ data, regions }: { data: string; regions: TextBox[] }) => {
+          const image = new Image();
+          image.src = `data:image/png;base64,${data}`;
+          await image.decode();
+          const canvas = document.createElement("canvas");
+          canvas.width = image.width;
+          canvas.height = image.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return regions.map(() => 1);
+          ctx.drawImage(image, 0, 0);
+          const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+          const channel = (value: number) => {
+            const v = value / 255;
+            return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+          };
+
+          return regions.map((region) => {
+            const x0 = Math.max(0, Math.floor(region.x));
+            const y0 = Math.max(0, Math.floor(region.y));
+            const x1 = Math.min(canvas.width, Math.ceil(region.x + region.width));
+            const y1 = Math.min(canvas.height, Math.ceil(region.y + region.height));
+            let max = 0;
+            for (let y = y0; y < y1; y++) {
+              for (let x = x0; x < x1; x++) {
+                const i = (y * canvas.width + x) << 2;
+                const luminance =
+                  0.2126 * channel(pixels[i]!) +
+                  0.7152 * channel(pixels[i + 1]!) +
+                  0.0722 * channel(pixels[i + 2]!);
+                if (luminance > max) max = luminance;
+              }
+            }
+            return max;
+          });
+        },
+        { data: shot, regions: boxes },
+      );
+
+      boxes.forEach((box, index) => {
+        const background = brightest[index] ?? 1;
+        const text = relativeLuminance(box.colour);
+        const lighter = Math.max(text, background);
+        const darker = Math.min(text, background);
+        const ratio = (lighter + 0.05) / (darker + 0.05);
+        const floor = box.large ? 3 : 4.5;
+
+        if (ratio < floor + 1.5) {
+          worst.push({ ratio, label: box.label, at: point });
+        }
+
+        expect(
+          ratio,
+          `"${box.label}" at section progress ${point} sits on background ` +
+            `luminance ${background.toFixed(4)}`,
+        ).toBeGreaterThanOrEqual(floor);
+      });
+    }
+
     await decoder.close();
 
-    const ratio = (text: number) => (text + 0.05) / (brightest + 0.05);
-
-    /* Relative luminance of the palette, computed once rather than derived here,
-       so a wrong number in this test cannot be made to agree with a wrong number
-       in the stylesheet. Bone #ffffff, silver #bdbdbd, ash #9a9a9a, spark
-       #ffb829, pass #4fd1a5, flag #ff7a6b. */
-    const measured = {
-      bone: ratio(1),
-      silver: ratio(0.50884),
-      ash: ratio(0.32307),
-      spark: ratio(0.557),
-      pass: ratio(0.499863),
-      flag: ratio(0.3624),
-    };
-
+    worst.sort((a, b) => a.ratio - b.ratio);
     console.log(
-      `brightest background luminance ${brightest.toFixed(5)}; ` +
-        Object.entries(measured)
-          .map(([name, value]) => `${name} ${value.toFixed(2)}:1`)
-          .join(", "),
+      "tightest contrast ratios: " +
+        (worst.length === 0
+          ? "none within 1.5 of the floor"
+          : worst
+              .slice(0, 6)
+              .map((entry) => `${entry.ratio.toFixed(2)}:1 at ${entry.at} ("${entry.label}")`)
+              .join("; ")),
     );
-
-    /* 4.5:1 is AA for body text. The quietest grey on the site is the one that
-       decides whether the scrim is heavy enough, so it gets the tightest
-       assertion. */
-    expect(measured.ash, "the quietest grey on the page").toBeGreaterThan(4.5);
-    expect(measured.silver, "long-form body").toBeGreaterThan(4.5);
-    expect(measured.spark, "links").toBeGreaterThan(4.5);
-    expect(measured.pass, "a passing verdict").toBeGreaterThan(4.5);
-    expect(measured.flag, "a flagged verdict").toBeGreaterThan(4.5);
-    expect(measured.bone, "headlines").toBeGreaterThan(7);
   });
 });

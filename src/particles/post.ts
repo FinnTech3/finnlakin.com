@@ -102,6 +102,7 @@ export class PostChain {
       "u_vignetteDarkness",
       "u_grain",
       "u_exposure",
+      "u_contentDim",
     ]);
   }
 
@@ -206,7 +207,7 @@ export class PostChain {
   }
 
   /* Everything after the particles have been drawn into the scene target. */
-  render(level: PostLevel, config: ParticleBrainConfig, seconds: number) {
+  render(level: PostLevel, config: ParticleBrainConfig, seconds: number, contentDim: number) {
     const gl = this.gl;
     if (!this.scene || !this.composed || !this.defocused) return;
 
@@ -284,6 +285,7 @@ export class PostChain {
         level === "full" ? config.grainStrength : config.grainStrength * 0.6,
       );
       gl.uniform1f(this.finalUniforms.u_exposure ?? null, EXPOSURE);
+      gl.uniform1f(this.finalUniforms.u_contentDim ?? null, contentDim);
     });
   }
 

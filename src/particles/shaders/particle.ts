@@ -36,7 +36,6 @@ uniform float u_amplitude;
 uniform float u_colourFactor;
 uniform float u_progress;
 uniform float u_explode;
-uniform float u_contentDim;
 uniform float u_mobileRotation;
 uniform vec3 u_offset;
 uniform vec3 u_rotation;
@@ -111,7 +110,7 @@ void main() {
      specification is explicit that they stay recognisably coloured. */
   tint = mix(tint, vec3(0.45), clamp01(u_explode) * 0.35);
 
-  v_colour = tint * (1.0 - u_contentDim);
+  v_colour = tint;
   v_normal = normal;
   v_pos = world;
 

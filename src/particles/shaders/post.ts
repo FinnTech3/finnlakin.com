@@ -162,6 +162,7 @@ uniform float u_vignetteOffset;
 uniform float u_vignetteDarkness;
 uniform float u_grain;
 uniform float u_exposure;
+uniform float u_contentDim;
 
 float random(vec2 p) {
   return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
@@ -184,6 +185,19 @@ void main() {
 
   vec2 offset = (v_uv - 0.5) * u_vignetteOffset;
   colour = mix(colour, vec3(0.0), clamp(dot(offset, offset) * u_vignetteDarkness, 0.0, 1.0));
+
+  /* How far the cloud is held down so that text laid over it keeps its contrast
+     ratio. Applied here, after the tone map, and not in the vertex shader where
+     it started.
+
+     That is not a tidying up. Dimming a particle's colour before accumulation
+     and tone mapping buys almost nothing in the dense middle: the tone map is
+     there precisely to compress large values towards one, so cutting the input
+     by a hundredfold moves the output by very little. Measured, a dim of 0.993
+     applied per particle still left a relative luminance of 0.09 behind a line
+     of body text, where the ceiling is 0.033. Applied to the finished pixel it
+     is an honest multiplier: halve it and the measurement halves. */
+  colour *= 1.0 - u_contentDim;
 
   /* How opaque this pixel is, decided before the grain is added.
 

@@ -70,15 +70,23 @@ function targets(progress: number, baseFactor: number) {
   const rotationZ =
     mapClamped(p, 2.7, 3, 0, -0.489) + mapClamped(p, 3.3, 3.5, 0, 0.6);
 
-  /* Not from the specification. This is what keeps the cloud from taking the
-     contrast ratio of the text laid over it below the accessible floor.
+  /* Not from the specification, and the least glamorous number in this file.
 
-     The opening screen has the brain on the right and the headline on the left,
-     so nothing is written over it and it runs at full strength. From the first
-     section onwards the page is prose and the cloud is behind it, so it comes
-     down. The number is set by measurement rather than by taste: the test that
-     enforces it reads the real luminance inside each text element's box. */
-  const contentDim = mapClamped(p, 0.55, 1.15, 0, 0.62);
+     In the opening screen the cloud has the right half of the page and the
+     headline has the left, so nothing is written over it and it runs at full
+     strength. The moment it starts travelling left it crosses the text, and a
+     bright particle behind a paragraph is not a stylistic question: for the
+     quietest grey on this site to clear AA, the brightest pixel behind it has
+     to stay under a relative luminance of about 0.033, and the cloud at full
+     strength was measured at 0.87 behind a line of body copy.
+
+     So it goes nearly dark before it arrives, and spends the rest of the page
+     as a faint moving presence rather than a picture. That is a real cost and
+     it is the right way round: the choreography is decoration, and the words
+     are the reason anybody is here. The ramp finishes before the cloud reaches
+     the text rather than while it is crossing it, and the number at the end is
+     set by the measurement, not by eye. */
+  const contentDim = mapClamped(p, 0.05, 0.35, 0, 0.988);
 
   return {
     offset: { x: BASE.x + x, y: BASE.y + y, z: BASE.z },
