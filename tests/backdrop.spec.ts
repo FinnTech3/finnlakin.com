@@ -350,6 +350,46 @@ test.describe("the particle engine", () => {
     expect(selected.trim().length, "dragging across a paragraph selected nothing").toBeGreaterThan(3);
   });
 
+  /* A browser allows only a handful of live WebGL contexts, somewhere around
+     sixteen, and hands back null once they are gone. Leaving one behind on
+     every unmount does not show up as slowly growing memory: it shows up as the
+     cloud simply failing to appear once the reader has moved around the site a
+     few times, which nothing else here would catch.
+
+     The navigation has to be client side. A full page load tears the document
+     down and the browser reclaims every context whether or not anything was
+     disposed, so testing with goto would pass no matter how badly this leaked.
+     Clicking the site's own links keeps one document alive across ten mounts
+     and unmounts, which is what the disposal path actually has to survive. */
+  test("survives ten client side mounts without running out of contexts", async ({ page }) => {
+    test.slow();
+    await page.goto("/?brainQuality=low");
+    await page.evaluate((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
+    await page.reload();
+
+    const live = async () =>
+      expect
+        .poll(() => page.locator("[data-brain]").getAttribute("data-brain"), { timeout: 20_000 })
+        .toBe("live");
+
+    await live();
+
+    for (let visit = 0; visit < 10; visit++) {
+      await page.locator("header nav a[href='/writing']").click();
+      await expect(page).toHaveURL(/\/writing$/);
+      await expect(page.locator("[data-brain]")).toHaveCount(0);
+
+      await page.locator("header a[href='/']").first().click();
+      await expect(page).toHaveURL(/\/$/);
+      await live();
+    }
+
+    expect(
+      await painted(page),
+      "the cloud stopped painting after ten mounts, so a context was leaked",
+    ).toBeGreaterThan(200);
+  });
+
   test("turns itself off when asked, leaving the page untouched", async ({ page }) => {
     await page.goto("/?brainQuality=off");
     await page.evaluate(() => document.fonts.ready);
