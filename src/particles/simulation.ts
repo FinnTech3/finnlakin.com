@@ -189,6 +189,10 @@ export class ParticleSimulation {
      first frame would find the target dispersed and fling every particle
      outward before drawing it back, which is the opposite of the intended
      movement and is exactly what it looks like. */
+  seedFrom(set: TargetSet) {
+    this.seed(set);
+  }
+
   private seed(set: TargetSet) {
     const { gl } = this;
     const width = this.simSize;
@@ -198,7 +202,7 @@ export class ParticleSimulation {
       const gx = i % this.gridSize;
       const gy = Math.floor(i / this.gridSize);
       const texel = (gy * width + gx) * 4;
-      const dispersal = 1.9 + set.param3[i * 4 + 1]! * 0.6;
+      const dispersal = 1.55 + set.param3[i * 4 + 1]! * 0.45;
       for (let axis = 0; axis < 3; axis++) {
         const target = set.positions[texel + axis]!;
         seeded[texel + axis] = 0.5 + (target - 0.5) * dispersal;
@@ -209,6 +213,44 @@ export class ParticleSimulation {
     const payload = this.capability.simType === gl.FLOAT ? seeded : toHalfArray(seeded);
     this.positions.seed(gl, this.capability, payload);
     this.velocities.clear(gl);
+  }
+
+  /* Swap in a different set of four shapes without disturbing the simulation.
+
+     The opening animation and the scrolling page use different target
+     textures: the first holds two words and the brain, the second holds the
+     brain and the three shapes it morphs through. Uploading over the existing
+     textures rather than allocating new ones keeps every particle's position
+     and velocity exactly as it was, which is what makes the handover between
+     them invisible: the cloud does not restart, it simply finds that its
+     destination has changed. */
+  setTargets(set: TargetSet) {
+    const { gl } = this;
+    const data = (source: Float32Array) =>
+      this.capability.simType === gl.FLOAT ? source : toHalfArray(source);
+
+    const upload = (texture: WebGLTexture, source: Float32Array, size: number) => {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texSubImage2D(
+        gl.TEXTURE_2D,
+        0,
+        0,
+        0,
+        size,
+        size,
+        this.capability.simFormat,
+        this.capability.simType,
+        data(source),
+      );
+    };
+
+    upload(this.targetTexture, set.positions, this.simSize);
+    upload(this.scaleTexture, set.scales, this.simSize);
+    upload(this.colourTexture, set.colours, this.simSize);
+    upload(this.param1, set.param1, this.gridSize);
+    upload(this.param2, set.param2, this.gridSize);
+    upload(this.param3, set.param3, this.gridSize);
+    gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
   get positionTexture() {

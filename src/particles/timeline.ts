@@ -147,6 +147,25 @@ export class ParticleTimeline {
     return this.state;
   }
 
+  /* Pins the composition while the opening animation owns the screen.
+
+     Held rather than overridden at the point of use, so that when the hold is
+     released the easing carries the cloud from wherever the intro left it to
+     wherever the scroll position says it belongs. Overridden instead, the
+     handover would be a jump. */
+  hold(offset: { x: number; y: number; z: number }, factor: number, yaw: number) {
+    this.state = {
+      ...this.state,
+      offset,
+      factor,
+      explode: 0,
+      progress2: 0,
+      rotation: { x: 0, y: yaw, z: 0 },
+      contentDim: 0,
+    };
+    return this.state;
+  }
+
   /* Used by the reduced motion path and by the tests, which need the settled
      answer for a scroll position without waiting for it to ease there. */
   settle(sectionProgress: number) {

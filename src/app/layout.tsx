@@ -71,11 +71,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             See the note in components/intro.tsx. */}
         <IntroBoot />
 
-        {/* Behind everything: the shader and the constellation, then the scrim
-            over both. The order matters. The scrim is what fixes the background
-            every contrast ratio on this site is measured against, so nothing
-            decorative may sit above it. Both are decoration and neither can be
-            reached by a pointer or a screen reader. */}
+        {/* Behind everything, in this order: the shader, the scrim that holds
+            it down, then the particle cloud above both. The cloud is above the
+            scrim on purpose, so its colours are not capped, and carries its own
+            dimming wherever text is laid over it. All three are decoration and
+            none can be reached by a pointer or a screen reader. */}
         <Backdrop />
         <Scrim />
         {/* Above the scrim, so its colours run at full strength, and below

@@ -85,7 +85,7 @@ void main() {
      Quintic easing, so it is slow at both ends and quick through the middle,
      which is what makes it look pulled rather than slid. */
   float reveal = qinticInOut(u_show);
-  float dispersal = mix(1.9 + param3.g * 0.6, 1.0, reveal);
+  float dispersal = mix(1.55 + param3.g * 0.45, 1.0, reveal);
   target = centre + (target - centre) * dispersal;
 
   vec3 previous = texture(t_position, simUv).xyz;

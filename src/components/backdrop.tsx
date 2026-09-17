@@ -398,13 +398,16 @@ export function Backdrop() {
   );
 }
 
-/* The single number that sets every contrast ratio on this site. The shader's
-   brightest reachable colour is the violet token, and at 28% over black that
-   composites to a luminance of 0.0144, which is what the palette was chosen
-   against: amber links 9.4:1, silver body 8.7:1, the quietest grey 5.8:1.
-   A contrast checker cannot read a canvas, so it would report all of these
-   against pure black and be wrong in the flattering direction. The scrim is
-   what makes the reported number and the real one agree. */
+/* What holds the shader down to a background. A contrast checker cannot read a
+   canvas, so without this it would report every ratio on the site against pure
+   black and be wrong in the flattering direction. Measured with the content
+   hidden, the shader and this scrim together reach a relative luminance of
+   0.0069.
+
+   The particle cloud is not under it. It sits above, so its colours run at full
+   strength in the half of the opening screen that carries no text, and it is
+   held down by its own measured dimming everywhere else. See the note in
+   particles/timeline.ts. */
 export function Scrim() {
   return (
     <div

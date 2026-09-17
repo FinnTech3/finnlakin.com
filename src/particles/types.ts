@@ -112,6 +112,9 @@ export type ParticleBrain = {
      a frame, never acted on per event. */
   pointer: (clientX: number, clientY: number) => void;
   pointerLeave: () => void;
+  /* Ends the opening animation now. Nobody should have to wait out a
+     decoration to read a page. */
+  endIntro: () => void;
   setConfig: (config: Partial<ParticleBrainConfig>) => void;
   resize: () => void;
   /* One frame. The host owns the loop, because the host is what knows about

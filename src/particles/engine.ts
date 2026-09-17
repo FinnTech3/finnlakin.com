@@ -17,7 +17,9 @@ import { ParticleRenderer } from "./renderer";
 import { ScrollController } from "./scroll";
 import { ParticleSimulation } from "./simulation";
 import { buildTargetSet, SEED } from "./targets";
-import { brainTargets } from "./brain-shape";
+import { brain, brainTargets } from "./brain-shape";
+import { introFactor, rescale, wordShape } from "./words";
+import { mapClamped } from "./pack";
 import { DEFAULTS, type ParticleBrain, type ParticleBrainConfig, type QualityLevel } from "./types";
 import { ParticleTimeline } from "./timeline";
 
@@ -31,11 +33,21 @@ import { ParticleTimeline } from "./timeline";
    asserted console clean and a decorative background must never be the thing
    that breaks that in front of a reader. */
 
-/* A frame longer than this is treated as this. Coming back to a tab that has
-   been hidden for ten minutes would otherwise advance the simulation by ten
-   minutes at once, which with a spring system means every particle leaves the
-   screen and never returns. */
-const MAX_DELTA_SECONDS = 0.1;
+/* How much real time one frame is allowed to account for.
+
+   This used to be a tenth of a second, chosen to keep the spring stable, and
+   that was solving a problem the fixed sub step below already solves: every
+   integration step is a sixtieth of a second whatever happens, so stability is
+   guaranteed by the step size and not by this. What this actually bounds is
+   catch up work, and a tenth of a second was bounding it far too tightly: at
+   two frames a second the simulation was being given a tenth of a second of
+   time for every half second that passed, so it ran at a fifth speed and the
+   opening word was a smear when it should have been a word.
+
+   Half a second is enough to keep real time down to two frames a second, and
+   small enough that returning to a tab hidden for ten minutes advances the
+   spring by half a second rather than by ten minutes. */
+const MAX_DELTA_SECONDS = 0.5;
 
 /* The spring constants the specification gives are per frame at sixty frames a
    second, not per second. Run once a frame they describe a different animation
@@ -50,11 +62,55 @@ const MAX_DELTA_SECONDS = 0.1;
    instanced pyramids is nothing, so six of them cost less than one of the
    draws they are feeding. */
 const SIMULATION_STEP_SECONDS = 1 / 60;
-const MAX_STEPS_PER_FRAME = 6;
+
+/* Enough steps to keep the simulation's clock on the wall down to about three
+   frames a second. Six was not: at the two frames a second a software
+   rasteriser manages at the top quality level, the spring was getting a fifth
+   of the steps it needed and the opening word was still an unresolved smear
+   several seconds after it should have read. Twenty costs nothing where it is
+   not needed, because a machine drawing sixty frames a second takes exactly one
+   of them, and where it is needed it is forty draws over a hundred pixels
+   square against one pass over ten thousand instanced solids. */
+const MAX_STEPS_PER_FRAME = 20;
 
 /* How long the opening reveal takes to draw the cloud in from its dispersed
-   start. */
-const SHOW_SECONDS = 2.4;
+   start. Short, because until it finishes the first word is a smear rather than
+   a word, and the phase after it is waiting. */
+const SHOW_SECONDS = 0.9;
+
+/* The opening animation's clock is read straight off the wall rather than
+   accumulated from frames.
+
+   Accumulating deltas is right for the simulation, which clamps each step to
+   stay stable, but that clamp makes its clock run behind on a slow machine.
+   Measured here at the forced top quality level, which is about two frames a
+   second on a software rasteriser, a six second intro was taking over eleven
+   and ending on its safety ceiling instead of its handover. Any cap large
+   enough to fix that is large enough to be no cap at all, so this is an
+   absolute time: the phases keep wall time on every machine, and a reader who
+   switches away and comes back finds it finished, which is what they would
+   want anyway. */
+
+/* The opening animation, in milliseconds from the first frame. The first word
+   assembles, becomes the second, and the second becomes the brain; then the
+   hold on the composition is released and the page takes over.
+
+   These are the timings from the version Finn watched, kept because they were
+   arrived at by watching rather than by reasoning. */
+/* The first word needs longer than it looks, and the reason is measurable
+   rather than aesthetic. The reveal draws the cloud in over nine tenths of a
+   second, and only once it has arrived does the spring start closing the last
+   of the distance, which at a spring of six thousandths and a friction of
+   0.892 takes about another seventy steps. So the word is not actually a word
+   until roughly two seconds in. Starting the second phase at 2300 had it
+   morphing away at the moment it became legible. */
+const WORD_TWO_FROM = 3000;
+const WORD_TWO_TO = 4200;
+const BRAIN_FROM = 5000;
+const BRAIN_TO = 6300;
+const HANDOVER_AT = 6900;
+
+const INTRO_LINES: string[][] = [["FINN LAKIN"], ["ECONOMICS,", "FINANCE,", "SOFTWARE DEV"]];
 
 export type EngineOptions = {
   canvas: HTMLCanvasElement;
@@ -63,6 +119,11 @@ export type EngineOptions = {
      otherwise be stepped straight down can be asked for the full picture. */
   quality?: QualityLevel;
   reducedMotion?: boolean;
+  /* Whether this load opens with the animation. Decided before first paint by
+     the inline script in the layout, so a second page view in the same session
+     and a reader who asked for less motion never see it. */
+  intro?: boolean;
+  onIntroEnd?: () => void;
 };
 
 export function createParticleBrain(options: EngineOptions): ParticleBrain | null {
@@ -94,7 +155,36 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   const fullscreen = createFullscreen(context);
   if (!fullscreen) return null;
 
-  const set = buildTargetSet(brainTargets(config.gridSize * config.gridSize, SEED), config.gridSize);
+  const count = config.gridSize * config.gridSize;
+  const scrollSet = buildTargetSet(brainTargets(count, SEED), config.gridSize);
+
+  /* The opening animation is not a separate system. It is the same four
+     quadrant target texture with two words in it and the brain in the other
+     two, so the words are made of the identical ten thousand pyramids and
+     become the brain by the same morph that carries every other transition. */
+  const aspect = Math.max(0.3, window.innerWidth / Math.max(1, window.innerHeight));
+  const wordsFactor = introFactor(aspect);
+  const runIntro = Boolean(options.intro) && !(options.reducedMotion ?? false);
+
+  const introSet = runIntro
+    ? (() => {
+        /* The brain is stored here shrunk by exactly the ratio between the two
+           factors, so that at the handover the texture and the factor change in
+           the same frame and cancel: the picture does not move. */
+        const shrunk = rescale(brain(count, SEED), count, config.factorDesktop / wordsFactor);
+        return buildTargetSet(
+          [
+            wordShape(INTRO_LINES[0]!, window.innerWidth, window.innerHeight, count, SEED + 3),
+            wordShape(INTRO_LINES[1]!, window.innerWidth, window.innerHeight, count, SEED + 5),
+            shrunk,
+            shrunk,
+          ],
+          config.gridSize,
+        );
+      })()
+    : null;
+
+  const set = introSet ?? scrollSet;
   const simulation = ParticleSimulation.create(context, capability, fullscreen, set);
   const renderer = simulation ? ParticleRenderer.create(context, config.gridSize) : null;
   /* The post chain is allowed to fail on its own. Without it the particles are
@@ -126,6 +216,14 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   let lastFrameMs = 0;
   let accumulator = 0;
   let postUsable = Boolean(post);
+  let introActive = runIntro;
+  let introMs = 0;
+  /* When the first frame ran. The opening reveal and the animation's phases are
+     both measured from here rather than accumulated from frame deltas: the
+     deltas are clamped to keep the spring stable, so on a slow machine they run
+     behind the wall and anything timed off them plays in slow motion. The
+     reveal was taking four and a half seconds instead of nine tenths. */
+  let clockStartedMs = 0;
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
@@ -173,24 +271,46 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   function frame(nowMs: number) {
     const started = nowMs;
     if (previousMs === 0) previousMs = nowMs;
+    if (clockStartedMs === 0) clockStartedMs = nowMs;
+    const sinceStart = nowMs - clockStartedMs;
     const delta = clamp((nowMs - previousMs) / 1000, 0, MAX_DELTA_SECONDS);
     previousMs = nowMs;
     seconds += delta;
 
-    if (!reducedMotion && show < 1) {
-      show = clamp(show + delta / SHOW_SECONDS, 0, 1);
+    if (!reducedMotion) {
+      show = clamp(sinceStart / (SHOW_SECONDS * 1000), 0, 1);
     }
 
     scroll.read();
     const progress = reducedMotion ? scroll.settle() : scroll.update(delta);
     if (reducedMotion) mouse.still();
     else mouse.update(delta);
-    const state = reducedMotion
-      ? timeline.settle(progress)
-      : timeline.update(progress, config.timelineEase, delta);
+
+    let state;
+    let morph;
+    if (introActive) {
+      introMs = sinceStart;
+      /* Two transitions, each a straight ramp. The wave across the cloud comes
+         from the per particle ordering in the shader, not from shaping this. */
+      morph =
+        mapClamped(introMs, WORD_TWO_FROM, WORD_TWO_TO, 0, 1) +
+        mapClamped(introMs, BRAIN_FROM, BRAIN_TO, 0, 1);
+      state = timeline.hold({ x: 0, y: 0, z: 0 }, wordsFactor, 0);
+
+      if (introMs >= HANDOVER_AT) {
+        introActive = false;
+        simulation!.setTargets(scrollSet);
+        options.onIntroEnd?.();
+      }
+    } else {
+      state = reducedMotion
+        ? timeline.settle(progress)
+        : timeline.update(progress, config.timelineEase, delta);
+      morph = state.progress;
+    }
 
     const inputsForStep = {
-      progress: state.progress,
+      progress: morph,
       explode: state.explode,
       show,
       delta: mouse.value.delta,
@@ -213,7 +333,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     if (steps === 0 && seconds <= delta) simulation!.step(inputsForStep, config, mobile);
 
     const inputs = {
-      timeline: state,
+      timeline: introActive ? { ...state, progress: morph } : state,
       seconds,
       mouse: mouse.value.current,
       pitch: mouse.pitch,
@@ -286,6 +406,12 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     },
     pointerLeave() {
       mouse.leave();
+    },
+    endIntro() {
+      if (!introActive) return;
+      introActive = false;
+      simulation.setTargets(scrollSet);
+      options.onIntroEnd?.();
     },
     setConfig(partial) {
       Object.assign(config, partial);

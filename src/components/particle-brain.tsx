@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 
 import { createParticleBrain } from "@/particles/engine";
 import { debugRequested, forcedLevel } from "@/particles/quality";
+import { STORAGE_KEY } from "@/components/intro";
 import type { ParticleBrain as Engine } from "@/particles/types";
 
 /* The host. It owns a canvas, a frame loop and five listeners, and nothing
@@ -19,6 +20,13 @@ import type { ParticleBrain as Engine } from "@/particles/types";
 /* Long enough after the pointer stops that a pause while reading is not treated
    as the pointer having left, short enough that it settles while you watch. */
 const POINTER_IDLE_MS = 900;
+
+/* However the opening animation ends, it is over by this point. A decoration
+   must never be the reason a page cannot be read. */
+const INTRO_CEILING_MS = 9_000;
+
+/* Matches the transition in the stylesheet that fades the veil out. */
+const VEIL_FADE_MS = 700;
 
 export function ParticleBrain({ className }: { className?: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -44,10 +52,46 @@ export function ParticleBrain({ className }: { className?: string }) {
       typeof window.matchMedia === "function" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    /* Decided before the first paint by the inline script in the layout, which
+       is why this reads an attribute rather than checking the conditions again:
+       by the time this runs, the page has already painted once. */
+    const root = document.documentElement;
+    const wantsIntro = root.dataset.intro === "running";
+
+    let ceiling: ReturnType<typeof setTimeout> | null = null;
+    let fade: ReturnType<typeof setTimeout> | null = null;
+    let ended = false;
+
+    const finishIntro = () => {
+      if (ended) return;
+      ended = true;
+      try {
+        sessionStorage.setItem(STORAGE_KEY, "1");
+      } catch {
+        /* Private browsing can refuse this. The animation then plays again on
+           the next page view, which is a smaller problem than throwing. */
+      }
+      root.dataset.intro = "ending";
+      fade = setTimeout(() => {
+        delete root.dataset.intro;
+      }, VEIL_FADE_MS);
+      window.removeEventListener("keydown", skip);
+      window.removeEventListener("pointerdown", skip);
+      window.removeEventListener("wheel", skip);
+      if (ceiling) clearTimeout(ceiling);
+    };
+
+    const skip = () => {
+      engine?.endIntro();
+      finishIntro();
+    };
+
     const engine: Engine | null = createParticleBrain({
       canvas,
       quality: forced ?? undefined,
       reducedMotion,
+      intro: wantsIntro,
+      onIntroEnd: finishIntro,
     });
 
     /* Every failure path lands here: no WebGL2, no float render target, a
@@ -56,7 +100,20 @@ export function ParticleBrain({ className }: { className?: string }) {
        a blank rectangle where a picture should be. */
     if (!engine) {
       host.dataset.brain = "fallback";
+      /* No engine means no animation to wait for, and leaving the attribute set
+         would leave the page under an opaque black rectangle for ever. */
+      if (wantsIntro) delete root.dataset.intro;
       return;
+    }
+
+    if (wantsIntro) {
+      /* Any deliberate act ends it. */
+      window.addEventListener("keydown", skip);
+      window.addEventListener("pointerdown", skip);
+      window.addEventListener("wheel", skip, { passive: true });
+      ceiling = setTimeout(skip, INTRO_CEILING_MS);
+    } else if (root.dataset.intro) {
+      delete root.dataset.intro;
     }
 
     let frame: number | null = null;
@@ -132,6 +189,12 @@ export function ParticleBrain({ className }: { className?: string }) {
       running = false;
       pause();
       if (idle) clearTimeout(idle);
+      if (ceiling) clearTimeout(ceiling);
+      if (fade) clearTimeout(fade);
+      window.removeEventListener("keydown", skip);
+      window.removeEventListener("pointerdown", skip);
+      window.removeEventListener("wheel", skip);
+      delete root.dataset.intro;
       window.removeEventListener("pointermove", onPointerMove);
       document.removeEventListener("pointerleave", onPointerLeave);
       window.removeEventListener("scroll", onScroll);

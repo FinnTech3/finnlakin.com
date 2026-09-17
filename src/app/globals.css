@@ -408,21 +408,35 @@ button {
 .intro {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 58;
   visibility: hidden;
   opacity: 0;
   background: #000000;
 }
 
-html[data-intro="running"] .intro {
+html[data-intro="running"] .intro,
+html[data-intro="ending"] .intro {
   visibility: visible;
+}
+
+html[data-intro="running"] .intro {
   opacity: 1;
 }
 
-.intro canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
+/* A finite transition rather than an animation, and only on the way out. The
+   accessibility suite waits for document.getAnimations() to settle, and an
+   animation that never resolves hangs it; a transition resolves. */
+html[data-intro="ending"] .intro {
+  opacity: 0;
+  transition: opacity 700ms ease-out;
+}
+
+/* The particle canvas lives behind the page. While the opening animation owns
+   the screen it comes out in front of the veil, which is what makes the words
+   the only thing visible, and drops back when the animation hands over. */
+html[data-intro="running"] [data-brain],
+html[data-intro="ending"] [data-brain] {
+  z-index: 59;
 }
 
 @media (prefers-reduced-motion: reduce) {
