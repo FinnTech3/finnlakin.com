@@ -45,7 +45,22 @@ export function Hero() {
 
       </div>
 
-      <table className="mt-20 w-full border-collapse text-left">
+      {/* The cloud's own space, at phone width only.
+
+          On a wide screen it rests in the half this column leaves free, and
+          nothing has to be reserved because the column already is the
+          reservation. A phone has no free half, so the composition puts the
+          cloud under the call to action instead of beside it, and without this
+          the table sat in the same band: the brain came up through the
+          reconstruction rows, which is the thing Finn pointed at.
+
+          Sized in viewport heights, because what it is reserving is a share of
+          the screen rather than a number of rows. The floor keeps it honest on
+          a short phone held in landscape, where a third of the height is not
+          very much. */}
+      <div aria-hidden="true" className="h-[32vh] min-h-[200px] lg:hidden" />
+
+      <table className="mt-8 w-full border-collapse text-left lg:mt-20">
           <caption className="t-label pb-4 text-left text-muted">
             Four reconstructions, against the published series
           </caption>

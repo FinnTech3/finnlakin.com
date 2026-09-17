@@ -217,6 +217,98 @@ test.describe("the particle engine", () => {
     }, shot);
   }
 
+  /* The debug handle the engine hangs on the window when it is asked for one.
+     Only ever read here and by the overlay. */
+  type Inspection = {
+    timeline: { progress: number };
+    pointerActive: number;
+    scroll: number;
+  };
+  type Handle = { particleBrain?: { inspect: () => Inspection } };
+
+  async function handleReady(page: Page) {
+    await expect
+      .poll(() => page.evaluate(() => Boolean((window as unknown as Handle).particleBrain)), {
+        timeout: 30_000,
+      })
+      .toBe(true);
+    /* The engine settles the timeline to wherever the page already is on its
+       first frame, so one frame is enough; this is slack for a machine that
+       takes half a second to draw one. */
+    await page.waitForTimeout(1_500);
+  }
+
+  /* The whole inspection comes back in one round trip, rather than a callback
+     being shipped into the page: every response on this site carries a content
+     security policy without unsafe-eval, so a stringified function would work
+     here and break the moment it ran against the real headers. */
+  async function inspection(page: Page): Promise<Inspection | null> {
+    return page.evaluate(() => {
+      const handle = (window as unknown as Handle).particleBrain;
+      return handle ? handle.inspect() : null;
+    });
+  }
+
+  async function scrollReading(page: Page) {
+    return (await inspection(page))?.scroll ?? -1;
+  }
+
+  async function progressReading(page: Page) {
+    return (await inspection(page))?.timeline.progress ?? -1;
+  }
+
+  /* Lit pixels in a centred box, given as a share of the image rather than in
+     pixels, so the same numbers mean the same thing on a phone at two and three
+     quarter device pixels to the css pixel as on a monitor at one. */
+  /* How densely lit each of several centred boxes is, given as shares of the
+     image rather than in pixels, so the same numbers mean the same thing on a
+     phone at two and three quarter device pixels to the css pixel as on a
+     monitor at one. All of them off one screenshot, because a screenshot is the
+     expensive part and two of them are two different moments. */
+  async function paintedShares(page: Page, shares: number[], threshold = 120) {
+    const canvas = page.locator("[data-brain] canvas");
+    const shot = (await canvas.screenshot()).toString("base64");
+    return page.evaluate(
+      async ({
+        data,
+        shares,
+        threshold,
+      }: {
+        data: string;
+        shares: number[];
+        threshold: number;
+      }) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${data}`;
+        await image.decode();
+        const sheet = document.createElement("canvas");
+        sheet.width = image.width;
+        sheet.height = image.height;
+        const ctx = sheet.getContext("2d");
+        if (!ctx) return shares.map(() => -1);
+        ctx.drawImage(image, 0, 0);
+        const pixels = ctx.getImageData(0, 0, sheet.width, sheet.height).data;
+        return shares.map((share) => {
+          const x0 = Math.round((sheet.width * (1 - share)) / 2);
+          const x1 = sheet.width - x0;
+          const y0 = Math.round((sheet.height * (1 - share)) / 2);
+          const y1 = sheet.height - y0;
+          let lit = 0;
+          let sampled = 0;
+          for (let y = y0; y < y1; y += 2) {
+            for (let x = x0; x < x1; x += 2) {
+              const i = (y * sheet.width + x) << 2;
+              sampled += 1;
+              if (pixels[i]! + pixels[i + 1]! + pixels[i + 2]! > threshold) lit += 1;
+            }
+          }
+          return sampled > 0 ? lit / sampled : -1;
+        });
+      },
+      { data: shot, shares, threshold },
+    );
+  }
+
   /* Lit pixels inside a disc, in canvas coordinates. Used to measure the hole
      the pointer opens, which a count over the whole cloud would miss: particles
      pushed out of the middle land at the edge of the reach and the total barely
@@ -523,6 +615,153 @@ test.describe("the particle engine", () => {
        by hand. */
     expect(during, "the pointer did not part the cloud").toBeLessThan(before * 0.9);
     expect(after, "the cloud did not close again").toBeGreaterThan(during * 1.05);
+  });
+
+  test("flies the opening in from outside the frame", async ({ page }) => {
+    test.slow();
+    /* The entrance is over in about two seconds and one canvas screenshot on
+       the software rasteriser this runs on costs more real time than that, so
+       the moment being measured has to be held rather than caught.
+
+       Every time the engine knows about is the timestamp requestAnimationFrame
+       hands it. Handing it a clock of this test's own making freezes the whole
+       engine at a moment of its own choosing: once the clock stops the frame
+       delta is nought, so the simulation takes no further steps and the reveal
+       stops advancing, and the picture stays there for as long as the
+       measurement needs. An earlier version of this test timed the moment from
+       the wall instead and measured whatever the animation had got to by the
+       time a loaded machine got round to taking the screenshot, which was a
+       different moment every run and sometimes a second late.
+
+       The clock is advanced in steps of no more than a quarter of a second,
+       rather than jumped straight to the moment, because the engine caps how
+       many simulation steps one frame may catch up on. Jumped, the reveal
+       arrives at its moment with only part of the spring that belongs to it,
+       and the frozen picture is of a state the animation never actually passes
+       through. */
+    const FROZEN_AT = 500;
+    const MOST_PER_FRAME = 240;
+    await page.addInitScript(
+      ({ frozenAt, mostPerFrame }: { frozenAt: number; mostPerFrame: number }) => {
+        const raf = window.requestAnimationFrame.bind(window);
+        let base: number | null = null;
+        let last = 0;
+        let clock = 0;
+        window.requestAnimationFrame = (callback: FrameRequestCallback) =>
+          raf((stamp) => {
+            if (base === null) {
+              base = stamp;
+              last = stamp;
+            }
+            clock = Math.min(frozenAt, clock + Math.min(stamp - last, mostPerFrame));
+            last = stamp;
+            callback(base + clock);
+          });
+
+        /* The one clock that cannot be frozen with the rest: the failsafe that
+           lifts the veil after nine seconds if the engine never arrives is a
+           timeout on the real clock, and it would fire in the middle of the
+           measurement and let the page show through the canvas. Only long
+           timeouts are stretched, so nothing else the page does is affected:
+           the failsafe is the only one on this page measured in seconds. */
+        const timer = window.setTimeout.bind(window);
+        window.setTimeout = ((handler: TimerHandler, delay?: number, ...rest: unknown[]) =>
+          timer(handler, (delay ?? 0) >= 5_000 ? 600_000 : delay, ...rest)) as typeof setTimeout;
+      },
+      { frozenAt: FROZEN_AT, mostPerFrame: MOST_PER_FRAME },
+    );
+
+    /* Nothing is clicked, scrolled or typed in this test on purpose: any of
+       those ends the opening animation, which is the thing being measured. */
+    await page.goto("/?brainQuality=low");
+    await expect
+      .poll(() => page.locator("[data-brain]").getAttribute("data-brain"), { timeout: 30_000 })
+      .toBe("live");
+    /* Long enough for the clock above to climb to its moment and be drawn, at
+       the two frames a second this environment manages. */
+    await page.waitForTimeout(3_000);
+
+    /* How densely lit the middle third of the frame is against the whole of it,
+       at a threshold high enough to ignore the bloom. The bloom is a five level
+       pyramid whose coarsest level spreads light across most of the frame, so at
+       the threshold the plain frame count uses, the middle of an empty screen
+       still reads as one percent lit from particles only just inside the edges. */
+    const [middle, whole] = await paintedShares(page, [0.3, 1]);
+
+    console.log(
+      `entrance at ${FROZEN_AT}ms: middle ${(middle * 100).toFixed(2)}% lit, ` +
+        `whole frame ${(whole * 100).toFixed(2)}%`,
+    );
+
+    /* If the veil ever did come off before the measurement, the page would be
+       showing through the canvas and the numbers above would be of something
+       else entirely. */
+    expect(await introState(page), "the animation ended before it was measured").toBe("running");
+    /* And an engine that drew nothing at all would pass the comparison below. */
+    expect(whole, "the engine drew nothing to measure").toBeGreaterThan(0.001);
+
+    /* Half a second in, the particles are crossing the edges of the frame on
+       their way to the middle, and the middle itself measures at exactly nought
+       on both a monitor and a phone: nothing has got there yet, against six or
+       seven tenths of a percent across the frame as a whole. A tenth of a second
+       later the phone's middle is already at nine tenths of a percent and two
+       tenths later the monitor's is at four and a half, so this is a narrow
+       moment, which is why it is held rather than caught. The opening this
+       replaced started every particle at one and a half times its own radius
+       about the centre, which put the middle at its busiest in the very first
+       frame. */
+    expect(middle, "the opening did not start outside the frame").toBeLessThan(whole / 3);
+  });
+
+  test("maps the scroll onto the sections it was measured against", async ({ page }) => {
+    test.slow();
+    /* The contract in scroll.ts is exact: section n's top reaching the top of
+       the viewport is progress n. It is only exact if the boundaries were
+       measured after the page stopped moving, and they used to be measured once
+       from resize, which runs before the web fonts arrive. Fonts change the
+       height of every block of text, so every section below the first moves,
+       and the timeline spent the rest of the session mapped to positions the
+       page no longer had. */
+    await page.addInitScript((key: string) => sessionStorage.setItem(key, "1"), INTRO_KEY);
+    await page.goto("/?brainQuality=low&brainDebug=1");
+    await handleReady(page);
+
+    for (const [id, expected] of [
+      ["about", 2],
+      ["skills", 4],
+    ] as const) {
+      const top = await page.evaluate((section: string) => {
+        const element = document.getElementById(section);
+        if (!element) return -1;
+        const to = element.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo(0, to);
+        return Math.round(to);
+      }, id);
+      expect(top, `there is no #${id} section to scroll to`).toBeGreaterThan(0);
+
+      await expect
+        .poll(() => scrollReading(page), { timeout: 20_000 })
+        .toBeCloseTo(expected, 1);
+    }
+  });
+
+  test("follows the call to action through to the contact composition", async ({ page }) => {
+    test.slow();
+    /* The call to action is an anchor to the last section, so following it
+       moves the scroll from the top of the page to the bottom in one go. How
+       fast the timeline is then allowed to travel is asserted in
+       scripts/check-motion.ts, where it can be measured exactly; what is
+       asserted here is that the jump is followed at all, which is the part that
+       depends on the boundaries, the anchor and the engine agreeing. */
+    await page.addInitScript((key: string) => sessionStorage.setItem(key, "1"), INTRO_KEY);
+    await page.goto("/?brainQuality=low&brainDebug=1");
+    await handleReady(page);
+
+    expect(await progressReading(page), "the page did not start at the top").toBeLessThan(0.2);
+
+    await page.click('a[href="#contact"]');
+    await expect.poll(() => scrollReading(page), { timeout: 20_000 }).toBeGreaterThan(5.5);
+    await expect.poll(() => progressReading(page), { timeout: 20_000 }).toBeGreaterThan(2.4);
   });
 
   test("turns itself off when asked, leaving the page untouched", async ({ page }) => {

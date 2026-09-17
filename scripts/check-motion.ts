@@ -1,7 +1,13 @@
 import { entryField, perimeterPoint } from "../src/particles/entrance";
-import type { ParticleTimelineState } from "../src/particles/types";
+import { stepToward } from "../src/particles/scroll";
+import { DEFAULTS, type ParticleTimelineState } from "../src/particles/types";
 
-/* Validates where the opening entrance starts every particle.
+/* Validates the two rules of the engine's motion that a browser cannot check.
+
+   Both are things whose failure is invisible in a screenshot and too quick to
+   sample on the software rasteriser the suite runs against: where the opening
+   entrance starts every particle, and how fast the timeline is allowed to
+   travel when the page jumps rather than scrolls.
 
    The entrance is the one part of the engine whose correctness is invisible in
    a still: a particle seeded a little inside the frame instead of a little
@@ -185,8 +191,68 @@ for (const aspect of [0.46, 1.78]) {
   console.log(`  aspect ${aspect}: closest seeded particle sits at ${worst.toFixed(3)} of the frame`);
 }
 
+
+/* The timeline's speed limit.
+
+   The call to action in the hero is an anchor to the contact section, so
+   following it moves the scroll from nought to six in one go. The eased value
+   covers a proportion of whatever gap it is given, so before the cap a gap that
+   size was crossed in about a frame and the cloud played the drift, the
+   explosion, both morphs and the reassembly as a flicker. On a machine drawing
+   two frames a second there is no sampling rate at which a browser test can see
+   the difference, which is why it is asserted here. */
+const SPEED_LIMIT = 4;
+
+console.log("Timeline speed");
+
+for (const delta of [1 / 120, 1 / 60, 1 / 30, 0.25, 0.5]) {
+  let worst = 0;
+  let current = 0;
+  /* A jump the whole length of the timeline, then the same in reverse, which is
+     what scrolling back up from the contact section does. */
+  for (const target of [6, 6, 6, 6, 6, 6, 6, 6, 0, 0, 0, 0, 0, 0, 0, 0]) {
+    const next = stepToward(current, target, DEFAULTS.scrollEase, delta);
+    worst = Math.max(worst, Math.abs(next - current) / delta);
+    current = next;
+  }
+  check(
+    worst <= SPEED_LIMIT + 1e-9,
+    `the timeline stays under ${SPEED_LIMIT} sections a second at ${delta.toFixed(4)}s a frame`,
+    `reached ${worst.toFixed(3)}`,
+  );
+  console.log(`  ${delta.toFixed(4)}s a frame: fastest ${worst.toFixed(2)} sections a second`);
+}
+
+/* The cap must not become the whole behaviour. Ordinary scrolling moves the
+   target by a fraction of a section at a time, and there the easing has to be
+   what decides the motion, or the cloud would track the scrollbar exactly and
+   lose the lag that makes it read as being carried. */
+{
+  const delta = 1 / 60;
+  const eased = stepToward(0, 0.2, DEFAULTS.scrollEase, delta);
+  check(
+    eased < 0.2 && eased > 0,
+    "a small gap is still eased rather than capped",
+    `moved ${eased.toFixed(4)} of 0.2`,
+  );
+  check(
+    Math.abs(eased / delta) < SPEED_LIMIT,
+    "a small gap does not reach the cap",
+    `${(eased / delta).toFixed(3)} sections a second`,
+  );
+}
+
+/* And it has to arrive. A cap that is applied to the eased value rather than to
+   the gap could in principle stall short of the target. */
+{
+  let current = 0;
+  for (let i = 0; i < 600; i++) current = stepToward(current, 6, DEFAULTS.scrollEase, 1 / 60);
+  check(Math.abs(current - 6) < 0.01, "the timeline arrives at the target", `${current.toFixed(4)}`);
+  console.log(`  arrives at ${current.toFixed(4)} of 6 after ten seconds`);
+}
+
 if (failures > 0) {
-  console.error(`\n${failures} entrance check${failures === 1 ? "" : "s"} failed.`);
+  console.error(`\n${failures} motion check${failures === 1 ? "" : "s"} failed.`);
   process.exit(1);
 }
-console.log("  all entrance checks passed");
+console.log("  all motion checks passed");

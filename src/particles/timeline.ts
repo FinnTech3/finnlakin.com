@@ -37,7 +37,16 @@ function targets(progress: number, baseFactor: number, aspect: number) {
   const narrow = aspect < 1.1;
   const spread = Math.min(1, aspect / 1.6);
   const openX = narrow ? 0 : 3;
-  const openY = narrow ? -2.4 : 0;
+  /* Lower than it was, and the cloud is smaller to match. At minus two point
+     four the brain's top edge landed on the last line of the course paragraph
+     and across the call to action, which is the collision Finn pointed at: on a
+     wide screen the cloud has the half of the hero the text leaves free, and on
+     a phone there is no free half, so it has to go below the text instead of
+     beside it. At this offset and the mobile factor it runs from about three
+     quarters of the way down the viewport to a little past the bottom, which is
+     under the button and above nothing. The hero reserves the room below it so
+     the table does not sit in the same band. */
+  const openY = narrow ? -2.75 : 0;
 
   const x =
     mapClamped(p, 0, 1, openX, -4.5 * spread) +
@@ -101,7 +110,12 @@ function targets(progress: number, baseFactor: number, aspect: number) {
      are the reason anybody is here. The ramp finishes before the cloud reaches
      the text rather than while it is crossing it, and the number at the end is
      set by the measurement, not by eye. */
-  const contentDim = mapClamped(p, 0.05, 0.35, 0, 0.988);
+  /* Finished sooner on a narrow screen. The ramp is measured against how far
+     the reader has to scroll before text is over the cloud, and that distance
+     is much shorter on a phone: the hero's own table is under the cloud's band
+     within a couple of hundred pixels, where on a wide screen the cloud is
+     still in the half the text does not use. */
+  const contentDim = mapClamped(p, 0.05, narrow ? 0.22 : 0.35, 0, 0.988);
 
   return {
     offset: { x: BASE.x + x, y: BASE.y + y, z: BASE.z },

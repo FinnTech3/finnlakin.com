@@ -16,10 +16,48 @@ import type { ScrollState } from "./types";
 
 const SECTIONS = ["hero", "work", "about", "timeline", "skills", "endorsements", "contact"];
 
+/* How fast the timeline is allowed to travel, in sections a second.
+
+   Without this the eased progress is only ever a proportion of the gap, so a
+   large gap is crossed quickly however large it is, and the gaps are not all
+   made by scrolling. The call to action in the hero is an anchor to the contact
+   section: following it takes the scroll from nought to six in one go, and the
+   cloud then played the drift, the explosion, both morphs and the reassembly in
+   about a second. That is not a transition, it is a flicker.
+
+   Four a second means the whole page takes a second and a half at the fastest,
+   which reads as a sweep rather than a glitch, and it binds on nothing a reader
+   does with a wheel or a finger: normal scrolling never asks the timeline to
+   move faster than about one section a second. */
+const MAX_SECTIONS_PER_SECOND = 4;
+
+/* One eased, capped step of the timeline towards where the page is.
+
+   Exported and pure so that the cap can be asserted rather than looked at: the
+   failure it guards against is a jump that is over before a frame can be
+   sampled, which is precisely the kind of thing a browser test cannot catch on
+   a machine drawing two frames a second. */
+export function stepToward(
+  current: number,
+  target: number,
+  ease: number,
+  deltaSeconds: number,
+): number {
+  const gap = target - current;
+  /* Eased, then capped. The easing is what makes scrolling back reverse the
+     animation smoothly; the cap is what stops a jump to an anchor being treated
+     as a very fast scroll. */
+  const limit = MAX_SECTIONS_PER_SECOND * Math.max(0, deltaSeconds);
+  return current + clamp(gap * easeForFrame(ease, deltaSeconds), -limit, limit);
+}
+
 export class ScrollController {
   private state: ScrollState = { sectionProgress: 0, target: 0 };
   private boundaries: number[] = [];
   private ease: number;
+  private observer: ResizeObserver | null = null;
+  private queued = false;
+  private live = false;
 
   constructor(ease: number) {
     this.ease = ease;
@@ -29,9 +67,62 @@ export class ScrollController {
     return this.state;
   }
 
-  /* Measured on layout and on resize, never in the frame loop. Reading
-     offsetTop forces the browser to settle pending layout, and doing that every
-     frame is how a smooth animation quietly becomes a janky one. */
+  /* Measures now, and again whenever the page can have moved underneath.
+
+     Measuring once was a real fault rather than a theoretical one. It ran from
+     resize, and resize runs at startup, which is before the web fonts have
+     arrived. Fonts change the height of every block of text on the page, so
+     every section below the first moves, sometimes by hundreds of pixels, and
+     the timeline spent the rest of the session mapped to positions the page no
+     longer had: the cloud reached the explosion while the reader was still in
+     the work section.
+
+     So: once now, once when the fonts land, and again whenever a section or the
+     body changes size. Images finishing, a chart laying out, an expanded
+     details element and a rotated phone all move the boundaries and none of
+     them is a window resize. */
+  watch() {
+    if (typeof document === "undefined") return;
+    this.live = true;
+    this.measure();
+
+    document.fonts?.ready
+      .then(() => {
+        if (this.live) this.measure();
+      })
+      .catch(() => {
+        /* A browser that refuses to resolve it still gets the measurement
+           above and the observer below. */
+      });
+
+    if (typeof ResizeObserver === "undefined") return;
+    this.observer = new ResizeObserver(() => {
+      /* Coalesced onto a frame. One reflow changes several boxes and delivers
+         several entries, and a measurement reads seven bounding rectangles. */
+      if (this.queued || !this.live) return;
+      this.queued = true;
+      requestAnimationFrame(() => {
+        this.queued = false;
+        if (this.live) this.measure();
+      });
+    });
+    for (const id of SECTIONS) {
+      const element = document.getElementById(id);
+      if (element) this.observer.observe(element);
+    }
+    if (document.body) this.observer.observe(document.body);
+  }
+
+  unwatch() {
+    this.live = false;
+    this.observer?.disconnect();
+    this.observer = null;
+  }
+
+  /* Measured on layout, on resize and on reflow, never in the frame loop.
+     Reading a bounding rectangle forces the browser to settle pending layout,
+     and doing that every frame is how a smooth animation quietly becomes a
+     janky one. */
   measure() {
     if (typeof document === "undefined") return;
     const tops: number[] = [];
@@ -72,9 +163,12 @@ export class ScrollController {
   }
 
   update(deltaSeconds: number) {
-    const step = easeForFrame(this.ease, deltaSeconds);
-    this.state.sectionProgress +=
-      (this.state.target - this.state.sectionProgress) * step;
+    this.state.sectionProgress = stepToward(
+      this.state.sectionProgress,
+      this.state.target,
+      this.ease,
+      deltaSeconds,
+    );
     return this.state.sectionProgress;
   }
 

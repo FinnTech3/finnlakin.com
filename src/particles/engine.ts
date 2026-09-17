@@ -83,7 +83,7 @@ const MAX_STEPS_PER_FRAME = 20;
    particle to be released lands at roughly this plus one, which has to stay
    comfortably inside the first word's phase below or the word morphs away while
    part of it is still arriving. */
-const SHOW_SECONDS = 1.1;
+const SHOW_SECONDS = 1.0;
 
 /* The opening animation's clock is read straight off the wall rather than
    accumulated from frames.
@@ -298,7 +298,22 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   }
 
   resize();
+  /* Re-measured whenever the page moves under it, not only on window resize.
+     The boundaries are read from the real sections, and the fonts that decide
+     how tall those sections are have not arrived yet at this point. */
+  scroll.watch();
   scroll.settle();
+
+  /* Where the timeline starts.
+
+     Its constructor starts it at the opening composition, which is right for a
+     reader arriving at the top and wrong for one who reloaded halfway down or
+     followed a link straight to a section: the eased timeline would set off
+     from the opening and play the drift, the explosion and both morphs to catch
+     up. The opening animation is the one case that still wants the ease,
+     because the whole point of holding the composition is that releasing the
+     hold carries the cloud into place. */
+  if (!runIntro) timeline.settle(scroll.value.sectionProgress);
 
   /* A reader who asked for less motion gets one frame, so the simulation has to
      arrive at the answer before it is drawn rather than springing towards it.
@@ -313,6 +328,22 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
       pointerActive: 0,
     };
     for (let i = 0; i < 240; i++) simulation.step(inputs, config, mobile);
+  }
+
+  /* The end of the opening animation, whether it ran its course or a reader
+     cut it short by touching something.
+
+     The scroll position is settled rather than left to ease, because the
+     composition was held while the animation played and the page could have
+     moved a long way under it: any scroll ends the intro, but a reader who
+     flings the page and then waits out the dissolve would otherwise have the
+     timeline set off from wherever the eased value had got to. */
+  function handOver() {
+    if (!introActive) return;
+    introActive = false;
+    simulation!.setTargets(scrollSet);
+    scroll.settle();
+    options.onIntroEnd?.();
   }
 
   function frame(nowMs: number) {
@@ -344,11 +375,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
         mapClamped(introMs, BRAIN_FROM, BRAIN_TO, 0, 1);
       state = timeline.hold({ x: 0, y: 0, z: 0 }, wordsFactor, 0);
 
-      if (introMs >= HANDOVER_AT) {
-        introActive = false;
-        simulation!.setTargets(scrollSet);
-        options.onIntroEnd?.();
-      }
+      if (introMs >= HANDOVER_AT) handOver();
     } else {
       state = reducedMotion
         ? timeline.settle(progress)
@@ -470,10 +497,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
       mouse.leave();
     },
     endIntro() {
-      if (!introActive) return;
-      introActive = false;
-      simulation.setTargets(scrollSet);
-      options.onIntroEnd?.();
+      handOver();
     },
     setConfig(partial) {
       Object.assign(config, partial);
@@ -482,6 +506,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     resize,
     frame,
     dispose() {
+      scroll.unwatch();
       simulation.dispose();
       renderer.dispose();
       post?.dispose();
@@ -497,6 +522,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
         timeline: timeline.current,
         pointer: lastPointer,
         pointerActive: lastPointerActive,
+        scroll: scroll.value.sectionProgress,
       };
     },
   };

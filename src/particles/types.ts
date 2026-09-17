@@ -53,16 +53,27 @@ export const DEFAULTS: ParticleBrainConfig = {
   particleCount: 10000,
   gridSize: 100,
   factorDesktop: 4.35,
-  factorMobile: 2.5,
+  /* Down from 2.5. The cloud has to fit between the call to action and a
+     little past the bottom of a phone's viewport, and at 2.5 it was half a
+     screen tall and sat across the hero's text. */
+  factorMobile: 2.05,
   particleScaleDesktop: 1.55,
   particleScaleMobile: 1.2,
   spring: 0.006,
   friction: 0.892,
-  /* Just under a third, so a particle is caught over about a third of a second
-     and the queue in front of it is about three quarters of the reveal. Tuned
-     by watching it: a longer window reads as the cloud being sucked in, a much
-     shorter one as ten thousand separate snaps. */
-  entryWindow: 0.3,
+  /* An eighth, which is a little over a tenth of a second: nearly a step rather
+     than a ramp, and the queue in front of a particle is most of the reveal.
+
+     This was three tenths, and the cost was measured rather than felt. The ramp
+     is eased at both ends, so over three tenths of a second the spring was still
+     almost nothing a fifth of a second in, and the first particle did not cross
+     into the frame until about six hundred milliseconds: over half a second of
+     black at the start of a page load. Made nearly a step, a particle sets off
+     at once and is inside the frame by about a fifth of a second, which is the
+     drama that was being waited for. There is no jerk from switching a spring
+     on: the force is proportional to distance, so the particle accelerates from
+     rest whatever the gate does. */
+  entryWindow: 0.12,
   morphDelayDesktop: 0.0005,
   morphDelayMobile: 0.000025,
   secondaryMorphDelay: 0.0005,
@@ -155,5 +166,10 @@ export type ParticleBrain = {
        open it is. Only ever read by the debug overlay and the tests. */
     pointer: [number, number, number];
     pointerActive: number;
+    /* Where the page is, in sections, as the timeline sees it. Exposed so the
+       tests can assert the boundaries are the real ones: section n's top at the
+       top of the viewport has to read exactly n, and it does not if the
+       measurement was taken before the fonts moved everything. */
+    scroll: number;
   };
 };
