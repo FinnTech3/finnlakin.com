@@ -1,4 +1,4 @@
-import { clamp } from "./pack";
+import { clamp, easeForFrame } from "./pack";
 import type { ScrollState } from "./types";
 
 /* Scroll position, as a number from nought to six.
@@ -71,9 +71,10 @@ export class ScrollController {
     this.state.target = this.progressFor(window.scrollY);
   }
 
-  update() {
+  update(deltaSeconds: number) {
+    const step = easeForFrame(this.ease, deltaSeconds);
     this.state.sectionProgress +=
-      (this.state.target - this.state.sectionProgress) * this.ease;
+      (this.state.target - this.state.sectionProgress) * step;
     return this.state.sectionProgress;
   }
 

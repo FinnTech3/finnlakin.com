@@ -1,4 +1,4 @@
-import { clamp } from "./pack";
+import { clamp, easeForFrame } from "./pack";
 import type { MouseState } from "./types";
 
 /* The pointer, smoothed twice and never used raw.
@@ -60,17 +60,18 @@ export class MouseController {
     this.deltaTarget.y = 0;
   }
 
-  update() {
+  update(deltaSeconds: number) {
     const { state } = this;
+    const smoothing = easeForFrame(this.smoothing, deltaSeconds);
 
     /* Two stages, at the easing and at three quarters of it. One stage gives a
        first order lag, which still arrives at the pointer in a straight line.
        Two gives it a slight overshoot and settle, which is the difference
        between following and being carried. */
-    state.current.x += (state.target.x - state.current.x) * this.smoothing;
-    state.current.y += (state.target.y - state.current.y) * this.smoothing;
-    state.current.x += (state.target.x - state.current.x) * this.smoothing * 0.75;
-    state.current.y += (state.target.y - state.current.y) * this.smoothing * 0.75;
+    state.current.x += (state.target.x - state.current.x) * smoothing;
+    state.current.y += (state.target.y - state.current.y) * smoothing;
+    state.current.x += (state.target.x - state.current.x) * smoothing * 0.75;
+    state.current.y += (state.target.y - state.current.y) * smoothing * 0.75;
 
     const limit = this.mobile ? MOBILE_DELTA_CLAMP : DESKTOP_DELTA_CLAMP;
     if (state.inside) {
@@ -80,16 +81,17 @@ export class MouseController {
     this.previous.x = state.current.x;
     this.previous.y = state.current.y;
 
-    state.delta.x += (this.deltaTarget.x - state.delta.x) * this.smoothing;
-    state.delta.y += (this.deltaTarget.y - state.delta.y) * this.smoothing;
+    state.delta.x += (this.deltaTarget.x - state.delta.x) * smoothing;
+    state.delta.y += (this.deltaTarget.y - state.delta.y) * smoothing;
 
     /* The camera turns by a fraction of a degree. Small enough that nobody
        would name it if asked what moved, large enough that the cloud reads as
        occupying space rather than as a picture of one. */
     const yawTarget = -0.075 * state.current.x;
     const pitchTarget = 0.05 * state.current.y;
-    this.cameraYaw += (yawTarget - this.cameraYaw) * 0.1;
-    this.cameraPitch += (pitchTarget - this.cameraPitch) * 0.1;
+    const parallax = easeForFrame(0.1, deltaSeconds);
+    this.cameraYaw += (yawTarget - this.cameraYaw) * parallax;
+    this.cameraPitch += (pitchTarget - this.cameraPitch) * parallax;
   }
 
   /* Reduced motion keeps the parallax but drops the disturbance: the cloud

@@ -15,7 +15,8 @@ import {
 import { ParticleRenderer } from "./renderer";
 import { ScrollController } from "./scroll";
 import { ParticleSimulation } from "./simulation";
-import { buildTargetSet, testShapes } from "./targets";
+import { buildTargetSet, SEED } from "./targets";
+import { brainTargets } from "./brain-shape";
 import { DEFAULTS, type ParticleBrain, type ParticleBrainConfig, type QualityLevel } from "./types";
 import { ParticleTimeline } from "./timeline";
 
@@ -31,9 +32,24 @@ import { ParticleTimeline } from "./timeline";
 
 /* A frame longer than this is treated as this. Coming back to a tab that has
    been hidden for ten minutes would otherwise advance the simulation by ten
-   minutes in one step, which with a spring system means every particle leaves
-   the screen and never returns. */
-const MAX_DELTA_SECONDS = 0.05;
+   minutes at once, which with a spring system means every particle leaves the
+   screen and never returns. */
+const MAX_DELTA_SECONDS = 0.1;
+
+/* The spring constants the specification gives are per frame at sixty frames a
+   second, not per second. Run once a frame they describe a different animation
+   on every machine: on the software rasteriser in the test environment the
+   cloud was still on its way in after seven seconds, because it had had
+   seventy steps rather than four hundred.
+
+   So the simulation runs on its own fixed clock and the frame loop feeds it
+   however many steps have come due. The spring values then mean what they say,
+   and the cloud settles in the same time everywhere. This is cheap to do: both
+   simulation passes cover a hundred pixels square, which next to ten thousand
+   instanced pyramids is nothing, so six of them cost less than one of the
+   draws they are feeding. */
+const SIMULATION_STEP_SECONDS = 1 / 60;
+const MAX_STEPS_PER_FRAME = 6;
 
 /* How long the opening reveal takes to draw the cloud in from its dispersed
    start. */
@@ -77,7 +93,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   const fullscreen = createFullscreen(context);
   if (!fullscreen) return null;
 
-  const set = buildTargetSet(testShapes(config.gridSize), config.gridSize);
+  const set = buildTargetSet(brainTargets(config.gridSize * config.gridSize, SEED), config.gridSize);
   const simulation = ParticleSimulation.create(context, capability, fullscreen, set);
   const renderer = simulation ? ParticleRenderer.create(context, config.gridSize) : null;
   if (!simulation || !renderer) {
@@ -102,6 +118,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   let previousMs = 0;
   let show = reducedMotion ? 1 : 0;
   let lastFrameMs = 0;
+  let accumulator = 0;
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
@@ -136,6 +153,15 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   resize();
   scroll.settle();
 
+  /* A reader who asked for less motion gets one frame, so the simulation has to
+     arrive at the answer before it is drawn rather than springing towards it.
+     Stepped here, at startup, rather than animated. */
+  if (reducedMotion) {
+    const settled = timeline.settle(scroll.value.sectionProgress);
+    const inputs = { progress: settled.progress, explode: settled.explode, show: 1, delta: { x: 0, y: 0 } };
+    for (let i = 0; i < 240; i++) simulation.step(inputs, config, mobile);
+  }
+
   function frame(nowMs: number) {
     const started = nowMs;
     if (previousMs === 0) previousMs = nowMs;
@@ -148,23 +174,35 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     }
 
     scroll.read();
-    const progress = reducedMotion ? scroll.settle() : scroll.update();
+    const progress = reducedMotion ? scroll.settle() : scroll.update(delta);
     if (reducedMotion) mouse.still();
-    else mouse.update();
+    else mouse.update(delta);
     const state = reducedMotion
       ? timeline.settle(progress)
-      : timeline.update(progress, config.timelineEase);
+      : timeline.update(progress, config.timelineEase, delta);
 
-    simulation!.step(
-      {
-        progress: state.progress,
-        explode: state.explode,
-        show,
-        delta: mouse.value.delta,
-      },
-      config,
-      mobile,
-    );
+    const inputsForStep = {
+      progress: state.progress,
+      explode: state.explode,
+      show,
+      delta: mouse.value.delta,
+    };
+
+    accumulator += delta;
+    let steps = 0;
+    while (accumulator >= SIMULATION_STEP_SECONDS && steps < MAX_STEPS_PER_FRAME) {
+      simulation!.step(inputsForStep, config, mobile);
+      accumulator -= SIMULATION_STEP_SECONDS;
+      steps += 1;
+    }
+    /* Whatever is left over after the cap is dropped rather than carried, so a
+       machine that is permanently behind does not build a debt it can never pay
+       and then discharge it all at once when it catches up. */
+    if (steps === MAX_STEPS_PER_FRAME) accumulator = 0;
+    /* A frame that came due for no step at all still has to draw something, and
+       the first frame of all must run the simulation once or the particles are
+       drawn from an unwritten texture. */
+    if (steps === 0 && seconds <= delta) simulation!.step(inputsForStep, config, mobile);
 
     const inputs = {
       timeline: state,

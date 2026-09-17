@@ -1,6 +1,5 @@
 import { Endorsements } from "@/components/endorsements";
 import { Hero } from "@/components/hero";
-import { ParticleBrain } from "@/components/particle-brain";
 import { ProjectCard, ProvenanceLegend } from "@/components/project-card";
 import { Section } from "@/components/section";
 import { Skills } from "@/components/skills";
@@ -16,7 +15,6 @@ export default function HomePage() {
   return (
     <>
       <PersonSchema />
-      <ParticleBrain />
       <Hero />
 
       <Section

@@ -125,6 +125,21 @@ export function mapClamped(
   return clamp(mapped, Math.min(outMin, outMax), Math.max(outMin, outMax));
 }
 
+/* An easing written as "move a tenth of the way there each frame" is a lie on
+   any machine that is not drawing sixty frames a second. On a slower one it
+   moves a tenth of the way less often, so the whole animation runs slow, and on
+   a faster one it runs fast.
+
+   This converts a per frame fraction into the equivalent fraction for a frame
+   of the length actually measured, so the movement takes the same wall clock
+   time everywhere and simply looks coarser where the machine is slower. The
+   same mistake, in its per frame form, is what made the opening animation on
+   this site fail its first test. */
+export function easeForFrame(perFrameAt60: number, deltaSeconds: number) {
+  if (deltaSeconds <= 0) return 0;
+  return 1 - Math.pow(1 - perFrameAt60, deltaSeconds * 60);
+}
+
 /* The specification's easing for the opening reveal. Slow at both ends and very
    fast through the middle, which is what makes the particles look like they are
    being pulled into place rather than sliding there. */

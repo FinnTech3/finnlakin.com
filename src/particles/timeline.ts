@@ -1,4 +1,4 @@
-import { mapClamped } from "./pack";
+import { easeForFrame, mapClamped } from "./pack";
 import type { ParticleTimelineState } from "./types";
 
 /* Scroll position in, everything the renderer needs out.
@@ -114,26 +114,27 @@ export class ParticleTimeline {
     return this.state;
   }
 
-  update(sectionProgress: number, ease: number) {
+  update(sectionProgress: number, ease: number, deltaSeconds: number) {
     const to = targets(sectionProgress, this.baseFactor);
     const from = this.state;
+    const step = easeForFrame(ease, deltaSeconds);
 
     this.state = {
       offset: {
-        x: approach(from.offset.x, to.offset.x, ease),
-        y: approach(from.offset.y, to.offset.y, ease),
-        z: approach(from.offset.z, to.offset.z, ease),
+        x: approach(from.offset.x, to.offset.x, step),
+        y: approach(from.offset.y, to.offset.y, step),
+        z: approach(from.offset.z, to.offset.z, step),
       },
-      explode: approach(from.explode, to.explode, ease),
-      factor: approach(from.factor, to.factor, ease),
-      progress: approach(from.progress, to.progress, ease),
-      progress2: approach(from.progress2, to.progress2, ease),
+      explode: approach(from.explode, to.explode, step),
+      factor: approach(from.factor, to.factor, step),
+      progress: approach(from.progress, to.progress, step),
+      progress2: approach(from.progress2, to.progress2, step),
       rotation: {
-        x: approach(from.rotation.x, to.rotation.x, ease),
-        y: approach(from.rotation.y, to.rotation.y, ease),
-        z: approach(from.rotation.z, to.rotation.z, ease),
+        x: approach(from.rotation.x, to.rotation.x, step),
+        y: approach(from.rotation.y, to.rotation.y, step),
+        z: approach(from.rotation.z, to.rotation.z, step),
       },
-      contentDim: approach(from.contentDim, to.contentDim, ease),
+      contentDim: approach(from.contentDim, to.contentDim, step),
     };
     return this.state;
   }

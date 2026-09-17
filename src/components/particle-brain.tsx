@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import { createParticleBrain } from "@/particles/engine";
@@ -22,8 +23,16 @@ const POINTER_IDLE_MS = 900;
 export function ParticleBrain({ className }: { className?: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const pathname = usePathname();
+
+  /* The timeline is choreographed against the home page's seven sections, and a
+     long read is the last place to put a moving background. It mounts beside
+     the other background layers rather than inside the content, so that the
+     accessibility and contrast tests can hide the page and still see it. */
+  const active = pathname === "/";
 
   useEffect(() => {
+    if (!active) return;
     const canvas = canvasRef.current;
     const host = hostRef.current;
     if (!canvas || !host) return;
@@ -131,12 +140,14 @@ export function ParticleBrain({ className }: { className?: string }) {
       canvas.removeEventListener("webglcontextlost", onContextLost);
       engine.dispose();
     };
-  }, []);
+  }, [active]);
 
   /* Fixed, behind the content, and unreachable. pointer-events none is what
      stops it swallowing a click on a link, a drag across a paragraph or a tab
      to a button, and aria-hidden keeps it out of the reading order: it is
      decoration, and every figure on this site is real text elsewhere. */
+  if (!active) return null;
+
   return (
     <div
       ref={hostRef}
