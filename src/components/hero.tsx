@@ -1,4 +1,3 @@
-import { Constellation } from "@/components/constellation";
 import { reconstructions } from "@/lib/reconstructions";
 import { person } from "@/lib/site";
 
@@ -17,7 +16,10 @@ export function Hero() {
         Available Summer 2026
       </p>
 
-      <div className="mt-8 grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
+      {/* Half width on a wide screen, because the particle cloud rests in the
+          other half. It is a fixed background rather than a column, so the
+          space is reserved here rather than occupied by an element. */}
+      <div className="mt-8 lg:w-1/2 lg:pr-8">
         <div>
           <h1 className="t-display text-ink">{person.name}</h1>
 
@@ -41,10 +43,6 @@ export function Hero() {
           </a>
         </div>
 
-        {/* The other half of the opening screen, which is where the design
-            reference puts its signature visual and where Finn asked for it.
-            It is decoration: every figure on this page is real text below. */}
-        <Constellation className="pointer-events-auto relative h-[clamp(20rem,46vw,34rem)] w-full" />
       </div>
 
       <table className="mt-20 w-full border-collapse text-left">

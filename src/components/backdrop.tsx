@@ -381,7 +381,7 @@ export function Backdrop() {
   return (
     <div
       ref={hostRef}
-      className="backdrop pointer-events-none fixed inset-0 -z-20 overflow-hidden"
+      className="backdrop pointer-events-none fixed inset-0 -z-30 overflow-hidden"
       data-backdrop="fallback"
       aria-hidden="true"
       /* Painted before any script runs, and left in place if WebGL never
@@ -409,7 +409,7 @@ export function Scrim() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 -z-10 bg-black/72"
+      className="pointer-events-none fixed inset-0 -z-20 bg-black/72"
     />
   );
 }
@@ -421,7 +421,7 @@ export function ReadingScrim() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 -z-10 bg-black/55"
+      className="pointer-events-none fixed inset-0 -z-20 bg-black/55"
     />
   );
 }
