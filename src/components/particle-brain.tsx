@@ -16,9 +16,6 @@ import type { ParticleBrain as Engine } from "@/particles/types";
    loop would re-render the tree sixty times a second, which is the most common
    way an effect like this ends up costing ten times what it should. */
 
-/* Long enough after the pointer stops that a pause while reading is not treated
-   as the pointer having left, short enough that it settles while you watch. */
-const POINTER_IDLE_MS = 900;
 
 /* However the opening animation ends, it is over by this point. A decoration
    must never be the reason a page cannot be read. */
@@ -108,7 +105,6 @@ export function ParticleBrain({ className }: { className?: string }) {
 
     let frame: number | null = null;
     let running = true;
-    let idle: ReturnType<typeof setTimeout> | null = null;
 
     const tick = (now: number) => {
       frame = null;
@@ -130,10 +126,11 @@ export function ParticleBrain({ className }: { className?: string }) {
       frame = null;
     };
 
+    /* No idle timeout. A cursor resting on the cloud should hold it open, the
+       way a hand held in a shoal does; the hole closes when the pointer leaves
+       the window, not when it stops moving. */
     const onPointerMove = (event: PointerEvent) => {
       engine.pointer(event.clientX, event.clientY);
-      if (idle) clearTimeout(idle);
-      idle = setTimeout(() => engine.pointerLeave(), POINTER_IDLE_MS);
     };
 
     const onPointerLeave = () => {
@@ -164,21 +161,34 @@ export function ParticleBrain({ className }: { className?: string }) {
       host.dataset.brain = "fallback";
     };
 
-    window.addEventListener("pointermove", onPointerMove, { passive: true });
-    document.addEventListener("pointerleave", onPointerLeave);
+    /* Only where there is a pointer that hovers. On a touch screen there is no
+       cursor to part the cloud around, and a finger that has to touch the glass
+       to be heard would scatter the particles under whatever the reader was
+       trying to tap. */
+    const hovers = window.matchMedia?.("(hover: hover)").matches ?? true;
+    if (hovers) {
+      window.addEventListener("pointermove", onPointerMove, { passive: true });
+      document.addEventListener("pointerleave", onPointerLeave);
+    }
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onResize, { passive: true });
     document.addEventListener("visibilitychange", onVisibility);
     canvas.addEventListener("webglcontextlost", onContextLost);
 
     host.dataset.brain = reducedMotion ? "still" : "live";
-    if (debugRequested()) host.dataset.brainDebug = "1";
+    if (debugRequested()) {
+      host.dataset.brainDebug = "1";
+      /* Behind the flag, and only behind the flag. The specification asks for a
+         way to see what the engine thinks is happening, and a handle on the
+         engine is the smallest version of that: the tests read the pointer and
+         the quality level through it rather than inferring them from pixels. */
+      (window as unknown as { particleBrain?: Engine }).particleBrain = engine;
+    }
     pump();
 
     return () => {
       running = false;
       pause();
-      if (idle) clearTimeout(idle);
       if (ceiling) clearTimeout(ceiling);
       if (fade) clearTimeout(fade);
       window.removeEventListener("keydown", skip);
@@ -191,6 +201,7 @@ export function ParticleBrain({ className }: { className?: string }) {
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibility);
       canvas.removeEventListener("webglcontextlost", onContextLost);
+      delete (window as unknown as { particleBrain?: Engine }).particleBrain;
       engine.dispose();
     };
   }, []);

@@ -24,7 +24,11 @@ export type ParticleBrainConfig = {
   morphDelayMobile: number;
   secondaryMorphDelay: number;
   explosionDelay: number;
-  mouseStrength: number;
+  /* How far the parting reaches, in the simulation's own nought to one
+     space, and how hard it pushes. */
+  pointerReach: number;
+  pointerPush: number;
+  pointerSwirl: number;
   mouseSmoothing: number;
   scrollEase: number;
   timelineEase: number;
@@ -54,7 +58,18 @@ export const DEFAULTS: ParticleBrainConfig = {
   morphDelayMobile: 0.000025,
   secondaryMorphDelay: 0.0005,
   explosionDelay: 0.00015,
-  mouseStrength: 1,
+  /* A reach of 0.13 is about two fifths of the cloud's radius, so the hole is
+     local rather than the whole brain moving. The push is set against the
+     spring: a particle settles where the two balance, which at these values is
+     roughly a third of the radius out of place. */
+  /* Tuned by looking at it, against a sweep. A reach of 0.18 is a little over
+     half the cloud's radius, so the hole is local and the brain keeps its
+     shape. The push is set against the spring, which is what closes the hole
+     again: a particle settles where the two balance. The first values here were
+     a fifth of these and the parting was real but almost invisible. */
+  pointerReach: 0.18,
+  pointerPush: 0.003,
+  pointerSwirl: 0.0017,
   mouseSmoothing: 0.1,
   scrollEase: 0.075,
   timelineEase: 0.1,
@@ -127,5 +142,9 @@ export type ParticleBrain = {
     instances: number;
     frameMs: number;
     timeline: ParticleTimelineState;
+    /* Where the parting is happening, in the simulation's own space, and how
+       open it is. Only ever read by the debug overlay and the tests. */
+    pointer: [number, number, number];
+    pointerActive: number;
   };
 };

@@ -28,10 +28,12 @@ import type { ParticleBrainConfig, ParticleTimelineState } from "./types";
    truncated at it. Additive without the tone map is a white blob, and the tone
    map without additive is flat. They only work as a pair. */
 
-const CAMERA_FOV = 50;
-const CAMERA_NEAR = 0.1;
-const CAMERA_FAR = 30;
-const CAMERA_POSITION: [number, number, number] = [0, 0, 10];
+/* Exported, because the engine has to undo this projection to work out where
+   the pointer is inside the cloud. */
+export const CAMERA_FOV = 50;
+export const CAMERA_NEAR = 0.1;
+export const CAMERA_FAR = 30;
+export const CAMERA_POSITION: [number, number, number] = [0, 0, 10];
 
 export type RenderInputs = {
   timeline: ParticleTimelineState;

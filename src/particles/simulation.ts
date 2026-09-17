@@ -22,7 +22,10 @@ export type SimulationInputs = {
   progress: number;
   explode: number;
   show: number;
-  delta: { x: number; y: number };
+  /* Where the pointer is, in the simulation's own space, and how open the hole
+     around it should be. */
+  pointer: [number, number, number];
+  pointerActive: number;
 };
 
 export class ParticleSimulation {
@@ -95,8 +98,11 @@ export class ParticleSimulation {
       "u_friction",
       "u_explode",
       "u_show",
-      "u_mouseStrength",
-      "u_delta",
+      "u_pointer",
+      "u_pointerReach",
+      "u_pointerPush",
+      "u_pointerSwirl",
+      "u_pointerActive",
     ]);
     this.positionUniforms = locations(this.gl, this.positionProgram, [
       "t_position",
@@ -297,8 +303,16 @@ export class ParticleSimulation {
     gl.uniform1f(this.velocityUniforms.u_friction ?? null, config.friction);
     gl.uniform1f(this.velocityUniforms.u_explode ?? null, inputs.explode);
     gl.uniform1f(this.velocityUniforms.u_show ?? null, inputs.show);
-    gl.uniform1f(this.velocityUniforms.u_mouseStrength ?? null, config.mouseStrength);
-    gl.uniform2f(this.velocityUniforms.u_delta ?? null, inputs.delta.x, inputs.delta.y);
+    gl.uniform3f(
+      this.velocityUniforms.u_pointer ?? null,
+      inputs.pointer[0],
+      inputs.pointer[1],
+      inputs.pointer[2],
+    );
+    gl.uniform1f(this.velocityUniforms.u_pointerReach ?? null, config.pointerReach);
+    gl.uniform1f(this.velocityUniforms.u_pointerPush ?? null, config.pointerPush);
+    gl.uniform1f(this.velocityUniforms.u_pointerSwirl ?? null, config.pointerSwirl);
+    gl.uniform1f(this.velocityUniforms.u_pointerActive ?? null, inputs.pointerActive);
     this.fullscreen.draw();
     this.velocities.swap();
 

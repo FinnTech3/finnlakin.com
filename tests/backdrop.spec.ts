@@ -217,6 +217,39 @@ test.describe("the particle engine", () => {
     }, shot);
   }
 
+  /* Lit pixels inside a disc, in canvas coordinates. Used to measure the hole
+     the pointer opens, which a count over the whole cloud would miss: particles
+     pushed out of the middle land at the edge of the reach and the total barely
+     moves. */
+  async function paintedWithin(page: Page, cx: number, cy: number, radius: number) {
+    const canvas = page.locator("[data-brain] canvas");
+    const shot = (await canvas.screenshot()).toString("base64");
+    return page.evaluate(
+      async ({ data, cx, cy, radius }: { data: string; cx: number; cy: number; radius: number }) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${data}`;
+        await image.decode();
+        const sheet = document.createElement("canvas");
+        sheet.width = image.width;
+        sheet.height = image.height;
+        const ctx = sheet.getContext("2d");
+        if (!ctx) return -1;
+        ctx.drawImage(image, 0, 0);
+        const pixels = ctx.getImageData(0, 0, sheet.width, sheet.height).data;
+        let lit = 0;
+        for (let y = Math.max(0, cy - radius); y < Math.min(sheet.height, cy + radius); y++) {
+          for (let x = Math.max(0, cx - radius); x < Math.min(sheet.width, cx + radius); x++) {
+            if ((x - cx) ** 2 + (y - cy) ** 2 > radius * radius) continue;
+            const i = (y * sheet.width + x) << 2;
+            if (pixels[i]! + pixels[i + 1]! + pixels[i + 2]! > 150) lit += 1;
+          }
+        }
+        return lit;
+      },
+      { data: shot, cx, cy, radius },
+    );
+  }
+
   async function settled(page: Page) {
     await page.evaluate((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
     await page.reload();
@@ -388,6 +421,108 @@ test.describe("the particle engine", () => {
       await painted(page),
       "the cloud stopped painting after ten mounts, so a context was leaked",
     ).toBeGreaterThan(200);
+  });
+
+  /* The cursor parts the cloud, and the cloud closes again.
+
+     Worth the machinery, because this is exactly the kind of effect that can be
+     wired correctly end to end and still do nothing. It was: smoothstep is
+     undefined in GLSL when its first edge is not less than its second, and
+     written the wrong way round it returned zero for every particle, so the
+     force was multiplied by nothing at the last step. Every uniform arrived,
+     every value was right, and the picture never moved. */
+  test("opens a hole around the pointer, and closes it again", async ({ page, isMobile }) => {
+    /* A touch screen has no cursor to part the cloud around, and the engine
+       does not listen for one there. */
+    test.skip(Boolean(isMobile), "no hover pointer on a touch device");
+    test.slow();
+    /* The debug flag puts a handle on the engine, so this can assert that the
+       pointer was heard as well as that the picture changed. Without it, a
+       listener that never fired and a force that does nothing look identical. */
+    await page.goto("/?brainQuality=low&brainDebug=1");
+    await settled(page);
+
+    /* The content has to go first.
+
+       An element screenshot clips to the element's box but still renders the
+       whole page stack over it, so a shot of the canvas includes the headline
+       painted on top of it. With the text left in, the centroid below landed on
+       "Finn Lakin" rather than on the cloud, and the measurement came back
+       identical to the digit three times running: a disc full of static text
+       does not change when particles move. */
+    await page.addStyleTag({
+      content: "body > header, body > main, body > footer { visibility: hidden !important }",
+    });
+    await page.waitForTimeout(400);
+
+    /* Found rather than assumed. The cloud's resting place is a function of the
+       timeline, the viewport aspect and the camera, and a number copied out of
+       any of those into a test is a number that goes stale silently. The
+       centroid of what is lit is the cloud, wherever it is. */
+    const centre = await (async () => {
+      const shot = (await page.locator("[data-brain] canvas").screenshot()).toString("base64");
+      return page.evaluate(async (data: string) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${data}`;
+        await image.decode();
+        const sheet = document.createElement("canvas");
+        sheet.width = image.width;
+        sheet.height = image.height;
+        const ctx = sheet.getContext("2d");
+        if (!ctx) return { x: 0, y: 0 };
+        ctx.drawImage(image, 0, 0);
+        const pixels = ctx.getImageData(0, 0, sheet.width, sheet.height).data;
+        let sumX = 0;
+        let sumY = 0;
+        let lit = 0;
+        for (let y = 0; y < sheet.height; y += 2) {
+          for (let x = 0; x < sheet.width; x += 2) {
+            const i = (y * sheet.width + x) << 2;
+            if (pixels[i]! + pixels[i + 1]! + pixels[i + 2]! > 200) {
+              sumX += x;
+              sumY += y;
+              lit += 1;
+            }
+          }
+        }
+        return lit > 0 ? { x: Math.round(sumX / lit), y: Math.round(sumY / lit) } : { x: 0, y: 0 };
+      }, shot);
+    })();
+
+    const viewport = page.viewportSize();
+    expect(viewport).not.toBeNull();
+    expect(centre.x, "could not find the cloud on screen").toBeGreaterThan(0);
+    const radius = Math.round(viewport!.height * 0.08);
+
+    const before = await paintedWithin(page, centre.x, centre.y, radius);
+    expect(before, "nothing painted where the cloud should be").toBeGreaterThan(50);
+
+    /* Jiggled rather than parked, because a single move is one event and the
+       pointer is read once a frame. */
+    for (let step = 0; step < 24; step++) {
+      await page.mouse.move(centre.x + (step % 3), centre.y + (step % 2));
+      await page.waitForTimeout(80);
+    }
+    const during = await paintedWithin(page, centre.x, centre.y, radius);
+    const heard = await page.evaluate(
+      () =>
+        (window as unknown as { particleBrain?: { inspect: () => { pointerActive: number } } })
+          .particleBrain?.inspect().pointerActive ?? -1,
+    );
+    expect(heard, "the engine never heard the pointer").toBeGreaterThan(0.5);
+
+    await page.mouse.move(10, 10);
+    await page.waitForTimeout(2_500);
+    const after = await paintedWithin(page, centre.x, centre.y, radius);
+
+    console.log(`pointer hole: ${before} lit, ${during} with the pointer on it, ${after} after`);
+
+    /* The drift between the first and last measurements, with the pointer away
+       both times, is about one percent. A ten percent drop is ten times that,
+       and the parting measured seventeen when aimed at the middle of the cloud
+       by hand. */
+    expect(during, "the pointer did not part the cloud").toBeLessThan(before * 0.9);
+    expect(after, "the cloud did not close again").toBeGreaterThan(during * 1.05);
   });
 
   test("turns itself off when asked, leaving the page untouched", async ({ page }) => {

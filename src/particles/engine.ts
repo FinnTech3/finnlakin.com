@@ -1,7 +1,7 @@
 "use client";
 
 import { createFullscreen } from "./gl";
-import { MouseController } from "./mouse";
+import { MouseController, pointerInCloudSpace } from "./mouse";
 import { clamp } from "./pack";
 import {
   createFrameWatch,
@@ -225,6 +225,8 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   let show = reducedMotion ? 1 : 0;
   let lastFrameMs = 0;
   let accumulator = 0;
+  let lastPointer: [number, number, number] = [0.5, 0.5, 0.5];
+  let lastPointerActive = 0;
   let postUsable = Boolean(post);
   let introActive = runIntro;
   let introMs = 0;
@@ -275,7 +277,13 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
      Stepped here, at startup, rather than animated. */
   if (reducedMotion) {
     const settled = timeline.settle(scroll.value.sectionProgress);
-    const inputs = { progress: settled.progress, explode: settled.explode, show: 1, delta: { x: 0, y: 0 } };
+    const inputs = {
+      progress: settled.progress,
+      explode: settled.explode,
+      show: 1,
+      pointer: [0.5, 0.5, 0.5] as [number, number, number],
+      pointerActive: 0,
+    };
     for (let i = 0; i < 240; i++) simulation.step(inputs, config, mobile);
   }
 
@@ -320,11 +328,26 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
       morph = state.progress;
     }
 
+    /* The pointer, carried back through the projection into the space the
+       simulation works in, so the shader can push particles away from it. Done
+       once a frame on the processor rather than per particle on the card. */
+    const pointer = pointerInCloudSpace(
+      mouse.value.current,
+      state,
+      width / Math.max(1, height),
+    );
+
+    const pointerActive = introActive || reducedMotion ? 0 : mouse.active;
+    lastPointer = pointer;
+    lastPointerActive = pointerActive;
+
     const inputsForStep = {
       progress: morph,
       explode: state.explode,
       show,
-      delta: mouse.value.delta,
+      pointer,
+      /* No parting during the opening animation: the words are being read. */
+      pointerActive,
     };
 
     accumulator += delta;
@@ -347,8 +370,8 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
       timeline: introActive ? { ...state, progress: morph } : state,
       seconds,
       mouse: mouse.value.current,
-      pitch: mouse.pitch,
-      yaw: mouse.yaw,
+      pitch: 0,
+      yaw: 0,
       instances: tier.instances,
       mobile,
     };
@@ -444,6 +467,8 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
         instances: tier.instances,
         frameMs: lastFrameMs,
         timeline: timeline.current,
+        pointer: lastPointer,
+        pointerActive: lastPointerActive,
       };
     },
   };

@@ -39,8 +39,11 @@ uniform float u_spring;
 uniform float u_friction;
 uniform float u_explode;
 uniform float u_show;
-uniform float u_mouseStrength;
-uniform vec2 u_delta;
+uniform vec3 u_pointer;
+uniform float u_pointerReach;
+uniform float u_pointerPush;
+uniform float u_pointerSwirl;
+uniform float u_pointerActive;
 
 ${COMMON}
 
@@ -97,11 +100,37 @@ void main() {
   float spring = u_spring + param1.a;
   vec3 acceleration = (target - previous) * spring;
 
-  /* The pointer contributes a nudge rather than a force towards itself. The
-     brief was explicit that this must not read as a cursor following toy. */
-  vec3 nudge = vec3(u_delta, 0.0) * u_mouseStrength * 0.0012 * (0.5 + param1.r);
+  /* The pointer parts the cloud: a shoal of fish getting out of the way.
 
-  velocity = (velocity + acceleration + nudge) * u_friction;
+     Two forces, and the second is what makes it a shoal rather than an
+     explosion. The radial one pushes a particle directly away and opens the
+     hole. The tangential one, at right angles to it, makes them stream around
+     the obstruction instead of straight out, which is what a fish does and what
+     a blast wave does not.
+
+     Nothing pulls them back: the spring above already does that, so the hole
+     closes on its own as the pointer leaves. */
+  vec3 away = previous - u_pointer;
+  float gap = length(away);
+  vec3 direction = gap > 0.0001 ? away / gap : vec3(0.0, 1.0, 0.0);
+  /* One minus a forward smoothstep, not a reversed one.
+
+     smoothstep is undefined in GLSL when its first edge is not less than its
+     second, and written the other way round, smoothstep(reach, 0.0, gap), this
+     driver returns zero for every particle. The force was wired correctly all
+     the way through and multiplied by nothing at the last step, which is
+     invisible in a screenshot and survives every check that the uniforms
+     arrived. */
+  float reach = (1.0 - smoothstep(0.0, u_pointerReach, gap)) * u_pointerActive;
+
+  /* Each particle leans its own way around, so they do not all sweep the same
+     side and leave a comb mark. */
+  vec3 axis = normalize(vec3(param1.r, 1.0, param3.g));
+  vec3 sideways = cross(direction, axis);
+
+  vec3 flee = (direction * u_pointerPush + sideways * u_pointerSwirl) * reach;
+
+  velocity = (velocity + acceleration + flee) * u_friction;
   fragColor = vec4(velocity, 1.0);
 }
 `;

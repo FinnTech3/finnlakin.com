@@ -1,5 +1,56 @@
 import { clamp, easeForFrame } from "./pack";
-import type { MouseState } from "./types";
+import { CAMERA_FOV, CAMERA_POSITION } from "./renderer";
+import type { MouseState, ParticleTimelineState } from "./types";
+
+/* Where the pointer is, expressed in the space the simulation works in.
+
+   The simulation knows nothing about screens. It moves particles around a unit
+   cube, and the chain from there to a pixel is: scale by the timeline's factor,
+   rotate by the timeline's rotation, translate by its offset, then project. To
+   push particles away from the cursor, that whole chain has to be undone.
+
+   A screen point is a ray rather than a point, so it is resolved against the
+   plane through the cloud's own centre: the reader is pointing at the cloud,
+   and that is the depth they mean. */
+export function pointerInCloudSpace(
+  screen: { x: number; y: number },
+  timeline: ParticleTimelineState,
+  aspect: number,
+): [number, number, number] {
+  const depth = Math.abs(CAMERA_POSITION[2] - timeline.offset.z);
+  const halfHeight = depth * Math.tan((CAMERA_FOV * Math.PI) / 360);
+  const halfWidth = halfHeight * aspect;
+
+  /* World space, on the plane the cloud sits in. */
+  const wx = screen.x * halfWidth - timeline.offset.x;
+  const wy = screen.y * halfHeight - timeline.offset.y;
+  const wz = 0;
+
+  /* Undo the field rotation, which is applied as Z then Y then X, so it comes
+     off in the opposite order with the opposite sign. */
+  const { x: rx, y: ry, z: rz } = timeline.rotation;
+  const cz = Math.cos(-rz);
+  const sz = Math.sin(-rz);
+  let px = wx * cz - wy * sz;
+  let py = wx * sz + wy * cz;
+  let pz = wz;
+
+  const cy = Math.cos(-ry);
+  const sy = Math.sin(-ry);
+  const nx = px * cy + pz * sy;
+  pz = -px * sy + pz * cy;
+  px = nx;
+
+  const cx = Math.cos(-rx);
+  const sx = Math.sin(-rx);
+  const ny = py * cx - pz * sx;
+  pz = py * sx + pz * cx;
+  py = ny;
+
+  /* And undo the scale, back into nought to one. */
+  const factor = Math.max(0.0001, timeline.factor);
+  return [0.5 + px / (2 * factor), 0.5 + py / (2 * factor), 0.5 + pz / (2 * factor)];
+}
 
 /* The pointer, smoothed twice and never used raw.
 
@@ -24,10 +75,11 @@ export class MouseController {
 
   private previous = { x: 0, y: 0 };
   private deltaTarget = { x: 0, y: 0 };
-  private cameraPitch = 0;
-  private cameraYaw = 0;
   private mobile: boolean;
   private smoothing: number;
+  /* Nought to one, eased, so the hole opens and closes rather than appearing
+     and vanishing with the pointer. */
+  private presence = 0;
 
   constructor(mobile: boolean, smoothing: number) {
     this.mobile = mobile;
@@ -38,12 +90,8 @@ export class MouseController {
     return this.state;
   }
 
-  get pitch() {
-    return this.cameraPitch;
-  }
-
-  get yaw() {
-    return this.cameraYaw;
+  get active() {
+    return this.presence;
   }
 
   /* Stored, never acted on. The frame loop reads it once a frame, so a pointer
@@ -84,22 +132,24 @@ export class MouseController {
     state.delta.x += (this.deltaTarget.x - state.delta.x) * smoothing;
     state.delta.y += (this.deltaTarget.y - state.delta.y) * smoothing;
 
-    /* The camera turns by a fraction of a degree. Small enough that nobody
-       would name it if asked what moved, large enough that the cloud reads as
-       occupying space rather than as a picture of one. */
-    const yawTarget = -0.075 * state.current.x;
-    const pitchTarget = 0.05 * state.current.y;
-    const parallax = easeForFrame(0.1, deltaSeconds);
-    this.cameraYaw += (yawTarget - this.cameraYaw) * parallax;
-    this.cameraPitch += (pitchTarget - this.cameraPitch) * parallax;
+    /* The camera no longer turns. Finn asked for the cloud to part around the
+       pointer instead, which is a force on the particles rather than a move of
+       the viewpoint, and the two together read as the whole picture sliding
+       rather than as something getting out of the way.
+
+       This is how open the hole is, eased, so it closes as the pointer leaves
+       rather than snapping shut. */
+    const presenceTarget = state.inside ? 1 : 0;
+    this.presence += (presenceTarget - this.presence) * easeForFrame(0.12, deltaSeconds);
   }
 
-  /* Reduced motion keeps the parallax but drops the disturbance: the cloud
-     still sits in space, it just is not pushed around. */
+  /* A reader who asked for less motion is not shown a cloud that scatters when
+     they move the mouse. */
   still() {
     this.state.delta.x = 0;
     this.state.delta.y = 0;
     this.deltaTarget.x = 0;
     this.deltaTarget.y = 0;
+    this.presence = 0;
   }
 }
