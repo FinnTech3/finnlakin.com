@@ -1,45 +1,37 @@
 import { readTints, type Vec } from "./particles";
 
-/* The constellation: a brain as a cloud of small triangles in three dimensions.
+/* The brain: a point cloud on the surface of a three dimensional brain, drawn
+   in WebGL.
 
-   The first version of this was flat. It traced a brain outline and its folds
-   as two dimensional curves and sampled them into particles, which reads as a
-   diagram. The reference is not a diagram: it is a point cloud on the surface
-   of a three dimensional brain, seen in perspective, with the near face bright
-   and dense and the far face dim and sparse. That difference is not a matter of
-   tuning, so this was rebuilt rather than adjusted.
+   It has been through two wrong implementations, and the reason both looked
+   wrong is worth keeping. The first traced an outline and its folds as flat
+   curves, which reads as a diagram. The second put the points in three
+   dimensions but drew them by stamping sprites onto a 2D canvas, which caps the
+   count at a few thousand before the frame cost bites and gives every particle
+   a hollow outline. Hollow outlines at low density read as a sketch.
 
-   It is drawn on a 2D canvas rather than in WebGL. The site the reference comes
-   from uses WebGL with instanced geometry, which is the right tool at this
-   particle count; a library to do it here would cost more than the entire
-   JavaScript budget this site holds itself to. What is here instead is a hand
-   rolled projection: rotate, project, sort by depth, stamp a sprite. It is
-   honest about its limit, which is the particle count, and it carries a guard
-   that stops it if the machine cannot keep up. */
+   What the reference actually does, and what this does now: tens of thousands
+   of small filled particles, blended additively, so that density becomes
+   brightness on its own. The bloom in that picture is not a post effect, it is
+   thousands of translucent particles overlapping. Additive blending is also
+   order independent, which means no depth sort at all: the whole per frame cost
+   is one draw call. */
 
-/* Points on the cortical surface. Cut down on a small screen, where the cloud
-   is a fraction of the size and nobody can see the difference. */
-const POINTS_WIDE = 9000;
-const POINTS_NARROW = 3600;
-const CEREBELLUM_SHARE = 0.16;
+const POINTS_WIDE = 34000;
+const POINTS_NARROW = 12000;
+const CEREBELLUM_SHARE = 0.09;
+/* Loose particles drifting around the mass, as in the reference. */
+const AMBIENT_SHARE = 0.05;
 
-/* Depth buckets for ordering the draw. A comparison sort of nine thousand
-   entries every frame is affordable but wasteful; this is linear and the
-   ordering only has to be right to within a bucket for sprites this small. */
-const BUCKETS = 96;
-
-const SPRITE = 10;
-
-/* Amber dominant, white second, violet and teal as punctuation. Taken from the
-   reference's own hero image rather than from the palette document, which lists
-   the brand colours but not their proportions. */
 const TINT_TOKENS = ["--spark", "--bone", "--iris", "--verdant"];
 const TINT_FALLBACKS = ["#ffb829", "#ffffff", "#926aff", "#189b81"];
-const TINT_WEIGHTS = [0.62, 0.2, 0.1, 0.08];
+/* Amber dominant, white second, violet and teal as punctuation. Read off the
+   reference's own hero image: the palette document lists the brand colours but
+   not their proportions, and the proportions are most of the look. */
+const TINT_WEIGHTS = [0.64, 0.19, 0.1, 0.07];
 
-/* Camera. */
 const DISTANCE = 3.5;
-const FOCAL = 0.95;
+const FOCAL = 1.05;
 
 export type Brain = {
   layout: (width: number, height: number) => void;
@@ -48,8 +40,75 @@ export type Brain = {
   count: () => number;
 };
 
-/* Deterministic per-index noise. A point keeps its colour, its jitter and its
-   size for the life of the page without any of that having to be stored. */
+const VERTEX = `#version 300 es
+in vec3 a_pos;
+/* ridge, tint index, size */
+in vec3 a_meta;
+
+uniform float u_yaw;
+uniform float u_pitch;
+uniform float u_distance;
+uniform float u_focal;
+uniform float u_scale;
+uniform vec2 u_resolution;
+uniform vec3 u_tints[4];
+
+out vec3 v_tint;
+out float v_alpha;
+
+void main() {
+  float cy = cos(u_yaw), sy = sin(u_yaw);
+  float cp = cos(u_pitch), sp = sin(u_pitch);
+
+  float rx = a_pos.x * cy + a_pos.z * sy;
+  float rz = -a_pos.x * sy + a_pos.z * cy;
+  float ry = a_pos.y * cp - rz * sp;
+  rz = a_pos.y * sp + rz * cp;
+
+  float depth = max(0.35, u_distance - rz);
+  vec2 screen = vec2(rx, ry) * u_focal / depth;
+  gl_Position = vec4(screen / (u_resolution * 0.5), 0.0, 1.0);
+
+  float ridge = a_meta.x;
+  gl_PointSize = a_meta.z * u_scale * (3.1 / depth) * (0.5 + ridge * 0.95);
+
+  int index = int(a_meta.y + 0.5);
+  v_tint = u_tints[index];
+
+  /* Nearer is brighter, and a point on the crest of a fold is brighter than one
+     down in a sulcus. Both are what stop the cloud reading as a flat shell. */
+  float nearness = clamp((rz + 1.15) / 2.3, 0.0, 1.0);
+  v_alpha = (0.14 + nearness * nearness * 0.78) * (0.14 + ridge * ridge * 0.95);
+}
+`;
+
+const FRAGMENT = `#version 300 es
+precision mediump float;
+
+in vec3 v_tint;
+in float v_alpha;
+out vec4 fragColor;
+
+void main() {
+  /* A filled triangle inside the point sprite, brighter towards its edge. The
+     previous version stroked a hollow outline, which is what made the cloud
+     look drawn rather than lit. */
+  vec2 q = gl_PointCoord * 2.0 - 1.0;
+  q.y = -q.y;
+
+  float edge = max(-0.5 - q.y, max(0.866 * q.x + 0.5 * q.y - 0.5, -0.866 * q.x + 0.5 * q.y - 0.5));
+  float fill = smoothstep(0.08, -0.06, edge);
+  if (fill <= 0.001) discard;
+
+  float rim = smoothstep(-0.5, -0.02, edge);
+  float alpha = v_alpha * fill;
+  vec3 colour = v_tint * (0.55 + rim * 0.95);
+
+  /* Premultiplied, so the blend can be a straight add. */
+  fragColor = vec4(colour * alpha, alpha);
+}
+`;
+
 function noise(index: number, salt: number) {
   const value = Math.sin(index * 127.1 + salt * 311.7) * 43758.5453;
   return value - Math.floor(value);
@@ -64,69 +123,52 @@ function tintFor(random: number) {
   return 0;
 }
 
-function buildSprites(tints: string[]): HTMLCanvasElement[] {
-  return tints.map((tint) => {
-    const sprite = document.createElement("canvas");
-    sprite.width = SPRITE;
-    sprite.height = SPRITE;
-    const ctx = sprite.getContext("2d");
-    if (!ctx) return sprite;
-    ctx.strokeStyle = tint;
-    ctx.lineWidth = 1.1;
-    ctx.lineJoin = "miter";
-    ctx.beginPath();
-    ctx.moveTo(SPRITE / 2, 1.2);
-    ctx.lineTo(SPRITE - 1, SPRITE - 1.4);
-    ctx.lineTo(1, SPRITE - 1.4);
-    ctx.closePath();
-    ctx.stroke();
-    return sprite;
-  });
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = hex.replace("#", "");
+  const full =
+    clean.length === 3
+      ? clean
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : clean;
+  return [
+    Number.parseInt(full.slice(0, 2), 16) / 255,
+    Number.parseInt(full.slice(2, 4), 16) / 255,
+    Number.parseInt(full.slice(4, 6), 16) / 255,
+  ];
 }
-
-type Cloud = {
-  x: Float32Array;
-  y: Float32Array;
-  z: Float32Array;
-  /* How far out of a fold a point sits, nought in the depth of a sulcus and one
-     on the crest of a gyrus. It drives size and brightness, and it is what makes
-     the surface read as folded rather than as a solid mass. */
-  ridge: Float32Array;
-  tint: Uint8Array;
-  size: Float32Array;
-  count: number;
-};
 
 /* The cortical surface, as a displaced ellipsoid.
 
    Points come off a Fibonacci sphere, which covers evenly with no crowding at
-   the poles, then the ellipsoid is pushed into a brain: flat underneath, a
-   temporal bulge low and forward, a tapered occipital pole at the back, a
-   groove down the midline, and folds displacing the surface along its normal.
+   the poles, and the ellipsoid is then pushed into a brain: flat underneath, a
+   temporal lobe cut away from the rest by a deep lateral sulcus, a tapered
+   occipital pole, a groove down the midline, and folds displacing the surface
+   along its normal.
 
-   Points deep in a sulcus are thinned out rather than merely dimmed. That is
-   what separates this from a solid shell of triangles. */
-function buildCloud(target: number): Cloud {
+   The fold phase is kept after it has moved the point, because it decides
+   whether that point sits on a crest or in a valley, and that drives size,
+   brightness and whether the point survives at all. Thinning the valleys rather
+   than merely dimming them is what separates a folded surface from a shell. */
+function buildCloud(target: number): Float32Array {
   const golden = Math.PI * (3 - Math.sqrt(5));
-  const cortex = Math.round(target * (1 - CEREBELLUM_SHARE));
-  const cerebellum = target - cortex;
+  const ambient = Math.round(target * AMBIENT_SHARE);
+  const cerebellum = Math.round(target * CEREBELLUM_SHARE);
+  const cortex = target - ambient - cerebellum;
 
-  const x = new Float32Array(target);
-  const y = new Float32Array(target);
-  const z = new Float32Array(target);
-  const ridge = new Float32Array(target);
-  const tint = new Uint8Array(target);
-  const size = new Float32Array(target);
-  let count = 0;
+  const data = new Float32Array(target * 6);
+  let n = 0;
 
-  const keep = (px: number, py: number, pz: number, crest: number, index: number) => {
-    x[count] = px;
-    y[count] = py;
-    z[count] = pz;
-    ridge[count] = crest;
-    tint[count] = tintFor(noise(index, 7));
-    size[count] = 0.8 + noise(index, 6) * 0.4;
-    count += 1;
+  const push = (x: number, y: number, z: number, ridge: number, index: number, size: number) => {
+    const at = n * 6;
+    data[at] = x;
+    data[at + 1] = y;
+    data[at + 2] = z;
+    data[at + 3] = ridge;
+    data[at + 4] = tintFor(noise(index, 7));
+    data[at + 5] = size;
+    n += 1;
   };
 
   for (let i = 0; i < cortex; i++) {
@@ -135,181 +177,209 @@ function buildCloud(target: number): Cloud {
     const angle = golden * i;
 
     /* Negative x so the frontal pole faces left, the way the reference sits. */
-    let px = -Math.cos(angle) * band * 1.32;
-    let py = unit * 0.82;
-    let pz = Math.sin(angle) * band * 0.7;
+    let px = -Math.cos(angle) * band * 1.34;
+    let py = unit * 0.84;
+    let pz = Math.sin(angle) * band * 0.72;
 
-    if (py < 0) py *= 0.55 + 0.45 * Math.min(1, Math.abs(px));
+    if (py < 0) py *= 0.52 + 0.48 * Math.min(1, Math.abs(px));
 
-    const temporal = Math.exp(-((px + 0.3) ** 2 * 2.6 + (py + 0.4) ** 2 * 5.5));
-    py -= temporal * 0.22;
-    pz *= 1 + temporal * 0.1;
+    /* The temporal lobe, and the lateral sulcus that separates it. Without the
+       sulcus the underside is one smooth mass and the silhouette loses the
+       thing that most says "brain". */
+    const temporal = Math.exp(-((px + 0.28) ** 2 * 2.4 + (py + 0.42) ** 2 * 5.2));
+    py -= temporal * 0.24;
+    pz *= 1 + temporal * 0.12;
+    const sulcus = Math.exp(-((py + 0.2) ** 2 * 60 + (px + 0.1) ** 2 * 0.9));
+    py += sulcus * 0.05;
 
     const back = Math.max(0, (px - 0.55) / 0.8);
-    py *= 1 - back * 0.16;
-    pz *= 1 - back * 0.14;
+    py *= 1 - back * 0.17;
+    pz *= 1 - back * 0.15;
 
-    const front = Math.max(0, (-px - 0.7) / 0.7);
-    pz *= 1 - front * 0.12;
+    const front = Math.max(0, (-px - 0.72) / 0.7);
+    pz *= 1 - front * 0.13;
 
     const phase =
-      Math.sin(px * 5.2 + pz * 2.1) * 0.55 +
-      Math.sin(py * 6.2 + px * 2.6) * 0.3 +
-      Math.sin(pz * 7.4 + py * 3.2) * 0.15;
+      Math.sin(px * 5.4 + pz * 2.2) * 0.55 +
+      Math.sin(py * 6.4 + px * 2.7) * 0.3 +
+      Math.sin(pz * 7.6 + py * 3.3) * 0.15;
     const length = Math.hypot(px, py, pz) || 1;
-    const displacement = phase * 0.085;
+    const displacement = phase * 0.09;
     px += (px / length) * displacement;
     py += (py / length) * displacement;
     pz += (pz / length) * displacement;
 
-    /* The longitudinal fissure, down the midline on top. */
-    py -= Math.exp(-(pz * pz) * 45) * Math.max(0, py) * 0.16;
+    py -= Math.exp(-(pz * pz) * 45) * Math.max(0, py) * 0.17;
 
-    px += (noise(i, 1) - 0.5) * 0.022;
-    py += (noise(i, 2) - 0.5) * 0.022;
-    pz += (noise(i, 3) - 0.5) * 0.022;
+    px += (noise(i, 1) - 0.5) * 0.02;
+    py += (noise(i, 2) - 0.5) * 0.02;
+    pz += (noise(i, 3) - 0.5) * 0.02;
 
     const crest = (phase + 1) / 2;
-    if (noise(i, 8) > 0.3 + crest * 0.8) continue;
-    keep(px, py, pz, crest, i);
+    if (noise(i, 8) > 0.46 + crest * 0.62) continue;
+    push(px, py, pz, crest, i, 3.0 + noise(i, 6) * 3.4);
   }
 
-  /* The cerebellum, its own denser cluster behind and below, with a finer
-     texture than the cortex. */
   for (let i = 0; i < cerebellum; i++) {
     const unit = 1 - (i / Math.max(1, cerebellum - 1)) * 2;
     const band = Math.sqrt(Math.max(0, 1 - unit * unit));
     const angle = golden * i;
-    const px = Math.cos(angle) * band * 0.32;
-    const py = unit * 0.2;
-    const pz = Math.sin(angle) * band * 0.28;
-    const phase = Math.sin(px * 30) * Math.sin(py * 26);
-    keep(px + 0.92 + phase * 0.02, py - 0.5 + phase * 0.02, pz, (phase + 1) / 2, i + 20000);
+    const px = Math.cos(angle) * band * 0.31;
+    const py = unit * 0.19;
+    const pz = Math.sin(angle) * band * 0.27;
+    const phase = Math.sin(px * 34) * Math.sin(py * 30);
+    push(
+      px + 0.93 + phase * 0.018,
+      py - 0.52 + phase * 0.018,
+      pz,
+      (phase + 1) / 2,
+      i + 20000,
+      2.0 + noise(i, 9) * 1.7,
+    );
   }
 
-  return { x, y, z, ridge, tint, size, count };
+  /* Loose particles around the mass, larger and sparser, which is what gives
+     the reference its sense of the cloud extending past its own edge. */
+  for (let i = 0; i < ambient; i++) {
+    const a = noise(i, 11) * Math.PI * 2;
+    const b = Math.acos(2 * noise(i, 12) - 1);
+    const r = 1.25 + noise(i, 13) * 1.15;
+    push(
+      Math.sin(b) * Math.cos(a) * r * 1.3,
+      Math.cos(b) * r * 0.75,
+      Math.sin(b) * Math.sin(a) * r * 0.8,
+      0.55 + noise(i, 14) * 0.45,
+      i + 40000,
+      3.2 + noise(i, 15) * 4.5,
+    );
+  }
+
+  return data.subarray(0, n * 6);
 }
 
 export function createBrain(canvas: HTMLCanvasElement): Brain | null {
-  const context = canvas.getContext("2d", { alpha: true });
-  if (!context) return null;
-  const ctx = context;
+  let gl: WebGL2RenderingContext | null = null;
+  try {
+    gl = canvas.getContext("webgl2", {
+      alpha: true,
+      antialias: false,
+      depth: false,
+      premultipliedAlpha: true,
+      powerPreference: "low-power",
+    });
+  } catch {
+    gl = null;
+  }
+  if (!gl) return null;
+  const context = gl;
 
-  const sprites = buildSprites(readTints(TINT_TOKENS, TINT_FALLBACKS));
+  const compile = (type: number, source: string) => {
+    const shader = context.createShader(type);
+    if (!shader) return null;
+    context.shaderSource(shader, source);
+    context.compileShader(shader);
+    if (!context.getShaderParameter(shader, context.COMPILE_STATUS)) {
+      context.deleteShader(shader);
+      return null;
+    }
+    return shader;
+  };
 
-  let cloud: Cloud | null = null;
+  const vertex = compile(context.VERTEX_SHADER, VERTEX);
+  const fragment = compile(context.FRAGMENT_SHADER, FRAGMENT);
+  const program = vertex && fragment ? context.createProgram() : null;
+  if (!vertex || !fragment || !program) return null;
+
+  context.attachShader(program, vertex);
+  context.attachShader(program, fragment);
+  context.linkProgram(program);
+  if (!context.getProgramParameter(program, context.LINK_STATUS)) return null;
+  context.useProgram(program);
+
+  const buffer = context.createBuffer();
+  const stride = 6 * 4;
+  const posLocation = context.getAttribLocation(program, "a_pos");
+  const metaLocation = context.getAttribLocation(program, "a_meta");
+
+  const uniform = (name: string) => context.getUniformLocation(program, name);
+  const uYaw = uniform("u_yaw");
+  const uPitch = uniform("u_pitch");
+  const uDistance = uniform("u_distance");
+  const uFocal = uniform("u_focal");
+  const uScale = uniform("u_scale");
+  const uResolution = uniform("u_resolution");
+
+  const tints = readTints(TINT_TOKENS, TINT_FALLBACKS).map(hexToRgb);
+  const flat = new Float32Array(12);
+  tints.forEach((tint, i) => flat.set(tint, i * 3));
+  context.uniform3fv(uniform("u_tints"), flat);
+  context.uniform1f(uDistance, DISTANCE);
+
+  /* Additive, premultiplied. Density becomes brightness, and because addition
+     commutes there is nothing to sort. */
+  context.disable(context.DEPTH_TEST);
+  context.enable(context.BLEND);
+  context.blendFunc(context.ONE, context.ONE);
+
+  let points = 0;
+  let built = 0;
   let scale = 1;
-  let centreX = 0;
-  let centreY = 0;
-  let focal = 600;
-
-  /* Reused every frame. Allocating these per frame is what turns a smooth
-     animation into a sawtooth of garbage collections. */
-  let rx = new Float32Array(0);
-  let ry = new Float32Array(0);
-  let rz = new Float32Array(0);
-  let order = new Int32Array(0);
-  let bucketCount = new Int32Array(BUCKETS);
-  let bucketStart = new Int32Array(BUCKETS);
 
   function layout(cssWidth: number, cssHeight: number) {
-    const longEdge = Math.max(cssWidth, cssHeight, 1);
-    scale = Math.min(window.devicePixelRatio || 1, 1400 / longEdge);
-    const width = Math.max(2, Math.round(cssWidth * scale));
-    const height = Math.max(2, Math.round(cssHeight * scale));
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.max(2, Math.round(cssWidth * dpr));
+    const height = Math.max(2, Math.round(cssHeight * dpr));
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width;
       canvas.height = height;
     }
+    context.viewport(0, 0, width, height);
+    context.uniform2f(uResolution, width, height);
+    context.uniform1f(uFocal, Math.min(width, height * 1.5) * FOCAL);
+    scale = dpr;
 
-    centreX = width / 2;
-    centreY = height * 0.47;
-    focal = Math.min(width, height * 1.5) * FOCAL;
-
+    /* The cloud is in model space, so a resize only changes the projection. It
+       is rebuilt when the breakpoint changes the target count, and not
+       otherwise: thirty four thousand points is not work to repeat on every
+       resize event. */
     const target = cssWidth < 560 ? POINTS_NARROW : POINTS_WIDE;
-    if (!cloud || cloud.x.length !== target) {
-      cloud = buildCloud(target);
-      rx = new Float32Array(cloud.count);
-      ry = new Float32Array(cloud.count);
-      rz = new Float32Array(cloud.count);
-      order = new Int32Array(cloud.count);
-      bucketCount = new Int32Array(BUCKETS);
-      bucketStart = new Int32Array(BUCKETS);
+    if (target !== built) {
+      built = target;
+      const data = buildCloud(target);
+      context.bindBuffer(context.ARRAY_BUFFER, buffer);
+      context.bufferData(context.ARRAY_BUFFER, data, context.STATIC_DRAW);
+      context.enableVertexAttribArray(posLocation);
+      context.vertexAttribPointer(posLocation, 3, context.FLOAT, false, stride, 0);
+      context.enableVertexAttribArray(metaLocation);
+      context.vertexAttribPointer(metaLocation, 3, context.FLOAT, false, stride, 3 * 4);
+      points = data.length / 6;
     }
   }
 
   function draw(seconds: number, pointer: Vec | null, scroll: number, settle: boolean) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (!cloud) return;
-    const { x, y, z, ridge, tint, size, count } = cloud;
+    context.clearColor(0, 0, 0, 0);
+    context.clear(context.COLOR_BUFFER_BIT);
+    if (points === 0) return;
 
-    /* Three things turn the cloud, and they add rather than compete: a slow
-       idle drift, the scroll position, and the pointer. Scroll is the parallax
-       the reference has, and it is the reason the cloud is worth having on a
-       page somebody scrolls. */
-    const drift = settle ? 0 : Math.sin(seconds * 0.16) * 0.1;
-    const yaw = -0.3 + drift + scroll * 0.85 + (pointer ? pointer.x * 0.28 : 0);
-    const pitch = -0.08 - scroll * 0.18 + (pointer ? pointer.y * 0.2 : 0);
+    /* Three things turn it, and they add rather than compete: a slow idle
+       drift, the scroll position, and the pointer. */
+    const drift = settle ? 0 : Math.sin(seconds * 0.15) * 0.11;
+    const yaw = -0.28 + drift + scroll * 0.8 + (pointer ? pointer.x * 0.3 : 0);
+    const pitch = -0.07 - scroll * 0.16 + (pointer ? pointer.y * 0.22 : 0);
 
-    const cosYaw = Math.cos(yaw);
-    const sinYaw = Math.sin(yaw);
-    const cosPitch = Math.cos(pitch);
-    const sinPitch = Math.sin(pitch);
-
-    let near = Infinity;
-    let far = -Infinity;
-    for (let i = 0; i < count; i++) {
-      const px = x[i]!;
-      const py = y[i]!;
-      const pz = z[i]!;
-      const ax = px * cosYaw + pz * sinYaw;
-      let az = -px * sinYaw + pz * cosYaw;
-      const ay = py * cosPitch - az * sinPitch;
-      az = py * sinPitch + az * cosPitch;
-      rx[i] = ax;
-      ry[i] = ay;
-      rz[i] = az;
-      if (az < near) near = az;
-      if (az > far) far = az;
-    }
-
-    /* Counting sort into depth buckets: linear, and precise enough that two
-       sprites ten pixels across never visibly swap. */
-    const span = Math.max(1e-6, far - near);
-    bucketCount.fill(0);
-    for (let i = 0; i < count; i++) {
-      const bucket = Math.min(BUCKETS - 1, ((rz[i]! - near) / span * BUCKETS) | 0);
-      bucketCount[bucket]! += 1;
-    }
-    let running = 0;
-    for (let b = 0; b < BUCKETS; b++) {
-      bucketStart[b] = running;
-      running += bucketCount[b]!;
-    }
-    for (let i = 0; i < count; i++) {
-      const bucket = Math.min(BUCKETS - 1, ((rz[i]! - near) / span * BUCKETS) | 0);
-      order[bucketStart[bucket]!] = i;
-      bucketStart[bucket]! += 1;
-    }
-
-    for (let k = 0; k < count; k++) {
-      const i = order[k]!;
-      const depth = DISTANCE - rz[i]!;
-      const sx = centreX + (rx[i]! * focal) / depth;
-      const sy = centreY - (ry[i]! * focal) / depth;
-      const nearness = (rz[i]! - near) / span;
-      const crest = ridge[i]!;
-      const width = SPRITE * (0.5 + nearness * 0.8) * (0.7 + crest * 0.55) * size[i]!;
-      ctx.globalAlpha = (0.2 + nearness * 0.7) * (0.4 + crest * 0.6);
-      ctx.drawImage(sprites[tint[i]!]!, sx - width / 2, sy - width / 2, width, width);
-    }
-    ctx.globalAlpha = 1;
+    context.uniform1f(uYaw, yaw);
+    context.uniform1f(uPitch, pitch);
+    context.uniform1f(uScale, scale);
+    context.drawArrays(context.POINTS, 0, points);
   }
 
   return {
     layout,
     draw,
-    clear: () => ctx.clearRect(0, 0, canvas.width, canvas.height),
-    count: () => cloud?.count ?? 0,
+    clear: () => {
+      context.clearColor(0, 0, 0, 0);
+      context.clear(context.COLOR_BUFFER_BIT);
+    },
+    count: () => points,
   };
 }
