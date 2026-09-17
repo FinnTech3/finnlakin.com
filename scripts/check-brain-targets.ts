@@ -83,8 +83,9 @@ function checksum(data: Float32Array) {
 }
 
 const names = ["brain", "data field", "helix", "reassembly"];
-const shapes = brainTargets(COUNT, SEED);
-const set = buildTargetSet(shapes, GRID);
+const built = brainTargets(COUNT, SEED);
+const shapes = built.shapes;
+const set = buildTargetSet(shapes, GRID, [built.tone, built.tone, built.tone, built.tone]);
 
 console.log(`Brain targets, seed ${SEED}, ${COUNT} particles in a ${GRID} by ${GRID} grid.`);
 
@@ -140,9 +141,95 @@ for (let quadrant = 0; quadrant < 4; quadrant++) {
   check(spread > 0.05, `quadrant ${quadrant} (${names[quadrant]}) is not collapsed`, `spread ${spread.toFixed(4)}`);
 }
 
+/* The brain is a hollow shell, and it has to stay one.
+
+   Guards a real regression: before the sulci were emptied, the cortex was a
+   volume forty two percent of the radius thick, most of whose particles sat in
+   the interior where nothing can see them and where they filled in the folds
+   that were supposed to be visible. */
+{
+  /* Against the surface in each particle's own direction, not against one
+     radius for the whole shape.
+
+     The first version of this compared every particle to the single furthest
+     one, which reported 22 percent on the skin for a shell that is actually 95
+     percent skin. A brain is not a sphere: a particle on the side of it is much
+     closer to the centre than one at the occipital pole while being no less on
+     the surface. So directions are bucketed and each particle is compared to
+     the furthest particle in its own bucket. */
+  const RINGS = 22;
+  const SECTORS = 44;
+  const buckets = new Float32Array(RINGS * SECTORS);
+  const radii = new Float32Array(COUNT);
+  const bucketOf = new Int32Array(COUNT);
+
+  for (let i = 0; i < COUNT; i++) {
+    const x = shapes[0]![i * 3]! - 0.5;
+    const y = shapes[0]![i * 3 + 1]! - 0.5;
+    const z = shapes[0]![i * 3 + 2]! - 0.5;
+    const r = Math.hypot(x, y, z);
+    radii[i] = r;
+    if (r < 1e-6) {
+      bucketOf[i] = -1;
+      continue;
+    }
+    const ring = Math.min(RINGS - 1, Math.floor(((Math.acos(y / r) / Math.PI) * RINGS)));
+    const sector = Math.min(
+      SECTORS - 1,
+      Math.floor(((Math.atan2(z, x) + Math.PI) / (2 * Math.PI)) * SECTORS),
+    );
+    const bucket = ring * SECTORS + sector;
+    bucketOf[i] = bucket;
+    if (r > buckets[bucket]!) buckets[bucket] = r;
+  }
+
+  let onSkin = 0;
+  let counted = 0;
+  for (let i = 0; i < COUNT; i++) {
+    const bucket = bucketOf[i]!;
+    if (bucket < 0) continue;
+    counted += 1;
+    if (radii[i]! > buckets[bucket]! * 0.86) onSkin += 1;
+  }
+  const share = counted > 0 ? onSkin / counted : 0;
+  /* The bar is 80 percent against a measurement of about 87. The gap between
+     that and the 95 percent the generator actually places on the skin is
+     within-cell variation, not interior particles: a cell spans enough solid
+     angle that the gyral displacement moves the surface inside it. The bar is
+     set to catch a return to a filled volume, which measured far below this,
+     rather than to pin the exact number. */
+  check(
+    share > 0.8,
+    "the brain is a shell rather than a solid",
+    `${(share * 100).toFixed(1)}% on the skin`,
+  );
+  console.log(`  shell: ${(share * 100).toFixed(1)}% of particles on the outer skin`);
+}
+
+/* And the colour has to use the ramp rather than collapsing to one end of it.
+
+   Guards the other regression from the same change: colour was driven by how
+   much of a crest a particle sat on, which was correct until the valleys were
+   rejected, at which point almost every surviving particle was on a crown, the
+   value was near one everywhere and the whole cloud came out uniformly pale. */
+{
+  let low = 0;
+  let high = 0;
+  for (let i = 0; i < COUNT; i++) {
+    if (built.tone[i]! < 0.35) low += 1;
+    if (built.tone[i]! > 0.65) high += 1;
+  }
+  check(low / COUNT > 0.1, "the colour ramp reaches its dark end", `${((low / COUNT) * 100).toFixed(1)}%`);
+  check(high / COUNT > 0.1, "the colour ramp reaches its bright end", `${((high / COUNT) * 100).toFixed(1)}%`);
+  console.log(
+    `  colour: ${((low / COUNT) * 100).toFixed(1)}% dark, ${((high / COUNT) * 100).toFixed(1)}% bright`,
+  );
+}
+
 /* Determinism. Generated twice in the same process, from the same seed, the
    bytes have to be identical. */
-const again = buildTargetSet(brainTargets(COUNT, SEED), GRID);
+const repeat = brainTargets(COUNT, SEED);
+const again = buildTargetSet(repeat.shapes, GRID, [repeat.tone, repeat.tone, repeat.tone, repeat.tone]);
 const first = checksum(set.positions);
 check(checksum(again.positions) === first, "generation is deterministic");
 

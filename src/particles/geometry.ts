@@ -13,10 +13,13 @@
    optimising against clarity. */
 
 /* World units. Small enough that a particle is a speck at rest and large enough
-   that the nearest ones resolve into a recognisable solid, which is the balance
-   the specification asks for: tiny, but never so tiny that the bloom is the
-   only thing left. */
-const RADIUS = 0.012;
+   that the nearest ones resolve into a recognisable solid.
+
+   Raised once the brain became a hollow shell. A shell seen face on spreads its
+   particles over the largest screen area and seen edge on piles them up, which
+   is why a hollow cloud has a bright rim and a thin middle; slightly larger
+   particles fill the face on regions without adding any. */
+const RADIUS = 0.015;
 
 /* Longer than it is wide, so the shard has a direction and the noise driven
    rotation has something to show. A regular tetrahedron tumbling looks almost

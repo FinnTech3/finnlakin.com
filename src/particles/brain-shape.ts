@@ -32,8 +32,14 @@ function noise(index: number, salt: number) {
 
    Returns the point rather than a radius, because several of the deformations
    are not radial: the temporal lobe moves a point down as well as out, and the
-   lateral sulcus pushes it back up again. */
-function surfacePoint(index: number, count: number): [number, number, number] {
+   lateral sulcus pushes it back up again.
+
+   It also returns the fold phase it used, as a fourth number. That used to be
+   recomputed by the caller from the displaced point, which is a slightly
+   different position from the one the displacement was derived at, so the crest
+   value and the fold that produced it disagreed by a little everywhere. Now
+   there is one number and it is the right one. */
+function surfacePoint(index: number, count: number): [number, number, number, number] {
   const golden = Math.PI * (3 - Math.sqrt(5));
   const unit = 1 - (index / Math.max(1, count - 1)) * 2;
   const band = Math.sqrt(Math.max(0, 1 - unit * unit));
@@ -67,12 +73,20 @@ function surfacePoint(index: number, count: number): [number, number, number] {
   /* Gyri. The phase is kept afterwards by the caller, because it decides
      whether this point is on a crest or down in a sulcus, and that drives how
      densely the region is filled. */
+  /* The fold frequency, raised a long way.
+
+     At the wavelengths this started with there were about two ridges across the
+     whole brain, which is a lobed potato rather than a cortex: emptying the
+     sulci made no visible difference because there were barely any sulci to
+     empty. A real cortex has something like a dozen visible gyri across it, so
+     the frequency goes up and the amplitude comes down, giving a corrugated
+     surface instead of a lumpy one. */
   const phase =
-    Math.sin(px * 5.4 + pz * 2.2) * 0.55 +
-    Math.sin(py * 6.4 + px * 2.7) * 0.3 +
-    Math.sin(pz * 7.6 + py * 3.3) * 0.15;
+    Math.sin(px * 13.5 + pz * 5.5) * 0.55 +
+    Math.sin(py * 15.5 + px * 6.5) * 0.3 +
+    Math.sin(pz * 17.5 + py * 8.0) * 0.15;
   const length = Math.hypot(px, py, pz) || 1;
-  const displacement = phase * 0.09;
+  const displacement = phase * 0.075;
   px += (px / length) * displacement;
   py += (py / length) * displacement;
   pz += (pz / length) * displacement;
@@ -81,19 +95,24 @@ function surfacePoint(index: number, count: number): [number, number, number] {
      hemispheres. */
   py -= Math.exp(-(pz * pz) * 45) * Math.max(0, py) * 0.17;
 
-  return [px, py, pz];
-}
-
-function foldPhase(px: number, py: number, pz: number) {
-  return (
-    Math.sin(px * 5.4 + pz * 2.2) * 0.55 +
-    Math.sin(py * 6.4 + px * 2.7) * 0.3 +
-    Math.sin(pz * 7.6 + py * 3.3) * 0.15
-  );
+  /* Nought in the depth of a sulcus, one on the crown of a gyrus. */
+  return [px, py, pz, (phase + 1) / 2];
 }
 
 /* Raw model space, before normalisation into the texture's nought to one. */
-function rawBrain(count: number, random: () => number): Float32Array {
+/* How many directions a particle may try before it settles for the last one.
+   Twenty four is generous: at the acceptance curve below, the chance of
+   reaching it is vanishing, and it exists so the loop cannot run away. */
+const MAX_ATTEMPTS = 24;
+
+/* How deep the populated skin goes, as a fraction of the radius. */
+const SKIN_THICKNESS = 0.075;
+
+/* And the fraction scattered through the interior, so it is hollow rather than
+   empty. */
+const INTERIOR_SHARE = 0.05;
+
+function rawBrain(count: number, random: () => number, tone: Float32Array): Float32Array {
   const out = new Float32Array(count * 3);
 
   /* Most of the cloud is cortex. The cerebellum is its own tighter cluster
@@ -106,26 +125,65 @@ function rawBrain(count: number, random: () => number): Float32Array {
 
   for (let i = 0; i < count; i++) {
     if (i < cortex) {
-      /* Spread the directions over a larger Fibonacci set than there are
-         particles, so that two particles rarely take the same direction and the
-         surface does not band. */
-      const direction = Math.floor(random() * cortex * 4);
-      const [sx, sy, sz] = surfacePoint(direction, cortex * 4);
+      /* Rejection sampling, and this is the change that matters most.
 
-      /* Inward along the ray, biased hard towards the surface. A uniform radius
-         would put most particles in the middle, where none of them can be seen,
-         and leave the silhouette thin. */
-      const depth = 1 - 0.42 * Math.pow(random(), 2.1);
+         The previous version computed how much of a crest a direction was on
+         and then kept the particle either way, moving the ones it meant to
+         reject six percent inward instead of removing them. So the sulci were
+         never empty: every particle that should have been taken out of a
+         valley was still sitting in it, a fraction closer to the centre. From
+         outside, a folded cortex and a smooth one look identical when the
+         grooves are full, which is exactly why the brain read as a fuzzy
+         potato however much the folds were deepened.
 
-      /* Valleys between the folds are thinned rather than merely dimmed, which
-         is what separates a folded surface from a smooth one. */
-      const crest = (foldPhase(sx, sy, sz) + 1) / 2;
-      const keep = 0.52 + crest * 0.48;
-      const jitter = random() < keep ? 1 : 0.94;
+         Here a direction that lands in a valley is thrown away and another is
+         drawn. The gaps are the whole point: a fold is visible because of what
+         is not there. */
+      let sx = 0;
+      let sy = 0;
+      let sz = 0;
+      let crest = 0;
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        const direction = Math.floor(random() * cortex * 4);
+        const candidate = surfacePoint(direction, cortex * 4);
+        crest = candidate[3];
+        sx = candidate[0];
+        sy = candidate[1];
+        sz = candidate[2];
+        /* Cubic, so a crown is kept almost always and the floor of a sulcus
+           almost never. The last attempt is taken whatever it is, so this
+           always terminates and the particle count is exact. */
+        if (random() < Math.pow(crest, 2.4) || attempt === MAX_ATTEMPTS - 1) break;
+      }
 
-      out[i * 3] = sx * depth * jitter + (random() - 0.5) * 0.02;
-      out[i * 3 + 1] = sy * depth * jitter + (random() - 0.5) * 0.02;
-      out[i * 3 + 2] = sz * depth * jitter + (random() - 0.5) * 0.02;
+      /* A skin, not a solid. Finn asked for something you can see through, with
+         the far surface showing behind the near one, and the arithmetic agrees:
+         a shell 42 percent of the radius thick, which is what this was, spends
+         most of its particles in the interior where nothing can see them, and
+         the ones it spends there are the ones filling in the folds. A twentieth
+         are still scattered deep so the cloud does not read as a balloon when
+         it turns or comes apart. */
+      const inside = random() < INTERIOR_SHARE;
+      const depth = inside
+        ? 0.35 + random() * 0.5
+        : 1 - SKIN_THICKNESS * Math.pow(random(), 1.5);
+
+      out[i * 3] = sx * depth + (random() - 0.5) * 0.012;
+      out[i * 3 + 1] = sy * depth + (random() - 0.5) * 0.012;
+      out[i * 3 + 2] = sz * depth + (random() - 0.5) * 0.012;
+      /* Colour cannot come from the crest, which was the first thing tried and
+         is wrong for an instructive reason: once the valleys are rejected,
+         almost every surviving particle is on a crown, so the crest is near one
+         everywhere and the whole cloud collapses to the top of the ramp. It
+         came out uniformly pale.
+
+         What still varies across a cortex of crowns is which part of it you are
+         looking at, so the colour follows a slow field over the surface. Broad
+         regions differ, neighbours do not, and the folds are read from the gaps
+         between them rather than from their colour. */
+      const region =
+        Math.sin(sx * 1.9 + 0.4) * 0.5 + Math.sin(sy * 2.3 - 0.7) * 0.3 + Math.sin(sz * 1.5) * 0.2;
+      tone[i] = clamp(0.5 + region * 0.5, 0, 1) * (inside ? 0.4 : 1);
       continue;
     }
 
@@ -141,17 +199,24 @@ function rawBrain(count: number, random: () => number): Float32Array {
       out[i * 3] = px + 0.93 + ripple;
       out[i * 3 + 1] = py - 0.5 + ripple;
       out[i * 3 + 2] = pz;
+      /* The foliation is the cerebellum's own structure, so it drives the
+         colour there the way the gyri do on the cortex. */
+      tone[i] = 0.45 + (ripple / 0.02) * 0.3;
       continue;
     }
 
-    /* The stem, a short tapering column below the join. */
+    /* The stem, a short tapering column below the join. Shortened: at its first
+       length it hung well below the cerebellum and read as a tail rather than as
+       the top of a brain stem that continues out of frame. */
     const t = random();
-    const spread = 0.12 * (1 - t * 0.45);
+    const spread = 0.11 * (1 - t * 0.4);
     const theta = random() * Math.PI * 2;
     const r = Math.sqrt(random()) * spread;
     out[i * 3] = 0.62 + Math.cos(theta) * r + noise(i, 3) * 0.02;
-    out[i * 3 + 1] = -0.62 - t * 0.42;
+    out[i * 3 + 1] = -0.6 - t * 0.2;
     out[i * 3 + 2] = Math.sin(theta) * r;
+    /* The stem is smooth and in shadow. */
+    tone[i] = 0.18 + noise(i, 5) * 0.12;
   }
 
   return out;
@@ -172,8 +237,18 @@ function normalise(raw: Float32Array, count: number): Shape {
   return out;
 }
 
-export function brain(count: number, seed: number): Shape {
-  return normalise(rawBrain(count, mulberry32(seed)), count);
+/* The brain, and the structural value that goes with each particle: nought in
+   the floor of a sulcus, one on the crown of a gyrus.
+
+   The colour used to be a function of height, which reads as a light shining on
+   a shape rather than as the shape having structure. Driving it from this
+   instead is what makes the folds visible as folds. */
+export type BrainShape = { shape: Shape; tone: Float32Array };
+
+export function brain(count: number, seed: number): BrainShape {
+  const tone = new Float32Array(count);
+  const shape = normalise(rawBrain(count, mulberry32(seed), tone), count);
+  return { shape, tone };
 }
 
 /* Rescales a shape about the centre of the texture so that its furthest
@@ -270,12 +345,15 @@ export function reassembly(source: Shape, count: number, seed: number): Shape {
   return fitToExtent(out, count);
 }
 
-export function brainTargets(count: number, seed: number): Shape[] {
-  const first = brain(count, seed);
-  return [
-    first,
-    dataField(first, count, seed + 11),
-    helix(first, count, seed + 23),
-    reassembly(first, count, seed + 37),
-  ];
+export function brainTargets(count: number, seed: number): { shapes: Shape[]; tone: Float32Array } {
+  const { shape, tone } = brain(count, seed);
+  return {
+    shapes: [
+      shape,
+      dataField(shape, count, seed + 11),
+      helix(shape, count, seed + 23),
+      reassembly(shape, count, seed + 37),
+    ],
+    tone,
+  };
 }

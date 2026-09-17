@@ -17,7 +17,7 @@ import { ParticleRenderer } from "./renderer";
 import { ScrollController } from "./scroll";
 import { ParticleSimulation } from "./simulation";
 import { buildTargetSet, SEED } from "./targets";
-import { brain, brainTargets } from "./brain-shape";
+import { brainTargets } from "./brain-shape";
 import { introFactor, rescale, wordShape } from "./words";
 import { mapClamped } from "./pack";
 import { DEFAULTS, type ParticleBrain, type ParticleBrainConfig, type QualityLevel } from "./types";
@@ -156,7 +156,16 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   if (!fullscreen) return null;
 
   const count = config.gridSize * config.gridSize;
-  const scrollSet = buildTargetSet(brainTargets(count, SEED), config.gridSize);
+  const built = brainTargets(count, SEED);
+  /* The same tone for all four quadrants: the other three shapes are per
+     particle derivations of the brain, so a particle keeps its colour identity
+     as it morphs rather than being recoloured by whatever shape it is in. */
+  const scrollSet = buildTargetSet(built.shapes, config.gridSize, [
+    built.tone,
+    built.tone,
+    built.tone,
+    built.tone,
+  ]);
 
   /* The opening animation is not a separate system. It is the same four
      quadrant target texture with two words in it and the brain in the other
@@ -171,7 +180,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
         /* The brain is stored here shrunk by exactly the ratio between the two
            factors, so that at the handover the texture and the factor change in
            the same frame and cancel: the picture does not move. */
-        const shrunk = rescale(brain(count, SEED), count, config.factorDesktop / wordsFactor);
+        const shrunk = rescale(built.shapes[0]!, count, config.factorDesktop / wordsFactor);
         return buildTargetSet(
           [
             wordShape(INTRO_LINES[0]!, window.innerWidth, window.innerHeight, count, SEED + 3),
@@ -180,6 +189,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
             shrunk,
           ],
           config.gridSize,
+          [null, null, built.tone, built.tone],
         );
       })()
     : null;

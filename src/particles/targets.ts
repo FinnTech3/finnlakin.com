@@ -66,16 +66,33 @@ function scaleFor(random: () => number) {
 }
 
 /* Colour along the ramp rather than one of a handful of fixed values, with the
-   warm accent injected sparsely. Position along the ramp is driven by height
-   within the shape plus a little noise, so the cloud is cooler low and brighter
-   high and neighbouring particles still differ. */
-function colourFor(shape: Shape, index: number, random: () => number) {
+   warm accent injected sparsely.
+
+   Position along the ramp comes from the shape's own structure where the shape
+   has any: nought in the floor of a sulcus, one on the crown of a gyrus, so the
+   folds are lit by being coloured rather than by a light. Driven by height, as
+   it was, the cloud came out pale at the top and blue at the bottom, which
+   reads as a lamp above a featureless object and is most of why the brain did
+   not look like a brain.
+
+   Shapes with no structure of their own, the words in the opening animation,
+   fall back to height, where a vertical gradient is exactly right. */
+function colourFor(
+  shape: Shape,
+  index: number,
+  random: () => number,
+  tone: Float32Array | null,
+) {
   if (random() < WARM_SHARE) return hexToLinear(WARM);
-  const height = shape[index * 3 + 1] ?? 0.5;
-  /* Held short of the top of the ramp. Run to the end, the crest of the cortex
-     came out pure white, and once the bloom is over it there is no colour left
-     in the brightest third of the cloud at all. */
-  const t = Math.min(0.84, Math.max(0, (height - 0.3) / 0.46 + (random() - 0.5) * 0.4));
+
+  const structure = tone ? tone[index] : undefined;
+  const base =
+    structure === undefined ? ((shape[index * 3 + 1] ?? 0.5) - 0.3) / 0.46 : structure;
+
+  /* Held short of the top of the ramp. Run to the end, the crowns came out pure
+     white, and once the bloom is over them there is no colour left in the
+     brightest third of the cloud at all. */
+  const t = Math.min(0.86, Math.max(0, base + (random() - 0.5) * 0.28));
   return sampleRamp(t);
 }
 
@@ -95,7 +112,15 @@ function orderings(shapes: Shape[], count: number) {
   };
 }
 
-export function buildTargetSet(shapes: Shape[], gridSize: number): TargetSet {
+/* One structural tone array per quadrant, or null for a shape that has no
+   structure of its own. The opening animation's texture holds two words and two
+   brains, and they want different things: a word reads best as a vertical
+   gradient, a brain as its own folds. */
+export function buildTargetSet(
+  shapes: Shape[],
+  gridSize: number,
+  tones: (Float32Array | null)[] = [],
+): TargetSet {
   const count = gridSize * gridSize;
   const width = gridSize * 2;
   const random = mulberry32(SEED);
@@ -117,7 +142,8 @@ export function buildTargetSet(shapes: Shape[], gridSize: number): TargetSet {
       return [s, s, s];
     });
     const colourRandom = mulberry32(SEED + q * 29);
-    writeQuadrant(colours, q, gridSize, (i) => colourFor(shape, i, colourRandom));
+    const quadrantTone = tones[q] ?? null;
+    writeQuadrant(colours, q, gridSize, (i) => colourFor(shape, i, colourRandom, quadrantTone));
   }
 
   const order = orderings(shapes, count);
