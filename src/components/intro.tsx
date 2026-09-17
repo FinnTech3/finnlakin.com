@@ -32,8 +32,13 @@ export function Intro() {
    It sets one attribute. A reader with JavaScript off never gets the attribute,
    so they never get the overlay, and the page they see is the finished one. */
 export function IntroBoot() {
+  /* The timeout is the failsafe. The engine that clears this attribute is
+     loaded on demand, and if that request never arrives, the reader is left
+     looking at an opaque black rectangle with the finished page underneath it.
+     Twelve seconds is past the engine's own ceiling, so it only ever fires when
+     the engine is not there at all. */
   const source = `try{if(location.pathname==="/"&&!sessionStorage.getItem(${JSON.stringify(
     STORAGE_KEY,
-  )})&&!matchMedia("(prefers-reduced-motion: reduce)").matches){document.documentElement.dataset.intro="running"}}catch(e){}`;
+  )})&&!matchMedia("(prefers-reduced-motion: reduce)").matches){var r=document.documentElement;r.dataset.intro="running";setTimeout(function(){if(r.dataset.intro==="running"){delete r.dataset.intro}},12000)}}catch(e){}`;
   return <script dangerouslySetInnerHTML={{ __html: source }} />;
 }

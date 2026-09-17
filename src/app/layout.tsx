@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import { Backdrop, Scrim } from "@/components/backdrop";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { Intro, IntroBoot } from "@/components/intro";
-import { ParticleBrain } from "@/components/particle-brain";
+import { ParticleBrainMount } from "@/components/particle-brain-mount";
 import { ogImageUrl } from "@/lib/metadata";
 import { siteDescription, siteTitle, siteUrl } from "@/lib/site";
 import "./globals.css";
@@ -81,7 +81,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* Above the scrim, so its colours run at full strength, and below
             everything that carries words. It mounts itself only on the home
             page, whose sections the timeline is choreographed against. */}
-        <ParticleBrain />
+        <ParticleBrainMount />
 
         {/* First focusable element on the page. Visually hidden until it takes
             focus, so a keyboard user can reach the content without tabbing

@@ -165,180 +165,201 @@ test.describe("the opening animation", () => {
   test("can be dismissed", async ({ page }) => {
     await page.goto("/");
     expect(await introState(page)).toBe("running");
+    /* The engine is loaded on demand now, so the listener that hears this is
+       attached a moment after the attribute is set. Pressing before it arrives
+       tests nothing. */
+    await expect
+      .poll(() => page.locator("[data-brain]").getAttribute("data-brain"), { timeout: 20_000 })
+      .toBe("live");
     await page.keyboard.press("Escape");
-    await expect.poll(() => introState(page), { timeout: 3_000 }).toBe("none");
+    /* Running, then ending while the veil fades, then gone. */
+    await expect.poll(() => introState(page), { timeout: 6_000 }).toBe("none");
   });
 });
 
-/* The constellation. It is decoration, so none of this is about what it looks
-   like: it is about the three ways a background canvas can go wrong without
-   anybody noticing. It can fail to paint at all, it can keep painting forever
-   after it has scrolled out of sight, and it can keep moving for a reader who
-   asked it not to. */
-test.describe("the constellation", () => {
-  /* Counts the pixels the constellation has actually painted, optionally only
-     those within a radius of a point. Reading the canvas directly rather than
-     diffing screenshots, because the field drifts: any two frames differ, so a
-     pixel diff would pass whatever happened. */
-  async function painted(page: Page, near?: { x: number; y: number; radius: number }) {
-    return page.evaluate((spot) => {
-      const canvas = document.querySelector<HTMLCanvasElement>("[data-brain]");
-      const ctx = canvas?.getContext("2d");
-      if (!canvas || !ctx || canvas.width === 0) return -1;
-      const scale = canvas.width / Math.max(1, canvas.clientWidth);
-      const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
 
-      /* The spot arrives in page coordinates. The canvas is an element in the
-         layout now rather than a fixed sheet over the viewport, so it has to be
-         moved into the canvas's own box before it means anything. */
-      const box = canvas.getBoundingClientRect();
-      let count = 0;
-      const cx = spot ? (spot.x - box.left) * scale : 0;
-      const cy = spot ? (spot.y - box.top) * scale : 0;
-      const r2 = spot ? (spot.radius * scale) ** 2 : 0;
-      for (let y = 0; y < canvas.height; y += 2) {
-        for (let x = 0; x < canvas.width; x += 2) {
-          if (pixels[((y * canvas.width + x) << 2) + 3]! < 8) continue;
-          if (spot && (x - cx) ** 2 + (y - cy) ** 2 > r2) continue;
-          count += 1;
-        }
+/* The particle engine. None of this is about what it looks like, which is a
+   judgement nobody should delegate to a test. It is about the ways a
+   background canvas can go wrong without anybody noticing: it can fail to
+   paint, it can keep painting in a tab nobody is looking at, it can keep
+   moving for a reader who asked it not to, and it can quietly swallow the
+   clicks, selections and keystrokes meant for the page underneath it. */
+test.describe("the particle engine", () => {
+  /* Counts the pixels the engine has actually painted, by decoding a
+     screenshot of its canvas.
+
+     Not by reading the drawing buffer, which was the first attempt and which
+     silently returns nothing: asking an element for a context a second time
+     hands back the one it already has and ignores the attributes, so
+     preserveDrawingBuffer never took effect and readPixels saw a buffer the
+     compositor had already cleared. It reported zero lit pixels for a cloud
+     that was plainly on screen. */
+  async function painted(page: Page) {
+    const canvas = page.locator("[data-brain] canvas");
+    if ((await canvas.count()) === 0) return -1;
+    const shot = (await canvas.screenshot()).toString("base64");
+    return page.evaluate(async (data: string) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${data}`;
+      await image.decode();
+      const sheet = document.createElement("canvas");
+      sheet.width = image.width;
+      sheet.height = image.height;
+      const ctx = sheet.getContext("2d");
+      if (!ctx) return -1;
+      ctx.drawImage(image, 0, 0);
+      const pixels = ctx.getImageData(0, 0, sheet.width, sheet.height).data;
+      let lit = 0;
+      for (let i = 0; i < pixels.length; i += 16) {
+        if (pixels[i]! + pixels[i + 1]! + pixels[i + 2]! > 24) lit += 1;
       }
-      return count;
-    }, near);
+      return lit;
+    }, shot);
   }
 
-  test("paints behind the opening screen", async ({ page }) => {
-    await page.goto("/");
+  async function settled(page: Page) {
     await page.evaluate((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
     await page.reload();
     await page.evaluate(() => document.fonts.ready);
+    await expect
+      .poll(() => page.locator("[data-brain]").getAttribute("data-brain"), { timeout: 20_000 })
+      .toBe("live");
     await page.waitForTimeout(2_500);
+  }
 
-    expect(
-      await painted(page),
-      "the constellation should have particles on screen",
-    ).toBeGreaterThan(2_000);
+  test("paints, and says which quality level it settled on", async ({ page }) => {
+    await page.goto("/?brainQuality=low");
+    await settled(page);
+    expect(await painted(page), "the cloud painted nothing at all").toBeGreaterThan(200);
   });
 
-  test("stops animating once it has scrolled out of view", async ({ page }) => {
-    await page.goto("/");
-    await page.evaluate((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
-    await page.reload();
+  test("moves on its own, and keeps moving as the page scrolls", async ({ page }) => {
+    await page.goto("/?brainQuality=low");
+    await settled(page);
+
+    /* The simulation is a spring, so a settled cloud still drifts: the pyramids
+       rotate on noise and the camera parallaxes. Two frames a second apart must
+       not be identical, or nothing is running. */
+    const shot = async () =>
+      (await page.locator("[data-brain] canvas").screenshot()).toString("base64");
+    const first = await shot();
+    await page.waitForTimeout(900);
+    expect(await shot(), "the cloud is frozen").not.toBe(first);
+
+    /* And the timeline actually responds to the page moving under it. */
+    await page.evaluate(() => {
+      const work = document.getElementById("work");
+      if (work) window.scrollTo(0, work.getBoundingClientRect().top + window.scrollY);
+    });
     await page.waitForTimeout(2_000);
-    expect(await painted(page)).toBeGreaterThan(2_000);
-
-    /* The cloud lives in the hero's second column now, so it scrolls away with
-       the page rather than being faded out by hand. What has to be true is that
-       it stops costing anything once it is gone: the frame loop is parked by an
-       IntersectionObserver, so two reads a second apart are identical. */
-    await page.evaluate(() => window.scrollTo(0, 2_400));
-    await page.waitForTimeout(700);
-    const first = await painted(page);
-    await page.waitForTimeout(1_000);
-    expect(
-      await painted(page),
-      "the loop should be parked while the cloud is off screen",
-    ).toBe(first);
-
-    /* And picks up again on the way back, unless the machine was too slow to
-       animate in the first place: the guard stops the loop for good, which is
-       the designed behaviour. Both branches assert something. */
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForTimeout(1_200);
-    const resumed = await painted(page);
-    await page.waitForTimeout(700);
-    const again = await painted(page);
-
-    const state = await page
-      .locator("[data-constellation]")
-      .getAttribute("data-constellation");
-    if (state === "live") {
-      expect(again, "and should start again once it is back in view").not.toBe(resumed);
-    } else {
-      expect(again, "a stopped loop should hold its finished picture").toBe(resumed);
-      expect(again, "and that picture should not be blank").toBeGreaterThan(2_000);
-    }
+    expect(await shot(), "scrolling changed nothing").not.toBe(first);
   });
 
-  test("turns towards the pointer, and settles back", async ({ page }) => {
-    await page.goto("/");
-    await page.evaluate((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
-    await page.reload();
-    await page.evaluate(() => document.fonts.ready);
-    await page.waitForTimeout(2_500);
+  test("stops drawing when the tab is hidden", async ({ page }) => {
+    await page.goto("/?brainQuality=low");
+    await settled(page);
 
-    await page.locator("[data-constellation]").scrollIntoViewIfNeeded();
-    await page.waitForTimeout(600);
-    const box = await page.locator("[data-constellation]").boundingBox();
-    if (!box) throw new Error("the constellation is not on the page");
+    const frames = () =>
+      page.evaluate(
+        () =>
+          new Promise<number>((resolve) => {
+            let count = 0;
+            const start = performance.now();
+            const tick = () => {
+              count += 1;
+              if (performance.now() - start < 400) requestAnimationFrame(tick);
+              else resolve(count);
+            };
+            requestAnimationFrame(tick);
+          }),
+      );
 
-    /* Where the mass sits, left to right, as a fraction between nought and one.
-       The cloud is a solid turning in three dimensions rather than a field being
-       pushed about, so the thing to measure is which way it is facing, not
-       whether a hole opened where the cursor is. */
-    const balance = () =>
-      page.evaluate(() => {
-        const canvas = document.querySelector<HTMLCanvasElement>("[data-brain]");
-        const ctx = canvas?.getContext("2d");
-        if (!canvas || !ctx || canvas.width === 0) return -1;
-        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        let weighted = 0;
-        let total = 0;
-        for (let y = 0; y < canvas.height; y += 2) {
-          for (let x = 0; x < canvas.width; x += 2) {
-            if (pixels[((y * canvas.width + x) << 2) + 3]! < 10) continue;
-            weighted += x;
-            total += 1;
-          }
-        }
-        return total === 0 ? -1 : weighted / total / canvas.width;
-      });
+    expect(await frames(), "no frames while visible").toBeGreaterThan(0);
 
-    const state = await page
-      .locator("[data-constellation]")
-      .getAttribute("data-constellation");
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+      Object.defineProperty(document, "hidden", { value: true, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await page.waitForTimeout(300);
 
-    const middleY = Math.round(box.y + box.height / 2);
-    await page.mouse.move(Math.round(box.x + box.width * 0.06), middleY);
+    const before = await painted(page);
     await page.waitForTimeout(900);
-    const left = await balance();
-
-    await page.mouse.move(Math.round(box.x + box.width * 0.94), middleY);
-    await page.waitForTimeout(900);
-    const right = await balance();
-
-    expect(left, "the cloud should be on screen to measure").toBeGreaterThan(0);
-    expect(right, "the cloud should be on screen to measure").toBeGreaterThan(0);
-
-    /* A machine too slow to animate stops the loop and keeps a still, which is
-       the designed behaviour: there is nothing left to turn. Both branches
-       assert something, so neither can go quietly green. */
-    if (state !== "live") {
-      expect(right, "a stopped loop should hold its picture still").toBeCloseTo(left, 3);
-      return;
-    }
-
-    expect(
-      Math.abs(right - left),
-      "the cloud should visibly turn between one side and the other",
-    ).toBeGreaterThan(0.004);
+    /* Nothing new drawn, so the count cannot have changed. */
+    expect(await painted(page), "still drawing in a hidden tab").toBe(before);
   });
 
   test("holds still for a reader who asked for less motion", async ({ browser }) => {
     const context = await browser.newContext({ reducedMotion: "reduce" });
     const page = await context.newPage();
-    await page.goto("/");
+    await page.goto("/?brainQuality=low");
+    await page.evaluate(() => document.fonts.ready);
+    await expect
+      .poll(() => page.locator("[data-brain]").getAttribute("data-brain"), { timeout: 20_000 })
+      .toBe("still");
+
     await page.waitForTimeout(1_200);
-
-    const first = await painted(page);
-    expect(first, "a still frame is still a frame").toBeGreaterThan(1_000);
-
-    /* Same count twice, a second apart. A drifting field would not hold. */
-    await page.waitForTimeout(1_000);
-    expect(await painted(page)).toBe(first);
+    const shot = async () =>
+      (await page.locator("[data-brain] canvas").screenshot()).toString("base64");
+    const first = await shot();
+    await page.waitForTimeout(1_200);
+    expect(await shot(), "the cloud moved for a reader who asked it not to").toBe(first);
     await context.close();
   });
+
+  /* The canvas covers the whole viewport and sits between the page and the
+     reader. Every one of these would be invisible in a screenshot and fatal in
+     use. */
+  test("never takes a click, a selection or the keyboard from the page", async ({ page }) => {
+    await page.goto("/?brainQuality=low");
+    await settled(page);
+
+    /* A link in the middle of the screen, which the canvas is certainly over. */
+    const link = page.locator("#hero a[href='#contact']");
+    await expect(link).toBeVisible();
+    const box = await link.boundingBox();
+    expect(box).not.toBeNull();
+
+    const topmost = await page.evaluate(
+      ({ x, y }) => {
+        const element = document.elementFromPoint(x, y);
+        return element ? element.tagName.toLowerCase() : "none";
+      },
+      { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 },
+    );
+    expect(topmost, "the canvas is on top of a link").not.toBe("canvas");
+
+    /* Keyboard first, because a click moves focus and then the first Tab lands
+       wherever that click left it rather than at the top of the page. */
+    await page.keyboard.press("Tab");
+    const focused = await page.evaluate(() => document.activeElement?.textContent ?? "");
+    expect(focused, "the first tab stop is not the skip link").toContain("Skip to content");
+
+    await link.click();
+    expect(page.url()).toContain("#contact");
+
+    /* Selection: dragging across a paragraph must select it, not the canvas. */
+    const paragraph = page.locator("#about p").first();
+    await paragraph.scrollIntoViewIfNeeded();
+    const area = await paragraph.boundingBox();
+    await page.mouse.move(area!.x + 5, area!.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(area!.x + area!.width - 10, area!.y + 10, { steps: 8 });
+    await page.mouse.up();
+    const selected = await page.evaluate(() => window.getSelection()?.toString() ?? "");
+    expect(selected.trim().length, "dragging across a paragraph selected nothing").toBeGreaterThan(3);
+  });
+
+  test("turns itself off when asked, leaving the page untouched", async ({ page }) => {
+    await page.goto("/?brainQuality=off");
+    await page.evaluate(() => document.fonts.ready);
+    await expect(page.locator("h1")).toBeVisible();
+    /* The host still renders, because the decision is the engine's, but nothing
+       is ever drawn into it. */
+    expect(await painted(page)).toBeLessThan(1);
+  });
 });
+
 /* The one thing an accessibility scanner cannot check on this site.
 
    axe reads computed styles. The gradient and the particle cloud both live in
