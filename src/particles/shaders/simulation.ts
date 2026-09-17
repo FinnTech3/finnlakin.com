@@ -39,6 +39,7 @@ uniform float u_spring;
 uniform float u_friction;
 uniform float u_explode;
 uniform float u_show;
+uniform float u_entryWindow;
 uniform vec3 u_pointer;
 uniform float u_pointerReach;
 uniform float u_pointerPush;
@@ -84,20 +85,30 @@ void main() {
   float multiplier = mix(1.0, param3.r, burst);
   target = centre + (target - centre) * multiplier;
 
-  /* The opening reveal: the cloud starts wider than it ends and is drawn in.
-     Quintic easing, so it is slow at both ends and quick through the middle,
-     which is what makes it look pulled rather than slid. */
-  float reveal = qinticInOut(u_show);
-  float dispersal = mix(1.55 + param3.g * 0.45, 1.0, reveal);
-  target = centre + (target - centre) * dispersal;
-
   vec3 previous = texture(t_position, simUv).xyz;
   vec3 velocity = texture(t_velocity, simUv).xyz;
+
+  /* The entrance.
+
+     There is no outward push here any more. Every particle is seeded off the
+     edge of the screen and held there by having no spring at all, and u_show
+     releases them: each waits for its own slot in the reveal and is then caught
+     over a window of it. The spring does the rest, which is the whole
+     animation, and the code for it is the code that was already here.
+
+     The slot comes from the display ordering, a shuffle of every index, so it
+     is uniform across the cloud whatever subset of it a quality level happens
+     to be drawing. Quintic easing on the window, so a particle leaves its edge
+     gently and is travelling hardest through the middle of its flight, which is
+     what reads as thrown rather than dragged. */
+  float windowSize = max(u_entryWindow, 0.001);
+  float slot = param1.b * (1.0 - windowSize);
+  float entry = qinticInOut(clamp((u_show - slot) / windowSize, 0.0, 1.0));
 
   /* Each particle's spring is very slightly its own. Identical springs make a
      cloud that breathes in unison, which is the one thing that gives away that
      it is a simulation rather than a swarm. */
-  float spring = u_spring + param1.a;
+  float spring = (u_spring + param1.a) * entry;
   vec3 acceleration = (target - previous) * spring;
 
   /* The pointer parts the cloud: a shoal of fish getting out of the way.

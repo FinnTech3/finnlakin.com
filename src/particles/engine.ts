@@ -2,7 +2,8 @@
 
 import { createFullscreen } from "./gl";
 import { MouseController, pointerInCloudSpace } from "./mouse";
-import { clamp } from "./pack";
+import { entryField } from "./entrance";
+import { clamp, mulberry32 } from "./pack";
 import {
   createFrameWatch,
   detectCapability,
@@ -73,10 +74,16 @@ const SIMULATION_STEP_SECONDS = 1 / 60;
    square against one pass over ten thousand instanced solids. */
 const MAX_STEPS_PER_FRAME = 20;
 
-/* How long the opening reveal takes to draw the cloud in from its dispersed
-   start. Short, because until it finishes the first word is a smear rather than
-   a word, and the phase after it is waiting. */
-const SHOW_SECONDS = 0.9;
+/* How long the opening reveal spends releasing the cloud.
+
+   This is not how long the entrance takes. Every particle starts off the edge
+   of the screen and is released into the spring at its own moment, and this is
+   the span those moments are spread over; the flight itself is the spring's
+   business and takes about another nine tenths of a second on top. So the last
+   particle to be released lands at roughly this plus one, which has to stay
+   comfortably inside the first word's phase below or the word morphs away while
+   part of it is still arriving. */
+const SHOW_SECONDS = 1.1;
 
 /* The opening animation's clock is read straight off the wall rather than
    accumulated from frames.
@@ -195,7 +202,33 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     : null;
 
   const set = introSet ?? scrollSet;
-  const simulation = ParticleSimulation.create(context, capability, fullscreen, set);
+
+  /* Built before the simulation, because the simulation's first act is to seed
+     every particle off the edge of the screen and the edge of the screen is
+     only knowable through the composition the reveal opens in. */
+  const baseFactor = mobile ? config.factorMobile : config.factorDesktop;
+  const timeline = new ParticleTimeline(baseFactor, aspect);
+  const mouse = new MouseController(mobile, config.mouseSmoothing);
+  const scroll = new ScrollController(config.scrollEase);
+
+  /* The intro holds the cloud square on, centred and at the words' own factor;
+     without it the page opens on the timeline's resting composition, which the
+     timeline is already constructed at. Either way this is the transform the
+     first frame will use, so a particle placed just outside the frame by it is
+     genuinely just outside the frame. */
+  const entryState = runIntro
+    ? {
+        ...timeline.current,
+        offset: { x: 0, y: 0, z: 0 },
+        factor: wordsFactor,
+        rotation: { x: 0, y: 0, z: 0 },
+      }
+    : timeline.current;
+  /* Seeded, so the opening is the same picture every load and a screenshot
+     taken at a fixed moment means something. */
+  const entry = reducedMotion ? null : entryField(entryState, aspect, mulberry32(SEED + 211));
+
+  const simulation = ParticleSimulation.create(context, capability, fullscreen, set, entry);
   const renderer = simulation ? ParticleRenderer.create(context, config.gridSize) : null;
   /* The post chain is allowed to fail on its own. Without it the particles are
      drawn straight to the screen, which is a quieter picture but a complete
@@ -212,11 +245,6 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   let tier: Tier = tierFor(level, mobile);
   const watch = createFrameWatch(level);
   const adaptive = !options.quality;
-
-  const baseFactor = mobile ? config.factorMobile : config.factorDesktop;
-  const timeline = new ParticleTimeline(baseFactor, aspect);
-  const mouse = new MouseController(mobile, config.mouseSmoothing);
-  const scroll = new ScrollController(config.scrollEase);
 
   let width = 1;
   let height = 1;

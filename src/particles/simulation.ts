@@ -1,3 +1,4 @@
+import type { EntryField } from "./entrance";
 import { bindTexture, createTexture, FULLSCREEN_VERTEX, link, locations } from "./gl";
 import { PingPong } from "./ping-pong";
 import type { Capability } from "./quality";
@@ -98,6 +99,7 @@ export class ParticleSimulation {
       "u_friction",
       "u_explode",
       "u_show",
+      "u_entryWindow",
       "u_pointer",
       "u_pointerReach",
       "u_pointerPush",
@@ -115,6 +117,10 @@ export class ParticleSimulation {
     capability: Capability,
     fullscreen: Fullscreen,
     set: TargetSet,
+    /* Where each particle starts. Null seeds every particle already at its
+       target, which is what a reader who asked for less motion gets: no
+       entrance, because an entrance is the motion they asked not to have. */
+    entry: EntryField | null,
   ): ParticleSimulation | null {
     const velocityProgram = link(gl, FULLSCREEN_VERTEX, VELOCITY_FRAGMENT, "velocity simulation");
     const positionProgram = link(gl, FULLSCREEN_VERTEX, POSITION_FRAGMENT, "position simulation");
@@ -184,22 +190,18 @@ export class ParticleSimulation {
       param3,
     });
 
-    simulation.seed(set);
+    simulation.seed(set, entry);
     return simulation;
   }
 
   /* The first position every particle holds.
 
-     Seeded with the opening shape already pushed outward by the same amount the
-     reveal starts at, rather than with the settled shape. Seeded settled, the
-     first frame would find the target dispersed and fling every particle
-     outward before drawing it back, which is the opposite of the intended
-     movement and is exactly what it looks like. */
-  seedFrom(set: TargetSet) {
-    this.seed(set);
-  }
-
-  private seed(set: TargetSet) {
+     Off the edge of the screen, all the way round it, and the velocity texture
+     left at zero: nothing moves until the reveal releases its spring. The
+     alternative, seeding them settled and letting the reveal push them out
+     first, is what this used to do in a milder form, and it has the flaw that
+     the first thing the reader sees is the finished picture coming apart. */
+  private seed(set: TargetSet, entry: EntryField | null) {
     const { gl } = this;
     const width = this.simSize;
     const seeded = new Float32Array(width * width * 4);
@@ -208,10 +210,10 @@ export class ParticleSimulation {
       const gx = i % this.gridSize;
       const gy = Math.floor(i / this.gridSize);
       const texel = (gy * width + gx) * 4;
-      const dispersal = 1.55 + set.param3[i * 4 + 1]! * 0.45;
-      for (let axis = 0; axis < 3; axis++) {
-        const target = set.positions[texel + axis]!;
-        seeded[texel + axis] = 0.5 + (target - 0.5) * dispersal;
+      if (entry) {
+        entry(seeded, texel);
+      } else {
+        for (let axis = 0; axis < 3; axis++) seeded[texel + axis] = set.positions[texel + axis]!;
       }
       seeded[texel + 3] = 1;
     }
@@ -303,6 +305,7 @@ export class ParticleSimulation {
     gl.uniform1f(this.velocityUniforms.u_friction ?? null, config.friction);
     gl.uniform1f(this.velocityUniforms.u_explode ?? null, inputs.explode);
     gl.uniform1f(this.velocityUniforms.u_show ?? null, inputs.show);
+    gl.uniform1f(this.velocityUniforms.u_entryWindow ?? null, config.entryWindow);
     gl.uniform3f(
       this.velocityUniforms.u_pointer ?? null,
       inputs.pointer[0],

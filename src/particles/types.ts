@@ -20,6 +20,10 @@ export type ParticleBrainConfig = {
   particleScaleMobile: number;
   spring: number;
   friction: number;
+  /* How much of the opening reveal one particle's own arrival occupies. The
+     rest of the reveal is the stagger: the smaller this is, the longer the
+     queue and the more the cloud streams in rather than landing together. */
+  entryWindow: number;
   morphDelayDesktop: number;
   morphDelayMobile: number;
   secondaryMorphDelay: number;
@@ -54,6 +58,11 @@ export const DEFAULTS: ParticleBrainConfig = {
   particleScaleMobile: 1.2,
   spring: 0.006,
   friction: 0.892,
+  /* Just under a third, so a particle is caught over about a third of a second
+     and the queue in front of it is about three quarters of the reveal. Tuned
+     by watching it: a longer window reads as the cloud being sucked in, a much
+     shorter one as ten thousand separate snaps. */
+  entryWindow: 0.3,
   morphDelayDesktop: 0.0005,
   morphDelayMobile: 0.000025,
   secondaryMorphDelay: 0.0005,

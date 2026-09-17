@@ -9,22 +9,29 @@ import type { MouseState, ParticleTimelineState } from "./types";
    rotate by the timeline's rotation, translate by its offset, then project. To
    push particles away from the cursor, that whole chain has to be undone.
 
-   A screen point is a ray rather than a point, so it is resolved against the
-   plane through the cloud's own centre: the reader is pointing at the cloud,
-   and that is the depth they mean. */
+   A screen point is a ray rather than a point, so it has to be resolved against
+   a plane. The pointer is resolved against the plane through the cloud's own
+   centre, because the reader is pointing at the cloud and that is the depth
+   they mean. The entrance asks for the other planes: a particle coming in from
+   behind the cloud is further from the camera, so the same screen position is a
+   wider world position, and scaling by exactly how much further away it is is
+   what keeps it on the ray instead of drifting back into frame. */
 export function pointerInCloudSpace(
   screen: { x: number; y: number },
   timeline: ParticleTimelineState,
   aspect: number,
+  depthOffset = 0,
 ): [number, number, number] {
   const depth = Math.abs(CAMERA_POSITION[2] - timeline.offset.z);
   const halfHeight = depth * Math.tan((CAMERA_FOV * Math.PI) / 360);
   const halfWidth = halfHeight * aspect;
 
-  /* World space, on the plane the cloud sits in. */
-  const wx = screen.x * halfWidth - timeline.offset.x;
-  const wy = screen.y * halfHeight - timeline.offset.y;
-  const wz = 0;
+  /* World space, on a plane parallel to the one the cloud sits in. Clamped well
+     clear of nought so that a depth at the camera itself cannot invert it. */
+  const reach = Math.max(0.05, (depth - depthOffset) / depth);
+  const wx = screen.x * halfWidth * reach - timeline.offset.x;
+  const wy = screen.y * halfHeight * reach - timeline.offset.y;
+  const wz = depthOffset;
 
   /* Undo the field rotation, which is applied as Z then Y then X, so it comes
      off in the opposite order with the opposite sign. */
