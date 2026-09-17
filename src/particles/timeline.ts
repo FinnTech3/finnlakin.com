@@ -22,17 +22,32 @@ const BASE = { x: 0, y: -1.19, z: 0 };
    than square on. */
 export const INITIAL_YAW = -0.25 * Math.PI;
 
-function targets(progress: number, baseFactor: number) {
+function targets(progress: number, baseFactor: number, aspect: number) {
   const p = progress;
 
+  /* The reference's numbers are written for a wide screen, where the cloud has
+     a right half to sit in and room to travel across. A phone has neither: at
+     the specified opening offset of three, measured on a Pixel 5, all but a
+     sliver of the brain was off the right edge.
+
+     So the horizontal excursions are scaled by how wide the screen actually is,
+     and on a narrow one the opening composition moves below the headline
+     instead of beside it, which is where the space is. Everything else in the
+     timeline is unchanged. */
+  const narrow = aspect < 1.1;
+  const spread = Math.min(1, aspect / 1.6);
+  const openX = narrow ? 0 : 3;
+  const openY = narrow ? -2.4 : 0;
+
   const x =
-    mapClamped(p, 0, 1, 3, -4.5) +
-    mapClamped(p, 1.25, 1.5, 0.905, 5) -
-    mapClamped(p, 2.8, 3, 0.905, 3) +
-    mapClamped(p, 3.3, 3.5, 0.905, 6) -
-    mapClamped(p, 4.5, 5, 0.905, 4);
+    mapClamped(p, 0, 1, openX, -4.5 * spread) +
+    mapClamped(p, 1.25, 1.5, 0.905, 5 * spread) -
+    mapClamped(p, 2.8, 3, 0.905, 3 * spread) +
+    mapClamped(p, 3.3, 3.5, 0.905, 6 * spread) -
+    mapClamped(p, 4.5, 5, 0.905, 4 * spread);
 
   const y =
+    mapClamped(p, 0, 1, openY, 0) +
     mapClamped(p, 2.7, 3, 0, 0.5) -
     mapClamped(p, 3.3, 3.5, 0, 0.5) +
     mapClamped(p, 5.7, 6, 0, 1.75);
@@ -106,16 +121,22 @@ function approach(current: number, target: number, ease: number) {
 export class ParticleTimeline {
   private state: ParticleTimelineState;
   private baseFactor: number;
+  private aspect: number;
 
-  constructor(baseFactor: number) {
+  constructor(baseFactor: number, aspect: number) {
     this.baseFactor = baseFactor;
+    this.aspect = aspect;
     /* Started at the resting values rather than at zero, so the first frame is
        the opening composition rather than a cloud easing in from the origin. */
-    this.state = targets(0, baseFactor);
+    this.state = targets(0, baseFactor, aspect);
   }
 
   setBaseFactor(value: number) {
     this.baseFactor = value;
+  }
+
+  setAspect(value: number) {
+    this.aspect = value;
   }
 
   get current(): ParticleTimelineState {
@@ -123,7 +144,7 @@ export class ParticleTimeline {
   }
 
   update(sectionProgress: number, ease: number, deltaSeconds: number) {
-    const to = targets(sectionProgress, this.baseFactor);
+    const to = targets(sectionProgress, this.baseFactor, this.aspect);
     const from = this.state;
     const step = easeForFrame(ease, deltaSeconds);
 
@@ -169,7 +190,7 @@ export class ParticleTimeline {
   /* Used by the reduced motion path and by the tests, which need the settled
      answer for a scroll position without waiting for it to ease there. */
   settle(sectionProgress: number) {
-    this.state = targets(sectionProgress, this.baseFactor);
+    this.state = targets(sectionProgress, this.baseFactor, this.aspect);
     return this.state;
   }
 }

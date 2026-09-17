@@ -204,7 +204,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   const adaptive = !options.quality;
 
   const baseFactor = mobile ? config.factorMobile : config.factorDesktop;
-  const timeline = new ParticleTimeline(baseFactor);
+  const timeline = new ParticleTimeline(baseFactor, aspect);
   const mouse = new MouseController(mobile, config.mouseSmoothing);
   const scroll = new ScrollController(config.scrollEase);
 
@@ -246,6 +246,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     }
     renderer!.resize(width, height);
     if (post && !post.resize(width, height)) postUsable = false;
+    timeline.setAspect(cssWidth / Math.max(1, cssHeight));
     scroll.measure();
   }
 
