@@ -162,17 +162,21 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   const fullscreen = createFullscreen(context);
   if (!fullscreen) return null;
 
-  const count = config.gridSize * config.gridSize;
+  /* A phone draws half as many particles, so it builds half as many rather than
+     spending a couple of hundred milliseconds of its slower processor sampling
+     a cloud its tier will throw away. */
+  const gridSize = mobile ? config.gridSizeMobile : config.gridSize;
+  const count = gridSize * gridSize;
   const built = brainTargets(count, SEED);
   /* The same tone for all four quadrants: the other three shapes are per
      particle derivations of the brain, so a particle keeps its colour identity
      as it morphs rather than being recoloured by whatever shape it is in. */
-  const scrollSet = buildTargetSet(built.shapes, config.gridSize, [
-    built.tone,
-    built.tone,
-    built.tone,
-    built.tone,
-  ]);
+  const scrollSet = buildTargetSet(
+    built.shapes,
+    gridSize,
+    [built.tone, built.tone, built.tone, built.tone],
+    built.relief,
+  );
 
   /* The opening animation is not a separate system. It is the same four
      quadrant target texture with two words in it and the brain in the other
@@ -195,8 +199,9 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
             shrunk,
             shrunk,
           ],
-          config.gridSize,
+          gridSize,
           [null, null, built.tone, built.tone],
+          built.relief,
         );
       })()
     : null;
@@ -229,7 +234,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   const entry = reducedMotion ? null : entryField(entryState, aspect, mulberry32(SEED + 211));
 
   const simulation = ParticleSimulation.create(context, capability, fullscreen, set, entry);
-  const renderer = simulation ? ParticleRenderer.create(context, config.gridSize) : null;
+  const renderer = simulation ? ParticleRenderer.create(context, gridSize) : null;
   /* The post chain is allowed to fail on its own. Without it the particles are
      drawn straight to the screen, which is a quieter picture but a complete
      one, and that is a much better outcome than no cloud at all. */

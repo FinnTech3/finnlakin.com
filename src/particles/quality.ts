@@ -95,16 +95,20 @@ export type Tier = {
   pixelRatio: number;
 };
 
+/* How many of the generated particles each tier actually draws. The cloud is
+   built once at the grid's full size and the tier takes a shuffled prefix of
+   it, so a lower tier gets an even sample of the whole brain rather than
+   whichever end of the index happened to come first. */
 const DESKTOP: Record<QualityLevel, Omit<Tier, "pixelRatio">> = {
-  high: { level: "high", instances: 10000, post: "full" },
-  medium: { level: "medium", instances: 7500, post: "bloom" },
-  low: { level: "low", instances: 4000, post: "minimal" },
+  high: { level: "high", instances: 22500, post: "full" },
+  medium: { level: "medium", instances: 14000, post: "bloom" },
+  low: { level: "low", instances: 6000, post: "minimal" },
 };
 
 const MOBILE: Record<QualityLevel, Omit<Tier, "pixelRatio">> = {
-  high: { level: "high", instances: 7000, post: "bloom" },
-  medium: { level: "medium", instances: 5000, post: "bloom" },
-  low: { level: "low", instances: 3000, post: "minimal" },
+  high: { level: "high", instances: 11025, post: "bloom" },
+  medium: { level: "medium", instances: 7000, post: "bloom" },
+  low: { level: "low", instances: 3500, post: "minimal" },
 };
 
 export function isMobile() {

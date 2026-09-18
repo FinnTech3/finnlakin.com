@@ -1,6 +1,13 @@
-import { baseDistance } from "../src/particles/brain-anatomy";
+import {
+  FOLD_DEPTH,
+  baseDistance,
+  foldPhase,
+  profileDistance,
+  regionAt,
+} from "../src/particles/brain-anatomy";
 import { brain, brainTargets } from "../src/particles/brain-shape";
 import { buildTargetSet, SEED } from "../src/particles/targets";
+import { DEFAULTS } from "../src/particles/types";
 
 /* Validates the generated particle targets, and proves they are the same every
    time they are generated.
@@ -18,7 +25,10 @@ import { buildTargetSet, SEED } from "../src/particles/targets";
 
    Runs in npm run lint, so it is enforced rather than available. */
 
-const GRID = 100;
+/* The grid the engine actually builds on a desktop, not a number of its own:
+   a validator that checks a different cloud from the one that ships is
+   checking nothing. */
+const GRID = DEFAULTS.gridSize;
 const COUNT = GRID * GRID;
 const SIDE = GRID * 2;
 
@@ -160,19 +170,58 @@ for (let quadrant = 0; quadrant < 4; quadrant++) {
   let interior = 0;
   let outside = 0;
   let deepest = 0;
+  let outerHigh = -Infinity;
+  let outerLow = Infinity;
 
   for (let i = 0; i < COUNT; i++) {
     const x = (shape[i * 3]! - 0.5) / scale;
     const y = (shape[i * 3 + 1]! - 0.5) / scale;
     const z = (shape[i * 3 + 2]! - 0.5) / scale;
-    const distance = baseDistance(x, y, z);
+
+    /* Measured against the folded surface, not the smooth solid.
+
+       baseDistance is the solid with no folds in it, and the sampler now pushes
+       the surface outward wherever the fold field is high, so a gyral crown
+       stands proud of baseDistance by up to the fold depth. Measured against
+       the smooth field, three quarters of the cortex reads as dust drifting
+       outside the brain. What the particles actually sit on is this. */
+    const smooth = baseDistance(x, y, z);
+    const distance = smooth - FOLD_DEPTH * foldPhase(x, y, z, regionAt(x, y));
+
     if (distance > 0) outside += 1;
-    else if (distance > -0.06) onSkin += 1;
-    else {
+    else if (distance > -0.06) {
+      onSkin += 1;
+      /* Where the outermost particles sit within the smooth field. On a ball
+         this is a constant; on a corrugated surface it spans the fold depth,
+         because a crown is that far out and a sulcus floor is at nought. */
+      if (distance > -0.012) {
+        outerHigh = Math.max(outerHigh, smooth);
+        outerLow = Math.min(outerLow, smooth);
+      }
+    } else {
       interior += 1;
       deepest = Math.min(deepest, distance);
     }
   }
+
+  /* The assertion this whole rebuild turns on.
+
+     Every other check here passes for a smooth ball with a stencil over it,
+     which is exactly what the cortex was: the fold field decided which
+     particles to throw away and moved the surface nowhere, so it read as
+     texture rather than as structure. A surface that is genuinely folded puts
+     its outermost particles at a range of depths in the unfolded field, and
+     that range is the fold depth. A smooth one puts them all at nought. */
+  const corrugation = outerHigh - outerLow;
+  check(
+    corrugation > FOLD_DEPTH * 0.75,
+    "the cortex is corrugated rather than smooth",
+    `the outer skin spans ${corrugation.toFixed(3)} against a fold depth of ${FOLD_DEPTH}`,
+  );
+  console.log(
+    `  relief: the outer skin spans ${corrugation.toFixed(3)} of the unfolded field, ` +
+      `fold depth ${FOLD_DEPTH}`,
+  );
 
   const skin = onSkin / COUNT;
   const strays = outside / COUNT;
@@ -229,6 +278,92 @@ shapes.forEach((shape, index) => {
     `  ${names[index]!.padEnd(11)} radius ${lo.toFixed(3)} to ${hi.toFixed(3)}  checksum ${checksum(shape)}`,
   );
 });
+
+/* And the cloud still has to fill the outline it was traced from.
+
+   The cloud is rasterised in the lateral view, which is the view the outline
+   was traced in, and compared against the traced profile itself, evaluated at
+   the cloud's own scale. Against the profile rather than against a stored
+   snapshot of an accepted run: the snapshot had to be re-pasted every time a
+   change shifted the random stream, because the strays are scattered from
+   whatever draws are left over, which meant the guard failed loudest exactly
+   when the shape had not moved at all.
+
+   What this catches: the sweep, the normalisation or the fold displacement
+   drifting the cloud off its own outline, which is the regression that the
+   three earlier rebuilds would have needed it for.
+
+   What it does not catch, and this is worth writing down because the comment
+   here used to claim otherwise: it cannot tell a brain from a potato. An
+   ellipse fitted to the same outline scores 92.0% against the traced profile
+   where the cloud itself scores 93.6%, and at some resolutions it scores
+   higher; a boundary band scores the ellipse higher still, because the cloud's
+   edge is made of separate specks and an ellipse's is not. The brain's outline
+   really is close to an ellipse by area, and what makes it read as a brain is
+   the temporal hook and the gyral bumps, which are a few percent of it. So the
+   shape is not guaranteed here. It is guaranteed by where the outline comes
+   from, which is plate 728 of Gray's Anatomy with its provenance in
+   scripts/reference/SOURCE.md, and by the corrugation assertion above, which a
+   potato fails outright. */
+{
+  const width = 44;
+  const height = 30;
+  const { shape, scale } = brain(COUNT, SEED);
+
+  /* Positions are stored normalised so the furthest particle, which is a stray,
+     sits at the standard extent. So a texture unit is not a model unit, and the
+     profile has to be evaluated through the same factor the generator used. */
+  const perModelUnit = scale / 0.34;
+
+  /* A cell counts as drawn when enough particles land in it, and enough is a
+     share of the cloud rather than a fixed number: the body covers about three
+     hundred of these cells, so this is a cell holding roughly a tenth of its
+     even share. One particle counts dust, and the mask then grows a halo of
+     isolated specks that moves whenever a change shifts the random stream,
+     which is how this guard used to fail loudest at the moments the shape had
+     not moved at all. Written as a share it survives a change to the particle
+     count: at ten thousand particles and at twenty two and a half thousand it
+     lands in the middle of the same plateau and reports the same overlap. */
+  const DENSE_ENOUGH = Math.max(2, Math.round(COUNT / 3300));
+  const counts = new Uint16Array(width * height);
+  for (let i = 0; i < COUNT; i++) {
+    const x = (shape[i * 3]! - 0.5) / 0.34;
+    const y = (shape[i * 3 + 1]! - 0.5) / 0.34;
+    const gx = Math.round(((x + 1.15) / 2.3) * (width - 1));
+    const gy = Math.round(((1 - y) / 2) * (height - 1));
+    if (gx >= 0 && gy >= 0 && gx < width && gy < height) counts[gy * width + gx]! += 1;
+  }
+
+  let both = 0;
+  let either = 0;
+  const picture: string[] = [];
+  for (let gy = 0; gy < height; gy++) {
+    let row = "";
+    for (let gx = 0; gx < width; gx++) {
+      const mx = ((gx / (width - 1)) * 2.3 - 1.15) / perModelUnit;
+      const my = (1 - (gy / (height - 1)) * 2) / perModelUnit;
+      /* Out to the fold depth, because a gyral crown genuinely stands that far
+         proud of the traced outline. */
+      const expected = profileDistance(mx, my) < FOLD_DEPTH;
+      const drawn = counts[gy * width + gx]! >= DENSE_ENOUGH;
+      if (drawn && expected) both += 1;
+      if (drawn || expected) either += 1;
+      row += drawn && expected ? "#" : drawn ? "+" : expected ? "-" : " ";
+    }
+    picture.push(row);
+  }
+
+  const overlap = either > 0 ? both / either : 0;
+  check(
+    overlap > 0.9,
+    "the cloud fills the outline it was traced from",
+    `${(overlap * 100).toFixed(1)}% overlap`,
+  );
+  console.log(`  silhouette: ${(overlap * 100).toFixed(1)}% overlap with the traced outline`);
+  if (process.argv.includes("--picture")) {
+    for (const row of picture) console.log(`    |${row}|`);
+  }
+}
 
 if (failures > 0) {
   console.error(`\nBrain targets: ${failures} check${failures === 1 ? "" : "s"} failed.`);

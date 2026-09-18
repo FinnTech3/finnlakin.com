@@ -18,12 +18,41 @@ import type { ParticleBrainConfig, PostLevel } from "./types";
 
 const BLOOM_LEVELS = 5;
 
-/* Reference values from the specification, with the two that were tuned by
-   looking at the result marked as such. */
-const BOKEH_FOCAL_DEPTH = 0.125;
-const BOKEH_APERTURE = 0.00001;
-const BOKEH_RINGS = 4;
-const BOKEH_SAMPLES = 6;
+/* Where the focal plane is, in the depth pass's own encoding: nought at the
+   near clip plane, one at the far one, linear in between.
+
+   This was 0.125, taken from the specification, and it was wrong in a way that
+   is invisible in the number and total in the image. The depth pass writes
+   (distance - 0.1) / 29.9, and the camera sits ten world units back, so 0.125
+   is a plane 3.84 units from the camera, three and a half units in front of the
+   nearest particle. Measured against the cloud the generator actually produces,
+   at the opening composition, the particles run from 0.241 to 0.425, so every
+   one of them was outside the focal plane by at least 0.116.
+
+   The aperture multiplies that gap, and the result is clamped to one, so the
+   entire cloud sat at maximum defocus: forty texels of ring blur on the near
+   surface and forty on the far one, identically. Not a depth of field, a
+   uniform smear, and on a cloud of separate specks a twenty five tap ring at
+   that radius is not even a smear: it is twenty four dim copies of every
+   particle scattered up to forty pixels away, which is what made the cortex
+   read as scattered rather than folded.
+
+   Both apertures this file has carried saturate: the original 0.00001 and the
+   0.0085 that replaced it earlier on this branch both put every particle at
+   the clamp, so raising it changed nothing. The fault was never the aperture.
+   Put the focal plane on the near surface and the aperture matters again. */
+export const BOKEH_FOCAL_DEPTH = 0.267;
+
+/* Scaled by 900000 where it is uploaded, which is the specification's unit.
+   Chosen so the far surface lands at about nine texels of defocus while the
+   near surface stays at nought and nothing reaches the clamp: the back of the
+   cortex goes soft, the front keeps its grooves, and the far surface stops
+   filling in the near one's sulci. Measured, not guessed: scripts/check-dof.ts
+   runs the same arithmetic over the same cloud and fails if the separation
+   goes away again. */
+export const BOKEH_APERTURE = 0.000002;
+export const BOKEH_RINGS = 4;
+export const BOKEH_SAMPLES = 6;
 const EXPOSURE = 1;
 
 export class PostChain {

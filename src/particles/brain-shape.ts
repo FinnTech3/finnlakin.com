@@ -1,4 +1,4 @@
-import { BOUNDS, CEREBELLUM, STEM, baseDistance, foldPhase, regionAt } from "./brain-anatomy";
+import { BOUNDS, CEREBELLUM, FOLD_DEPTH, baseDistance, foldPhase, regionAt } from "./brain-anatomy";
 import { clamp, mulberry32 } from "./pack";
 import type { Shape } from "./shapes";
 
@@ -44,23 +44,28 @@ const INTERIOR_SHARE = 0.05;
 
 /* And a sparse few drifting outside the body altogether, which the reference
    has and which stops the silhouette reading as a cut-out. */
-const STRAY_SHARE = 0.022;
+const STRAY_SHARE = 0.009;
 
-/* Where the gyri end and the sulci begin.
+/* How strongly the sulci are thinned.
 
-   A hard threshold, not a probability ramp. A ramp keeps a few particles
-   everywhere, which fills the grooves faintly and gives soft edged bands; a
-   threshold gives a rope of particles with genuinely empty space beside it,
-   which is what a fold looks like. The fold field is ridged noise, so the share
-   kept is one minus the threshold. */
-const FOLD_FLOOR = 0.58;
-const CEREBELLUM_FLOOR = 0.5;
+   A ramp, not a hard cut. A hard cut empties the grooves completely, and the
+   reference has particles in its grooves: what makes a fold read there is the
+   contrast between a dense bright crown and a sparse dim floor, not an absence.
+   A ramp also keeps the silhouette intact, where a cut chewed lumps out of it
+   wherever a sulcus ran off the edge. */
+const SULCUS_THINNING = 2.2;
+const CEREBELLUM_THINNING = 1.4;
 
 /* A ceiling on the sampling loop, so a change to the field that makes it
    unsamplable fails fast rather than hanging the page. */
 const MAX_TRIES_PER_PARTICLE = 900;
 
-function rawBrain(count: number, random: () => number, tone: Float32Array): Float32Array {
+function rawBrain(
+  count: number,
+  random: () => number,
+  tone: Float32Array,
+  relief: Float32Array,
+): Float32Array {
   const out = new Float32Array(count * 3);
   const minX = BOUNDS.min[0];
   const minY = BOUNDS.min[1];
@@ -85,11 +90,15 @@ function rawBrain(count: number, random: () => number, tone: Float32Array): Floa
     const pz = minZ + random() * spanZ;
 
     const distance = baseDistance(px, py, pz);
-    if (distance >= 0) continue;
+    /* Widened by the fold depth: a crown bulges past the smooth surface, so a
+       candidate that stage one would call "outside" may be inside the folded
+       one. Without this the crowns are shaved flat and the corrugation only
+       ever cuts inward. */
+    if (distance >= FOLD_DEPTH) continue;
 
-    const region = regionAt(px, py, pz);
+    const region = regionAt(px, py);
 
-    if (distance < -SKIN) {
+    if (distance < -SKIN - FOLD_DEPTH) {
       /* Interior. Kept to a budget, dimmed, and not subject to the fold test:
          what is inside is not a cortex. */
       if (interiorWritten >= interiorBudget) continue;
@@ -98,25 +107,23 @@ function rawBrain(count: number, random: () => number, tone: Float32Array): Floa
       out[written * 3 + 1] = py;
       out[written * 3 + 2] = pz;
       tone[written] = 0.1 + random() * 0.18;
-      written += 1;
-      continue;
-    }
-
-    /* The stem has no folds at all: it is a smooth column, and giving it gyri
-       is the sort of detail that reads as wrong without anybody being able to
-       say why. */
-    if (region === STEM) {
-      if (random() > 0.5) continue;
-      out[written * 3] = px;
-      out[written * 3 + 1] = py;
-      out[written * 3 + 2] = pz;
-      tone[written] = 0.12 + random() * 0.1;
+      relief[written] = 0;
       written += 1;
       continue;
     }
 
     const phase = foldPhase(px, py, pz, region);
-    if (phase < (region === CEREBELLUM ? CEREBELLUM_FLOOR : FOLD_FLOOR)) continue;
+
+    /* The folded surface. The smooth solid is pushed outward wherever the fold
+       field is high, so a crown stands proud by the fold depth and the floor of
+       a sulcus stays where the smooth surface was. This is the change that
+       makes the cortex structure rather than pattern: the particles now sit on
+       a corrugated surface instead of on a ball with a stencil over it. */
+    const folded = distance - FOLD_DEPTH * phase;
+    if (folded > 0 || folded < -SKIN) continue;
+
+    const thinning = region === CEREBELLUM ? CEREBELLUM_THINNING : SULCUS_THINNING;
+    if (random() > Math.pow(phase, thinning)) continue;
 
     out[written * 3] = px;
     out[written * 3 + 1] = py;
@@ -137,6 +144,7 @@ function rawBrain(count: number, random: () => number, tone: Float32Array): Floa
       Math.sin(px * 2.1 + 0.4) * 0.5 + Math.sin(py * 2.6 - 0.7) * 0.3 + Math.sin(pz * 1.7) * 0.2;
     const base = clamp(0.52 + field * 0.46, 0, 1);
     tone[written] = region === CEREBELLUM ? base * 0.42 : base;
+    relief[written] = phase;
     written += 1;
   }
 
@@ -148,6 +156,7 @@ function rawBrain(count: number, random: () => number, tone: Float32Array): Floa
       out[i * 3 + 1] = 0;
       out[i * 3 + 2] = 0;
       tone[i] = 0;
+      relief[i] = 0;
     }
     written = body;
   }
@@ -167,11 +176,12 @@ function rawBrain(count: number, random: () => number, tone: Float32Array): Floa
   for (let i = body; i < count; i++) {
     const theta = random() * Math.PI * 2;
     const phi = Math.acos(2 * random() - 1);
-    const reach = bodyRadius * (1.02 + Math.pow(random(), 2.4) * 0.26);
+    const reach = bodyRadius * (1.09 + Math.pow(random(), 2.4) * 0.3);
     out[i * 3] = Math.sin(phi) * Math.cos(theta) * reach;
     out[i * 3 + 1] = Math.cos(phi) * reach * 0.66;
     out[i * 3 + 2] = Math.sin(phi) * Math.sin(theta) * reach * 0.82;
     tone[i] = 0.55 + random() * 0.4;
+    relief[i] = 0.5 + random() * 0.5;
   }
 
   return out;
@@ -201,6 +211,11 @@ function normalise(raw: Float32Array, count: number): Shape {
 export type BrainShape = {
   shape: Shape;
   tone: Float32Array;
+  /* Nought in the floor of a sulcus, one on the crown of a gyrus. Drives the
+     particle's size as well as its colour: a crown carries a bigger, brighter
+     pyramid, which is how a photograph of a brain reads and what makes the
+     relief survive being drawn as ten thousand separate specks. */
+  relief: Float32Array;
   /* What the generator multiplied its model units by to land in the texture's
      nought to one. The validator needs it to put a particle back into the
      distance field and ask how deep it is, which is the only honest way to
@@ -210,13 +225,14 @@ export type BrainShape = {
 
 export function brain(count: number, seed: number): BrainShape {
   const tone = new Float32Array(count);
-  const raw = rawBrain(count, mulberry32(seed), tone);
+  const relief = new Float32Array(count);
+  const raw = rawBrain(count, mulberry32(seed), tone, relief);
   let radius = 0;
   for (let i = 0; i < count; i++) {
     radius = Math.max(radius, Math.hypot(raw[i * 3]!, raw[i * 3 + 1]!, raw[i * 3 + 2]!));
   }
   const scale = radius > 0 ? EXTENT / radius : 1;
-  return { shape: normalise(raw, count), tone, scale };
+  return { shape: normalise(raw, count), tone, relief, scale };
 }
 
 /* Rescales a shape about the centre of the texture so that its furthest
@@ -313,8 +329,11 @@ export function reassembly(source: Shape, count: number, seed: number): Shape {
   return fitToExtent(out, count);
 }
 
-export function brainTargets(count: number, seed: number): { shapes: Shape[]; tone: Float32Array } {
-  const { shape, tone } = brain(count, seed);
+export function brainTargets(
+  count: number,
+  seed: number,
+): { shapes: Shape[]; tone: Float32Array; relief: Float32Array } {
+  const { shape, tone, relief } = brain(count, seed);
   return {
     shapes: [
       shape,
@@ -323,5 +342,6 @@ export function brainTargets(count: number, seed: number): { shapes: Shape[]; to
       reassembly(shape, count, seed + 37),
     ],
     tone,
+    relief,
   };
 }

@@ -61,8 +61,18 @@ function writeQuadrant(
    specification is explicit that large random differences are wrong, and it is
    right. A cloud where a few particles are four times the size of their
    neighbours reads as a rendering fault rather than as depth. */
-function scaleFor(random: () => number) {
-  return 0.72 + random() * 0.62;
+/* How big one particle is drawn.
+
+   Driven by the surface it sits on, not only by a random. It used to be purely
+   random, which quietly undid the folds: a particle in the floor of a sulcus
+   came out the same size and brightness as one on a crown, so however deeply
+   the surface was corrugated the rendering flattened it straight back. A crown
+   now carries a bigger pyramid, a sulcus a smaller one, and the variation that
+   was here before rides on top so the cloud does not come out mechanical. */
+function scaleFor(random: () => number, relief: number | undefined) {
+  const spread = 0.62 + random() * 0.5;
+  if (relief === undefined) return spread;
+  return spread * (0.62 + relief * 0.72);
 }
 
 /* Colour along the ramp rather than one of a handful of fixed values, with the
@@ -77,17 +87,37 @@ function scaleFor(random: () => number) {
 
    Shapes with no structure of their own, the words in the opening animation,
    fall back to height, where a vertical gradient is exactly right. */
+/* How much of a particle's place on the ramp is decided by the fold it sits on
+   rather than by which region of the surface it is in.
+
+   Not all of it, and that is the whole difficulty. Driven by the fold alone the
+   cloud collapses to one end of the ramp, because the sulci are thinned and
+   most surviving particles are near a crown. Driven by the region alone, which
+   is what shipped, a crown and the floor of the sulcus beside it come out the
+   same colour: the relief reached the renderer as a size and nothing else, so
+   the folds were drawn as bigger and smaller specks of identical brightness and
+   the corrugation the sampler had gone to such trouble to build was flattened
+   back out at the last step. Measured over the generated cloud, a share of
+   0.45 keeps the ramp spanning its whole width while giving a crown about half
+   a ramp of separation from the sulcus it stands over. */
+const RELIEF_SHARE = 0.45;
+
 function colourFor(
   shape: Shape,
   index: number,
   random: () => number,
   tone: Float32Array | null,
+  relief: Float32Array | null,
 ) {
   if (random() < WARM_SHARE) return hexToLinear(WARM);
 
   const structure = tone ? tone[index] : undefined;
-  const base =
+  const region =
     structure === undefined ? ((shape[index * 3 + 1] ?? 0.5) - 0.3) / 0.46 : structure;
+  const base =
+    relief && structure !== undefined
+      ? region * (1 - RELIEF_SHARE) + relief[index]! * RELIEF_SHARE
+      : region;
 
   /* Held short of the top of the ramp. Run to the end, the crowns came out pure
      white, and once the bloom is over them there is no colour left in the
@@ -120,6 +150,7 @@ export function buildTargetSet(
   shapes: Shape[],
   gridSize: number,
   tones: (Float32Array | null)[] = [],
+  relief: Float32Array | null = null,
 ): TargetSet {
   const count = gridSize * gridSize;
   const width = gridSize * 2;
@@ -137,13 +168,15 @@ export function buildTargetSet(
       shape[i * 3 + 2]!,
     ]);
     const scaleRandom = mulberry32(SEED + q * 17);
-    writeQuadrant(scales, q, gridSize, () => {
-      const s = scaleFor(scaleRandom);
+    writeQuadrant(scales, q, gridSize, (i) => {
+      const s = scaleFor(scaleRandom, relief ? relief[i] : undefined);
       return [s, s, s];
     });
     const colourRandom = mulberry32(SEED + q * 29);
     const quadrantTone = tones[q] ?? null;
-    writeQuadrant(colours, q, gridSize, (i) => colourFor(shape, i, colourRandom, quadrantTone));
+    writeQuadrant(colours, q, gridSize, (i) =>
+      colourFor(shape, i, colourRandom, quadrantTone, relief),
+    );
   }
 
   const order = orderings(shapes, count);

@@ -17,10 +17,16 @@ import type { ParticleTimelineState } from "./types";
    screen than straddling it. */
 const BASE = { x: 0, y: -1.19, z: 0 };
 
-/* Applied on top of the timeline rotation and kept separate from it, so that
-   the first thing a reader sees is the brain at a three quarter angle rather
-   than square on. */
-export const INITIAL_YAW = -0.25 * Math.PI;
+/* Applied on top of the timeline rotation and kept separate from it.
+
+   Eighteen degrees, not forty five. The shape is swept from an outline traced
+   off an anatomical plate, and an outline is only an outline from the direction
+   it was drawn: measured, the projection is widest at zero yaw and a sixth
+   narrower at a quarter turn, where the silhouette that took four attempts to
+   get right is foreshortened into an oval. Enough turn to say the cloud is a
+   solid, not enough to throw away the view that identifies it. The reference
+   shows its own brain at very nearly this angle, for the same reason. */
+export const INITIAL_YAW = -0.1 * Math.PI;
 
 function targets(progress: number, baseFactor: number, aspect: number) {
   const p = progress;

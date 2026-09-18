@@ -14,6 +14,7 @@ export type ParticleBrainConfig = {
      textures are twice this on each axis, because they carry four target
      quadrants. */
   gridSize: number;
+  gridSizeMobile: number;
   factorDesktop: number;
   factorMobile: number;
   particleScaleDesktop: number;
@@ -50,9 +51,24 @@ export type ParticleBrainConfig = {
    named a number, that number is here. Where it named a range, the middle of
    the range is here and the comment says so. */
 export const DEFAULTS: ParticleBrainConfig = {
-  particleCount: 10000,
-  gridSize: 100,
-  factorDesktop: 4.35,
+  particleCount: 22500,
+  /* A hundred and fifty on a side, up from a hundred.
+
+     Measured rather than felt: over the brain's own bounding box in a rendered
+     frame at two thousand pixels wide, ten thousand particles put colour on
+     22.4% of it and left the other three quarters black. A cortex cannot read
+     as a surface out of that, whatever the folds underneath are doing, and it
+     is why the corrugation showed in a flat point plot of the same data and
+     disappeared the moment the engine drew it. Twenty two and a half thousand
+     is the same cloud at a bit over twice the density.
+
+     The cost is about a hundred and fifty milliseconds more of sampling at
+     startup, which happens behind the intro, and two and a quarter times the
+     instances, which is nothing on a desktop GPU. A phone builds a smaller
+     cloud rather than paying for particles its tier will not draw. */
+  gridSize: 150,
+  gridSizeMobile: 105,
+  factorDesktop: 5.15,
   /* Down from 2.5. The cloud has to fit between the call to action and a
      little past the bottom of a phone's viewport, and at 2.5 it was half a
      screen tall and sat across the hero's text. */
@@ -103,17 +119,30 @@ export const DEFAULTS: ParticleBrainConfig = {
   timelineEase: 0.1,
   /* The bloom was carrying the cortex to white on its own. Raising the
      threshold means only the genuinely bright particles glow rather than the
-     whole mass, so the halo stays and the surface keeps its structure. */
-  bloomStrength: 0.3,
-  bloomThreshold: 0.34,
-  bloomRadius: 1,
+     whole mass, so the halo stays and the surface keeps its structure.
+
+     Raised again with the density. The particles are drawn additively, so a
+     cloud with two and a quarter times as many of them accumulates two and a
+     quarter times the energy wherever they overlap, and at 0.42 the whole
+     parietal region went over the threshold and bloomed into a single white
+     field: measured over the brain's bounding box, near white pixels went from
+     1.0% of it to 4.1% and took the gyri in the top half with them. */
+  bloomStrength: 0.2,
+  bloomThreshold: 0.6,
+  bloomRadius: 0.75,
   vignetteOffset: 0.3,
   vignetteDarkness: 4,
   /* Down from a thirtieth, which was visibly noisy across the whole frame.
      The specification asks for grain that cannot be pointed at. */
   grainStrength: 0.006,
   noiseAmplitude: 0.619,
-  colourFactor: 1.3,
+  /* Down from 1.3, by the same arithmetic as the bloom threshold above: the
+     cloud got denser, so each particle has to be dimmer for the mass to come
+     out at the brightness it was tuned to. Chosen against the rendered frame
+     rather than by eye: the two together bring the near white share of the
+     brain's bounding box back from 4.1% to 1.8%, against 1.0% before the
+     density went up. */
+  colourFactor: 0.88,
 };
 
 /* Everything the timeline produces and the renderer consumes. Each of these is
