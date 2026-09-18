@@ -1,4 +1,5 @@
-import { brainTargets } from "../src/particles/brain-shape";
+import { baseDistance } from "../src/particles/brain-anatomy";
+import { brain, brainTargets } from "../src/particles/brain-shape";
 import { buildTargetSet, SEED } from "../src/particles/targets";
 
 /* Validates the generated particle targets, and proves they are the same every
@@ -141,69 +142,52 @@ for (let quadrant = 0; quadrant < 4; quadrant++) {
   check(spread > 0.05, `quadrant ${quadrant} (${names[quadrant]}) is not collapsed`, `spread ${spread.toFixed(4)}`);
 }
 
-/* The brain is a hollow shell, and it has to stay one.
+/* The brain is a skin over a distance field, and it has to stay one.
 
-   Guards a real regression: before the sulci were emptied, the cortex was a
-   volume forty two percent of the radius thick, most of whose particles sat in
-   the interior where nothing can see them and where they filled in the folds
-   that were supposed to be visible. */
+   Measured against the field itself rather than against a proxy. The previous
+   version bucketed directions and compared each particle to the furthest one in
+   its own bucket, which was a good answer to the question "is this a shell or a
+   solid" while the shape was a displaced sphere. It is the wrong question for a
+   shape with a groove in it: a particle in the depth of the lateral sulcus is
+   a long way inside the outer hull along its own direction while being exactly
+   on the surface, so the honest measurement reported a solid.
+
+   Putting the particle back into the field and asking how deep it is has no
+   such ambiguity, and it is the definition rather than an approximation of it. */
 {
-  /* Against the surface in each particle's own direction, not against one
-     radius for the whole shape.
-
-     The first version of this compared every particle to the single furthest
-     one, which reported 22 percent on the skin for a shell that is actually 95
-     percent skin. A brain is not a sphere: a particle on the side of it is much
-     closer to the centre than one at the occipital pole while being no less on
-     the surface. So directions are bucketed and each particle is compared to
-     the furthest particle in its own bucket. */
-  const RINGS = 22;
-  const SECTORS = 44;
-  const buckets = new Float32Array(RINGS * SECTORS);
-  const radii = new Float32Array(COUNT);
-  const bucketOf = new Int32Array(COUNT);
-
-  for (let i = 0; i < COUNT; i++) {
-    const x = shapes[0]![i * 3]! - 0.5;
-    const y = shapes[0]![i * 3 + 1]! - 0.5;
-    const z = shapes[0]![i * 3 + 2]! - 0.5;
-    const r = Math.hypot(x, y, z);
-    radii[i] = r;
-    if (r < 1e-6) {
-      bucketOf[i] = -1;
-      continue;
-    }
-    const ring = Math.min(RINGS - 1, Math.floor(((Math.acos(y / r) / Math.PI) * RINGS)));
-    const sector = Math.min(
-      SECTORS - 1,
-      Math.floor(((Math.atan2(z, x) + Math.PI) / (2 * Math.PI)) * SECTORS),
-    );
-    const bucket = ring * SECTORS + sector;
-    bucketOf[i] = bucket;
-    if (r > buckets[bucket]!) buckets[bucket] = r;
-  }
-
+  const { shape, scale } = brain(COUNT, SEED);
   let onSkin = 0;
-  let counted = 0;
+  let interior = 0;
+  let outside = 0;
+  let deepest = 0;
+
   for (let i = 0; i < COUNT; i++) {
-    const bucket = bucketOf[i]!;
-    if (bucket < 0) continue;
-    counted += 1;
-    if (radii[i]! > buckets[bucket]! * 0.86) onSkin += 1;
+    const x = (shape[i * 3]! - 0.5) / scale;
+    const y = (shape[i * 3 + 1]! - 0.5) / scale;
+    const z = (shape[i * 3 + 2]! - 0.5) / scale;
+    const distance = baseDistance(x, y, z);
+    if (distance > 0) outside += 1;
+    else if (distance > -0.06) onSkin += 1;
+    else {
+      interior += 1;
+      deepest = Math.min(deepest, distance);
+    }
   }
-  const share = counted > 0 ? onSkin / counted : 0;
-  /* The bar is 80 percent against a measurement of about 87. The gap between
-     that and the 95 percent the generator actually places on the skin is
-     within-cell variation, not interior particles: a cell spans enough solid
-     angle that the gyral displacement moves the surface inside it. The bar is
-     set to catch a return to a filled volume, which measured far below this,
-     rather than to pin the exact number. */
-  check(
-    share > 0.8,
-    "the brain is a shell rather than a solid",
-    `${(share * 100).toFixed(1)}% on the skin`,
+
+  const skin = onSkin / COUNT;
+  const strays = outside / COUNT;
+  const inside = interior / COUNT;
+
+  /* Nine in ten on the skin, a twentieth scattered deeper so the cloud is
+     hollow rather than empty, and a few percent drifting outside it so the
+     silhouette has an atmosphere rather than an edge. */
+  check(skin > 0.88, "the brain is a skin rather than a solid", `${(skin * 100).toFixed(1)}% on it`);
+  check(inside < 0.09, "the interior is scattered rather than filled", `${(inside * 100).toFixed(1)}%`);
+  check(strays > 0.005 && strays < 0.05, "there are strays, and only a few", `${(strays * 100).toFixed(1)}%`);
+  console.log(
+    `  skin: ${(skin * 100).toFixed(1)}% on the surface, ${(inside * 100).toFixed(1)}% inside ` +
+      `(deepest ${deepest.toFixed(2)}), ${(strays * 100).toFixed(1)}% drifting outside`,
   );
-  console.log(`  shell: ${(share * 100).toFixed(1)}% of particles on the outer skin`);
 }
 
 /* And the colour has to use the ramp rather than collapsing to one end of it.

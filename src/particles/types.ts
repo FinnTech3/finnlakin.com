@@ -57,8 +57,16 @@ export const DEFAULTS: ParticleBrainConfig = {
      little past the bottom of a phone's viewport, and at 2.5 it was half a
      screen tall and sat across the hero's text. */
   factorMobile: 2.05,
-  particleScaleDesktop: 1.55,
-  particleScaleMobile: 1.2,
+  /* Smaller than they were, and that is what makes the folds visible.
+
+     At 1.55 the pyramids overlapped enough that the cortex accumulated to white
+     in the middle and the gyral bands only read around the rim. The reference
+     this is measured against has thousands of distinct triangles: you can see
+     the individual shapes, and the structure is in the gaps between them. That
+     is a size decision, not a brightness one, though the bloom below had to
+     come down with it. */
+  particleScaleDesktop: 1.08,
+  particleScaleMobile: 0.92,
   spring: 0.006,
   friction: 0.892,
   /* An eighth, which is a little over a tenth of a second: nearly a step rather
@@ -93,8 +101,11 @@ export const DEFAULTS: ParticleBrainConfig = {
   mouseSmoothing: 0.1,
   scrollEase: 0.075,
   timelineEase: 0.1,
-  bloomStrength: 0.4,
-  bloomThreshold: 0.159,
+  /* The bloom was carrying the cortex to white on its own. Raising the
+     threshold means only the genuinely bright particles glow rather than the
+     whole mass, so the halo stays and the surface keeps its structure. */
+  bloomStrength: 0.3,
+  bloomThreshold: 0.34,
   bloomRadius: 1,
   vignetteOffset: 0.3,
   vignetteDarkness: 4,
