@@ -245,6 +245,12 @@ button {
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+
+  .settle-rows > tr {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Print. The CV is the page somebody will actually put on paper or save as a
