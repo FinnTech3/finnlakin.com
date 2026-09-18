@@ -1,6 +1,8 @@
 import {
   FOLD_DEPTH,
   baseDistance,
+  foldOffset,
+  landmarkPhase,
   foldPhase,
   profileDistance,
   regionAt,
@@ -186,7 +188,14 @@ for (let quadrant = 0; quadrant < 4; quadrant++) {
        the smooth field, three quarters of the cortex reads as dust drifting
        outside the brain. What the particles actually sit on is this. */
     const smooth = baseDistance(x, y, z);
-    const distance = smooth - FOLD_DEPTH * foldPhase(x, y, z, regionAt(x, y));
+    const region = regionAt(x, y);
+    /* Through foldOffset, not foldPhase, because the named clefts are part of
+       where the surface is: measured against the banding alone, every particle
+       on the wall of the lateral fissure reads as interior, and the skin check
+       failed at 85% while the shape was exactly right. A validator that
+       reconstructs the surface has to reconstruct all of it. */
+    const distance =
+      smooth - FOLD_DEPTH * foldOffset(x, y, foldPhase(x, y, z, region), region);
 
     if (distance > 0) outside += 1;
     else if (distance > -0.06) {
@@ -221,6 +230,124 @@ for (let quadrant = 0; quadrant < 4; quadrant++) {
   console.log(
     `  relief: the outer skin spans ${corrugation.toFixed(3)} of the unfolded field, ` +
       `fold depth ${FOLD_DEPTH}`,
+  );
+
+  /* The longitudinal fissure, measured in the cloud rather than in the field.
+
+     It is the feature that makes a folded mass read as two hemispheres rather
+     than as one lump, and from the three quarter view the site shows it is the
+     most identifying thing in the shape. It also went unnoticed for a long time
+     at a half width of 0.045, which in a cloud of ten thousand was about one
+     particle across.
+
+     Measured as the notch it cuts in the crown, not as an absence of particles.
+     A fissure has walls and the walls carry cortex, so the midline band is
+     nearly as dense as the band beside it and a density test reports 91% and
+     calls a working fissure broken. What a fissure actually does to the shape is
+     lower the surface along the midline, so this is how far the top of the
+     midline band falls below the top of the band beside it.
+
+     The ninety ninth percentile rather than the maximum: one stray particle
+     from the interior share is enough to put the maximum back up to the crown
+     and hide the notch entirely. */
+  const highest = (from: number, to: number) => {
+    const ys: number[] = [];
+    for (let i = 0; i < COUNT; i++) {
+      const z = Math.abs((shape[i * 3 + 2]! - 0.5) / scale);
+      if (z >= from && z < to) ys.push((shape[i * 3 + 1]! - 0.5) / scale);
+    }
+    ys.sort((a, b) => a - b);
+    return ys[Math.floor(ys.length * 0.99)] ?? 0;
+  };
+  const notch = highest(0.1, 0.2) - highest(0, 0.03);
+  check(
+    notch > 0.08,
+    "the hemispheres are parted by the longitudinal fissure",
+    `the midline crown sits ${notch.toFixed(3)} below the crown beside it`,
+  );
+  console.log(
+    `  fissure: the midline crown sits ${notch.toFixed(3)} below the crown beside it`,
+  );
+
+  /* The two named clefts, measured the same way: in the cloud, not in the
+     function that made it.
+
+     Asserting that landmarkPhase returns one on its own polyline would be
+     asserting arithmetic. What can actually go wrong is the sampler: a rejection
+     test that drops the walls, or an offset that never reaches the surface, and
+     both leave the field perfectly correct and the brain smooth. So this reads
+     how deep the particles near a cleft sit in the unfolded field against how
+     deep the rest of the cortex sits. */
+  let cleftDepth = 0;
+  let cleftCount = 0;
+  let cortexDepth = 0;
+  let cortexCount = 0;
+  for (let i = 0; i < COUNT; i++) {
+    const x = (shape[i * 3]! - 0.5) / scale;
+    const y = (shape[i * 3 + 1]! - 0.5) / scale;
+    const z = (shape[i * 3 + 2]! - 0.5) / scale;
+    if (regionAt(x, y) !== 0) continue;
+    const smooth = baseDistance(x, y, z);
+    if (smooth < -0.12) continue;
+    if (landmarkPhase(x, y) > 0.7) {
+      cleftDepth += smooth;
+      cleftCount += 1;
+    } else if (landmarkPhase(x, y) < 0.05) {
+      cortexDepth += smooth;
+      cortexCount += 1;
+    }
+  }
+  const cleftMean = cleftCount > 0 ? cleftDepth / cleftCount : 0;
+  const cortexMean = cortexCount > 0 ? cortexDepth / cortexCount : 0;
+  const sunk = cortexMean - cleftMean;
+  check(
+    cleftCount > COUNT / 400,
+    "the named sulci have walls rather than being empty slots",
+    `${cleftCount} particles in the clefts, of ${COUNT}`,
+  );
+  check(
+    sunk > FOLD_DEPTH * 0.4,
+    "the lateral fissure and the central sulcus are cut into the cortex",
+    `they sit ${sunk.toFixed(3)} deeper than the cortex beside them`,
+  );
+  console.log(
+    `  sulci: ${cleftCount} particles in the two named clefts, sitting ` +
+      `${sunk.toFixed(3)} deeper than the cortex beside them`,
+  );
+
+  /* How much of the cloud the pointer moves.
+
+     The reach is in this same space, where the cloud's furthest particle sits
+     at the extent, so the two are directly comparable and the old value of 0.18
+     was 53% of the radius: a comment in types.ts called that local. Counted at
+     the densest place a pointer can be put, which is the worst case.
+
+     Not a style check. The complaint it answers is that the cursor moved too
+     much of the brain, and a share of the particles is the only form of that
+     statement which can be held to. */
+  const reach = DEFAULTS.pointerReach;
+  let worst = 0;
+  for (let s = 0; s < COUNT; s += 37) {
+    const cx = shape[s * 3]!;
+    const cy = shape[s * 3 + 1]!;
+    const cz = shape[s * 3 + 2]!;
+    let near = 0;
+    for (let i = 0; i < COUNT; i += 7) {
+      const dx = shape[i * 3]! - cx;
+      const dy = shape[i * 3 + 1]! - cy;
+      const dz = shape[i * 3 + 2]! - cz;
+      if (dx * dx + dy * dy + dz * dz < reach * reach) near += 1;
+    }
+    worst = Math.max(worst, (near * 7) / COUNT);
+  }
+  check(
+    worst < 0.12,
+    "the pointer parts a patch of the cloud rather than most of it",
+    `${(worst * 100).toFixed(1)}% of the particles are inside the reach at its worst`,
+  );
+  console.log(
+    `  pointer: reach ${reach} against an extent of 0.34, touching at most ` +
+      `${(worst * 100).toFixed(1)}% of the cloud`,
   );
 
   const skin = onSkin / COUNT;

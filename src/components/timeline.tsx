@@ -1,6 +1,17 @@
 import { timeline } from "@/lib/timeline";
 
-export function Timeline() {
+/* The heading level is a prop because this renders under two different
+   ancestors. On a page whose own title is an h1 these entries are h2; inside a
+   section of the home page, where the section's title is the h2, they are h3.
+   Hardcoded at h3 it shipped an h1 followed by an h3 on /path, which axe
+   reports as a skipped level and a screen reader reports as a missing
+   section. */
+export function Timeline({ level = 3 }: { level?: 2 | 3 } = {}) {
+  const Heading = level === 2 ? "h2" : "h3";
+  return timelineList(Heading);
+}
+
+function timelineList(Heading: "h2" | "h3") {
   return (
     <ol className="flex flex-col">
       {timeline.map((entry) => (
@@ -18,7 +29,7 @@ export function Timeline() {
           </div>
 
           <div className="flex flex-col gap-3">
-            <h3 className="t-h3 text-ink">{entry.title}</h3>
+            <Heading className="t-h3 text-ink">{entry.title}</Heading>
             <p className="text-[15px] text-muted">
               {entry.org} · {entry.location}
             </p>

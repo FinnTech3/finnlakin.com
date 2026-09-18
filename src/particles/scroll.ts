@@ -11,46 +11,28 @@ import type { ScrollState } from "./types";
 
    So the boundaries are read off the real sections. Section n's top reaching
    the top of the viewport is progress n exactly, and between two boundaries the
-   progress is the fraction of the way between them. Seven sections, six gaps,
-   which is the range the timeline was written against. */
+   progress is the fraction of the way between them.
 
-const SECTIONS = ["hero", "work", "about", "timeline", "skills", "endorsements", "contact"];
+   This was briefly measured off the dark stage's own travel instead, because
+   the cloud was drawn additively and had to be gone by the time the paper
+   began: the whole choreography was compressed into the one band it could be
+   seen in. The cloud is read as ink on the paper half now, so it travels the
+   whole document again and the section measurement is simply the right one.
+   The change here was a deletion. */
 
-/* The stage is the tall dark band at the top of the home page, and where it
-   exists it owns the whole timeline.
+const SECTIONS = ["hero", "work", "about", "path", "skills", "endorsements", "contact"];
 
-   The seven section boundaries below were the right measurement for a page
-   that was dark all the way down, because the cloud travelled beside the text
-   the whole way. It cannot any more: the page below the stage is paper white,
-   and a cloud drawn with additive blending is invisible on white. So the
-   choreography is compressed into the stage's own scroll, which is what the
-   stage is tall for, and the cloud has faded out by the time the paper
-   begins.
+/* The range the timeline is choreographed against, kept fixed while the number
+   of sections is not.
 
-   The section measurement is kept rather than deleted. It is what every other
-   route still uses, and it is what this one falls back to if the markup ever
-   loses its stage. */
-const STAGE = "[data-stage]";
+   Progress used to be the section index itself, which quietly made the
+   choreography depend on there being exactly seven sections: moving one to its
+   own page took the last state off the end of the timeline, and the cloud
+   finished the page mid-morph. Normalising by the number of gaps means a
+   section can be added or moved without re-cutting every ramp in timeline.ts,
+   which is a thing that is going to happen again. */
+const RANGE = 6;
 
-/* How far into the stage's travel the timeline has finished. The last stretch
-   is the cloud leaving: it has nowhere to go once the paper starts, so it
-   arrives at the end of the choreography a little early and spends the
-   remainder dissolving. */
-const STAGE_TIMELINE_END = 0.86;
-
-/* How fast the timeline is allowed to travel, in sections a second.
-
-   Without this the eased progress is only ever a proportion of the gap, so a
-   large gap is crossed quickly however large it is, and the gaps are not all
-   made by scrolling. The call to action in the hero is an anchor to the contact
-   section: following it takes the scroll from nought to six in one go, and the
-   cloud then played the drift, the explosion, both morphs and the reassembly in
-   about a second. That is not a transition, it is a flicker.
-
-   Four a second means the whole page takes a second and a half at the fastest,
-   which reads as a sweep rather than a glitch, and it binds on nothing a reader
-   does with a wheel or a finger: normal scrolling never asks the timeline to
-   move faster than about one section a second. */
 const MAX_SECTIONS_PER_SECOND = 4;
 
 /* One eased, capped step of the timeline towards where the page is.
@@ -75,8 +57,6 @@ export function stepToward(
 
 export class ScrollController {
   private state: ScrollState = { sectionProgress: 0, target: 0 };
-  private stageTop = 0;
-  private stageTravel = 0;
   private boundaries: number[] = [];
   private ease: number;
   private observer: ResizeObserver | null = null;
@@ -134,8 +114,6 @@ export class ScrollController {
       const element = document.getElementById(id);
       if (element) this.observer.observe(element);
     }
-    const stage = document.querySelector(STAGE);
-    if (stage) this.observer.observe(stage);
     if (document.body) this.observer.observe(document.body);
   }
 
@@ -152,55 +130,59 @@ export class ScrollController {
   measure() {
     if (typeof document === "undefined") return;
 
-    const stage = document.querySelector(STAGE);
-    if (stage) {
-      const box = stage.getBoundingClientRect();
-      const top = box.top + window.scrollY;
-      /* The stage is a tall block with a sticky panel inside it, so its travel
-         is its own height less the one viewport the panel occupies. That is
-         exactly the distance over which the panel stays pinned, which is the
-         distance the choreography has to happen in. */
-      this.stageTop = top;
-      this.stageTravel = Math.max(1, box.height - window.innerHeight);
-    } else {
-      this.stageTravel = 0;
-    }
-
     const tops: number[] = [];
     for (const id of SECTIONS) {
       const element = document.getElementById(id);
       if (!element) continue;
       tops.push(element.getBoundingClientRect().top + window.scrollY);
     }
+    /* The last boundary, clamped to the furthest the page can actually scroll.
+
+       The final section is shorter than a viewport, so its top never reaches the
+       top of the screen: measured, the contact section began at 16,166 pixels on
+       a document whose maximum scroll position is 16,130. Progress six was
+       unreachable by thirty six pixels, which meant the reassembly at the end of
+       the timeline never played and the cloud finished the page mid-morph.
+
+       Clamped, the bottom of the document is the end of the timeline, which is
+       what a reader means by reaching the end. */
+    const reachable = Math.max(
+      0,
+      document.documentElement.scrollHeight - window.innerHeight,
+    );
+    if (tops.length > 1) {
+      const last = tops.length - 1;
+      tops[last] = Math.min(tops[last]!, reachable);
+      /* And it must still be past the one before it, or the final span is zero
+         and the division below is a divide by nothing. */
+      tops[last] = Math.max(tops[last]!, tops[last - 1]! + 1);
+    }
+
     this.boundaries = tops;
   }
 
   private progressFor(scrollY: number) {
-    if (this.stageTravel > 0) {
-      const through = (scrollY - this.stageTop) / this.stageTravel;
-      return clamp((through / STAGE_TIMELINE_END) * 6, 0, 6);
-    }
-
     const tops = this.boundaries;
     if (tops.length < 2) {
       /* No sections on this route, so fall back to the plain proportion. */
       const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      return clamp((scrollY / max) * 6, 0, 6);
+      return clamp((scrollY / max) * RANGE, 0, RANGE);
     }
 
     const last = tops.length - 1;
+    const step = RANGE / last;
     if (scrollY <= tops[0]!) return 0;
-    if (scrollY >= tops[last]!) return last;
+    if (scrollY >= tops[last]!) return RANGE;
 
     for (let i = 0; i < last; i++) {
       const from = tops[i]!;
       const to = tops[i + 1]!;
       if (scrollY < to) {
         const span = Math.max(1, to - from);
-        return i + (scrollY - from) / span;
+        return (i + (scrollY - from) / span) * step;
       }
     }
-    return last;
+    return RANGE;
   }
 
   read() {

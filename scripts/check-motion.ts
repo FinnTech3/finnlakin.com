@@ -91,6 +91,7 @@ function state(partial: Partial<ParticleTimelineState>): ParticleTimelineState {
     progress2: 0,
     rotation: { x: 0, y: 0, z: 0 },
     contentDim: 0,
+    inkiness: 0,
     ...partial,
   };
 }

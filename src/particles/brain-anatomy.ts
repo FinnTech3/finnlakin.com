@@ -183,9 +183,22 @@ export function baseDistance(px: number, py: number, pz: number): number {
 
   /* The longitudinal fissure: a groove down the midline from above, deep at the
      crown and closing before the base, because the hemispheres are joined
-     underneath. */
-  const fissure = Math.max(Math.abs(pz) - 0.045, -(py - 0.1));
-  const k = 0.05;
+     underneath.
+
+     Widened from 0.045 and taken further down the brain. At the old width it
+     was a crease one particle across in a cloud of ten thousand, which is to
+     say it was a rounding error: the mass read as one lump rather than as two
+     hemispheres, and from a three quarter view that is the single most
+     brain-identifying feature there is.
+
+     Chosen against a sweep rather than by eye. The notch it cuts in the crown,
+     measured as how far the midline's top falls below the top of the band
+     beside it, is 0.078 at the old 0.062, 0.141 here, and 0.660 at 0.090, where
+     the fissure has stopped parting the hemispheres and started severing them:
+     the crown is empty above the join and the shape reads as two lumps rather
+     than as one brain. */
+  const fissure = Math.max(Math.abs(pz) - 0.075, -(py - 0.02));
+  const k = 0.055;
   const h = clamp(0.5 - (0.5 * (brain + fissure)) / k, 0, 1);
   brain = brain + (-fissure - brain) * h + k * h * (1 - h);
 
@@ -199,6 +212,81 @@ export function regionAt(px: number, py: number): number {
   const ex = (px - 0.62) / 0.42;
   const ey = (py + 0.42) / 0.3;
   return ex * ex + ey * ey < 1 ? CEREBELLUM : CORTEX;
+}
+
+/* --- the named sulci ------------------------------------------------------ */
+
+/* Two landmarks, traced in the same profile coordinates as the outline.
+
+   Uniform folding everywhere makes a walnut. What makes a folded mass read as a
+   brain, in a lateral view, is that its folds are interrupted by two clefts
+   that are deeper and longer than any gyrus and that always run the same way,
+   and those two clefts are what divide the lobes: everything above and in front
+   of the central sulcus is frontal, behind it parietal, below the lateral
+   fissure temporal.
+
+   Placed against the traced outline rather than by eye on a rendered frame, so
+   they sit on real material: the lateral fissure runs back and slightly up from
+   above the temporal pole, and the central sulcus runs down and forward from
+   just behind the vertex, stopping short of meeting it.
+
+   Functions of x and y alone, for the same reason the fold bands are. The
+   particles are drawn with no depth test, so the far surface shines through the
+   near one, and a landmark that varied across the width would have the far
+   hemisphere's cortex filling the near hemisphere's cleft. Both hemispheres
+   carry the same two sulci in a real brain anyway. */
+const LATERAL_SULCUS = [
+  [-0.62, -0.24],
+  [-0.3, -0.27],
+  [0.05, -0.17],
+  [0.34, -0.02],
+] as const;
+
+const CENTRAL_SULCUS = [
+  [0.14, 0.62],
+  [0.02, 0.4],
+  [-0.11, 0.18],
+  [-0.2, -0.02],
+] as const;
+
+/* How wide the floor of a named sulcus is, and how far its walls run out to
+   ordinary cortex. A real central sulcus is a couple of millimetres across at
+   the surface against a brain of 167mm, so this is several times wider than
+   life: at true scale it is invisible in a cloud of thirty thousand specks. */
+const SULCUS_HALF_WIDTH = 0.035;
+const SULCUS_FALLOFF = 0.105;
+
+/* How far below an ordinary sulcal floor a named one sinks, as a share of the
+   fold depth. Not one: at one the cleft is a clean slot with vertical walls,
+   which reads as a saw cut rather than as a fold, and the walls are where a
+   reader actually sees the depth. */
+export const LANDMARK_SINK = 0.85;
+
+function polylineDistance(px: number, py: number, points: readonly (readonly [number, number])[]) {
+  let nearest = Infinity;
+  for (let i = 1; i < points.length; i += 1) {
+    const [ax, ay] = points[i - 1]!;
+    const [bx, by] = points[i]!;
+    const ex = bx - ax;
+    const ey = by - ay;
+    const wx = px - ax;
+    const wy = py - ay;
+    const t = clamp((wx * ex + wy * ey) / (ex * ex + ey * ey || 1), 0, 1);
+    const dx = wx - ex * t;
+    const dy = wy - ey * t;
+    nearest = Math.min(nearest, dx * dx + dy * dy);
+  }
+  return Math.sqrt(nearest);
+}
+
+/* One on the floor of a named sulcus, nought out in ordinary cortex. */
+export function landmarkPhase(px: number, py: number): number {
+  const distance = Math.min(
+    polylineDistance(px, py, LATERAL_SULCUS),
+    polylineDistance(px, py, CENTRAL_SULCUS),
+  );
+  const t = clamp((distance - SULCUS_HALF_WIDTH) / SULCUS_FALLOFF, 0, 1);
+  return 1 - t * t * (3 - 2 * t);
 }
 
 /* --- the folds ------------------------------------------------------------ */
@@ -220,8 +308,8 @@ export function regionAt(px: number, py: number): number {
    looking: too few and it is a pumpkin, too many and the bands close up into an
    even fuzz once the far surface shines through the near one. */
 const FOLD_FREQUENCY = 2.4;
-const FOLD_BANDS = 9;
-const FOLD_STRETCH = 0.42;
+const FOLD_BANDS = 11;
+const FOLD_STRETCH = 0.36;
 
 /* How far a gyral crown stands out from the floor of its sulcus, in model
    units, against a half length of one. A real cortex folds by something like a
@@ -273,4 +361,26 @@ export function foldPhase(px: number, py: number, pz: number, region: number): n
   const band = field * FOLD_BANDS;
   void pz;
   return 1 - Math.abs((band - Math.floor(band)) * 2 - 1);
+}
+
+/* The two together: where the folded surface is, relative to the smooth solid,
+   as a share of the fold depth.
+
+   Signed, and that is the point of it. One is the crown of a gyrus and nought
+   is the floor of an ordinary sulcus, so a negative value is below the smooth
+   solid's own surface, which is the only way to say "cut in" in a scheme where
+   the folds are otherwise all relief. The named clefts interrupt the banding
+   rather than joining it, which is what a landmark sulcus does to the gyri it
+   crosses.
+
+   It says nothing about density, and that separation cost a measurement to
+   find. Emptying the clefts of particles took the silhouette overlap from 93.6%
+   to 86.1%, and the guard was right: a fissure is not a hole. It is a slit the
+   cortex folds down into, its two banks pressed together, and in projection
+   there is no gap at all, only a groove. The cortex continues down the walls,
+   so the density follows the gyral banding and the displacement follows this. */
+export function foldOffset(px: number, py: number, gyral: number, region: number): number {
+  if (region === CEREBELLUM) return gyral;
+  const cleft = landmarkPhase(px, py);
+  return gyral * (1 - cleft) - cleft * LANDMARK_SINK;
 }

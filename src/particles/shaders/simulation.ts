@@ -132,7 +132,15 @@ void main() {
      the way through and multiplied by nothing at the last step, which is
      invisible in a screenshot and survives every check that the uniforms
      arrived. */
-  float reach = (1.0 - smoothstep(0.0, u_pointerReach, gap)) * u_pointerActive;
+  /* One minus a forward smoothstep, squared.
+
+     The smoothstep alone is broad: it is still worth a fifth of full strength
+     at two thirds of the reach, so the influence trails out across the cloud
+     however small the reach is set. Squaring it concentrates the displacement
+     near the pointer and leaves the outer half of the reach almost untouched,
+     which is the difference between a dimple and a wave. */
+  float falloff = 1.0 - smoothstep(0.0, u_pointerReach, gap);
+  float reach = falloff * falloff * u_pointerActive;
 
   /* Each particle leans its own way around, so they do not all sweep the same
      side and leave a comb mark. */

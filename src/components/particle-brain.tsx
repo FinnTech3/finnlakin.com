@@ -63,12 +63,28 @@ export function ParticleBrain({ className }: { className?: string }) {
         delete root.dataset.intro;
       }, VEIL_FADE_MS);
       window.removeEventListener("keydown", skip);
-      window.removeEventListener("pointerdown", skip);
-      window.removeEventListener("wheel", skip);
+      /* The scroll comes back here rather than when the veil finishes fading,
+         because the page underneath is complete and the reader is already
+         looking at it through a dissolving black sheet. */
+      root.removeAttribute("data-intro-locked");
+      window.scrollTo(0, 0);
       if (ceiling) clearTimeout(ceiling);
     };
 
-    const skip = () => {
+    /* Escape, and nothing else.
+
+       This used to end on a wheel tick, a key press or a pointer press, on the
+       reasoning that any deliberate act should end it. A wheel tick is not a
+       deliberate act of ending anything: it is a reader scrolling, which is the
+       first thing anybody does on a page, and the animation was over before it
+       had begun for most of them. Arrow keys and the space bar went the same
+       way, through the key listener, because those scroll too.
+
+       So the page is held still while it runs and the one way out is the key
+       that means "out". The ceiling below and the twelve second timeout in the
+       boot script are both still there, so nobody is ever stuck behind it. */
+    const skip = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
       engine?.endIntro();
       finishIntro();
     };
@@ -94,11 +110,24 @@ export function ParticleBrain({ className }: { className?: string }) {
     }
 
     if (wantsIntro) {
-      /* Any deliberate act ends it. */
       window.addEventListener("keydown", skip);
-      window.addEventListener("pointerdown", skip);
-      window.addEventListener("wheel", skip, { passive: true });
-      ceiling = setTimeout(skip, INTRO_CEILING_MS);
+      /* Held still while it runs.
+
+         Not only so that scrolling cannot cut it short. The animation holds the
+         cloud's composition fixed while it plays, and the scroll position is
+         settled rather than eased at the hand-over, so a page that has moved
+         underneath it makes the hand-over a jump from the opening composition
+         to wherever the reader has got to. Starting at the top is also the only
+         position the opening is composed for.
+
+         A reload restores the previous scroll position, which is why this
+         scrolls to the top rather than assuming it is already there. */
+      root.setAttribute("data-intro-locked", "");
+      window.scrollTo(0, 0);
+      ceiling = setTimeout(() => {
+        engine?.endIntro();
+        finishIntro();
+      }, INTRO_CEILING_MS);
     } else if (root.dataset.intro) {
       delete root.dataset.intro;
     }
@@ -192,9 +221,11 @@ export function ParticleBrain({ className }: { className?: string }) {
       if (ceiling) clearTimeout(ceiling);
       if (fade) clearTimeout(fade);
       window.removeEventListener("keydown", skip);
-      window.removeEventListener("pointerdown", skip);
-      window.removeEventListener("wheel", skip);
       delete root.dataset.intro;
+      /* The lock has to come off here as well. Unmounting mid-intro, which a
+         route change does, would otherwise leave the document unable to
+         scroll. */
+      root.removeAttribute("data-intro-locked");
       window.removeEventListener("pointermove", onPointerMove);
       document.removeEventListener("pointerleave", onPointerLeave);
       window.removeEventListener("scroll", onScroll);
@@ -206,16 +237,23 @@ export function ParticleBrain({ className }: { className?: string }) {
     };
   }, []);
 
-  /* Fixed, behind the content, and unreachable. pointer-events none is what
-     stops it swallowing a click on a link, a drag across a paragraph or a tab
-     to a button, and aria-hidden keeps it out of the reading order: it is
-     decoration, and every figure on this site is real text elsewhere. */
+  /* Fixed and unreachable. pointer-events none is what stops it swallowing a
+     click on a link, a drag across a paragraph or a tab to a button, and
+     aria-hidden keeps it out of the reading order: it is decoration, and every
+     figure on this site is real text elsewhere.
+
+     Which layer it sits in is not fixed, and that is in globals.css rather than
+     here because the engine drives it. Behind the page on the dark stage, where
+     the stage is transparent and the cloud shows through it; in front of the
+     page on the paper half, where it cannot be behind anything, because every
+     paper band carries an opaque background of its own and a canvas underneath
+     one is a canvas nobody sees. */
   return (
     <div
       ref={hostRef}
       data-brain="idle"
       aria-hidden="true"
-      className={className ?? "pointer-events-none fixed inset-0 -z-10 overflow-hidden"}
+      className={className ?? "brain-host"}
     >
       <canvas ref={canvasRef} className="block size-full" />
     </div>

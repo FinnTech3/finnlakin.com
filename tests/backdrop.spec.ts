@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { DEFAULTS } from "../src/particles/types";
 
 type Browser = import("@playwright/test").Browser;
 type Page = import("@playwright/test").Page;
@@ -525,6 +526,40 @@ test.describe("the particle engine", () => {
     ).toBeGreaterThan(200);
   });
 
+  /* The cloud's on-screen radius, as the distance inside which nine tenths of
+     what is lit sits. Not the furthest lit pixel: the cloud has a faint halo of
+     strays and a bloom around it, and a maximum takes the radius of the halo. */
+  async function cloudRadius(page: Page, centre: { x: number; y: number }) {
+    const shot = (await page.locator("[data-brain] canvas").screenshot()).toString("base64");
+    return page.evaluate(
+      async ({ data, at }: { data: string; at: { x: number; y: number } }) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${data}`;
+        await image.decode();
+        const sheet = document.createElement("canvas");
+        sheet.width = image.width;
+        sheet.height = image.height;
+        const ctx = sheet.getContext("2d");
+        if (!ctx) return 0;
+        ctx.drawImage(image, 0, 0);
+        const pixels = ctx.getImageData(0, 0, sheet.width, sheet.height).data;
+        const distances: number[] = [];
+        for (let y = 0; y < sheet.height; y += 2) {
+          for (let x = 0; x < sheet.width; x += 2) {
+            const i = (y * sheet.width + x) << 2;
+            if (pixels[i]! + pixels[i + 1]! + pixels[i + 2]! > 200) {
+              distances.push(Math.hypot(x - at.x, y - at.y));
+            }
+          }
+        }
+        if (distances.length === 0) return 0;
+        distances.sort((a, b) => a - b);
+        return Math.round(distances[Math.floor(distances.length * 0.9)] ?? 0);
+      },
+      { data: shot, at: centre },
+    );
+  }
+
   /* The cursor parts the cloud, and the cloud closes again.
 
      Worth the machinery, because this is exactly the kind of effect that can be
@@ -597,7 +632,24 @@ test.describe("the particle engine", () => {
     const viewport = page.viewportSize();
     expect(viewport).not.toBeNull();
     expect(centre.x, "could not find the cloud on screen").toBeGreaterThan(0);
-    const radius = Math.round(viewport!.height * 0.08);
+
+    /* The disc is measured against the parting, not against the viewport.
+
+       It was eight percent of the viewport height, which was about the size of
+       the hole while the pointer reached 0.18 of a shape space where the cloud's
+       furthest particle sits at 0.34: over half the cloud's radius. The reach is
+       a sixth of that now, on the complaint that the cursor moved too much of
+       the brain, and a hole a fifth of the width of the disc it is measured in
+       cannot move the count by the ten percent this asserts. The test would have
+       failed for the effect being correctly made smaller.
+
+       So the disc follows the reach. The cloud's own on-screen radius is
+       measured rather than assumed, because it depends on the timeline, the
+       aspect and the camera, and the reach is scaled into pixels by the ratio
+       it has to the extent every shape is normalised to. */
+    const spread = await cloudRadius(page, centre);
+    expect(spread, "could not measure the cloud on screen").toBeGreaterThan(20);
+    const radius = Math.max(24, Math.round((spread * DEFAULTS.pointerReach) / 0.34));
 
     const before = await paintedWithin(page, centre.x, centre.y, radius);
     expect(before, "nothing painted where the cloud should be").toBeGreaterThan(50);
@@ -788,44 +840,61 @@ test.describe("the particle engine", () => {
     expect(middle, "the opening did not start outside the frame").toBeLessThan(whole / 3);
   });
 
-  test("maps the scroll onto the stage it is choreographed against", async ({ page }) => {
+  test("maps the scroll onto the whole document, section by section", async ({ page }) => {
     test.slow();
-    /* The contract in scroll.ts used to be section boundaries: section n's top
-       reaching the top of the viewport was progress n. The page that contract
-       described is gone. The cloud cannot travel down a paper white page,
-       because it is drawn with additive blending and adds to white, so the
-       whole timeline now happens inside the dark stage at the top, whose inner
-       panel is sticky: the reader scrolls the stage's own height and the cloud
-       runs its seven states without moving down the document at all.
+    /* The contract in scroll.ts has been through two versions and is back at
+       the first, which is worth saying rather than quietly reverting.
 
-       So the contract is now a proportion of the stage's travel, and the
-       measurement that matters is still the same one: it is only exact if the
-       stage was measured after the page stopped moving. Fonts change the height
-       of every block of text below it, which moves nothing about the stage, but
-       a resize does, and the boundaries used to be read once before the web
-       fonts arrived. */
+       It was section boundaries: section n's top reaching the top of the
+       viewport is progress n. Then the cloud could not be drawn on paper, being
+       additive, so the whole timeline was compressed into the dark stage at the
+       top and the contract became a proportion of the stage's own travel. The
+       final pass reads the same accumulation as ink on the paper half now, so
+       the cloud travels the document again and the section measurement is
+       simply the right one. The stage is section zero.
+
+       One thing did change. Progress is normalised by the number of gaps rather
+       than being the section index itself, so moving a section to its own page
+       does not take the last state off the end of the timeline. Six is the end
+       of the page whatever the page is made of.
+
+       The measurement is only exact if the boundaries were read after the page
+       stopped moving. Fonts change the height of every block of text, and the
+       boundaries used to be read once, before the web fonts arrived. */
     await page.addInitScript((key: string) => sessionStorage.setItem(key, "1"), INTRO_KEY);
     await page.goto("/?brainQuality=low&brainDebug=1");
     await handleReady(page);
 
-    /* Two thirds of the way through the stage's travel is two thirds of the way
-       through the timeline, less the tail the cloud spends dissolving. The
-       constant is STAGE_TIMELINE_END in scroll.ts. */
-    for (const [share, expected] of [
-      [0.25, (0.25 / 0.86) * 6],
-      [0.6, (0.6 / 0.86) * 6],
-    ] as const) {
-      const travel = await page.evaluate((fraction: number) => {
-        const stage = document.querySelector("[data-stage]");
-        if (!stage) return -1;
-        const box = stage.getBoundingClientRect();
-        const top = box.top + window.scrollY;
-        const distance = Math.max(1, box.height - window.innerHeight);
-        window.scrollTo(0, Math.round(top + distance * fraction));
-        return Math.round(distance);
-      }, share);
-      expect(travel, "there is no stage to scroll through").toBeGreaterThan(0);
+    const ids = await page.evaluate(() =>
+      ["hero", "work", "about", "path", "skills", "endorsements", "contact"].filter((id) =>
+        document.getElementById(id),
+      ),
+    );
+    expect(ids.length, "the home page lost a section the timeline is mapped to").toBe(7);
 
+    /* The top of section n, and a point halfway between two of them, which is
+       what catches a mapping that is right at the boundaries and wrong in
+       between. */
+    for (const [index, fraction] of [
+      [2, 0],
+      [4, 0],
+      [1, 0.5],
+    ] as const) {
+      const moved = await page.evaluate(
+        ([id, next, share]: [string, string, number]) => {
+          const from = document.getElementById(id);
+          const to = document.getElementById(next);
+          if (!from) return false;
+          const top = from.getBoundingClientRect().top + window.scrollY;
+          const span = to ? to.getBoundingClientRect().top + window.scrollY - top : 0;
+          window.scrollTo(0, Math.round(top + span * share));
+          return true;
+        },
+        [ids[index]!, ids[index + 1] ?? ids[index]!, fraction] as [string, string, number],
+      );
+      expect(moved, "the section the timeline is mapped to is missing").toBe(true);
+
+      const expected = ((index + fraction) / (ids.length - 1)) * 6;
       await expect
         .poll(() => scrollReading(page), { timeout: 20_000 })
         .toBeCloseTo(expected, 1);

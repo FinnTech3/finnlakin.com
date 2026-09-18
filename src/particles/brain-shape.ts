@@ -1,4 +1,12 @@
-import { BOUNDS, CEREBELLUM, FOLD_DEPTH, baseDistance, foldPhase, regionAt } from "./brain-anatomy";
+import {
+  BOUNDS,
+  CEREBELLUM,
+  FOLD_DEPTH,
+  baseDistance,
+  foldOffset,
+  foldPhase,
+  regionAt,
+} from "./brain-anatomy";
 import { clamp, mulberry32 } from "./pack";
 import type { Shape } from "./shapes";
 
@@ -118,10 +126,19 @@ function rawBrain(
        field is high, so a crown stands proud by the fold depth and the floor of
        a sulcus stays where the smooth surface was. This is the change that
        makes the cortex structure rather than pattern: the particles now sit on
-       a corrugated surface instead of on a ball with a stencil over it. */
-    const folded = distance - FOLD_DEPTH * phase;
+       a corrugated surface instead of on a ball with a stencil over it.
+
+       The offset is signed where a named cleft crosses, so the same arithmetic
+       pushes the surface inward instead of outward and cuts the lateral fissure
+       and the central sulcus into the mass rather than drawing them on it. */
+    const folded = distance - FOLD_DEPTH * foldOffset(px, py, phase, region);
     if (folded > 0 || folded < -SKIN) continue;
 
+    /* Density follows the gyral banding and not the clefts. The cortex folds
+       down into a fissure rather than stopping at it, so the walls carry their
+       particles and the projection has a groove rather than a hole: taking them
+       out instead dropped the silhouette overlap from 93.6% to 86.1%, which is
+       the guard noticing that the shape had stopped filling its own outline. */
     const thinning = region === CEREBELLUM ? CEREBELLUM_THINNING : SULCUS_THINNING;
     if (random() > Math.pow(phase, thinning)) continue;
 

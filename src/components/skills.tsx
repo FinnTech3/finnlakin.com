@@ -3,7 +3,7 @@ import { languages, skillGroups } from "@/lib/skills";
 export function Skills() {
   return (
     <div className="flex flex-col gap-14">
-      <div className="grid gap-x-12 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-x-12 gap-y-12 @xl:grid-cols-2 @5xl:grid-cols-4">
         {skillGroups.map((group) => (
           <div key={group.id} className="flex flex-col gap-4 border-t border-rule pt-5">
             <h3 className="t-label">{group.label}</h3>

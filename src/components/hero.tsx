@@ -1,46 +1,43 @@
 import { reconstructions } from "@/lib/reconstructions";
 import { person } from "@/lib/site";
 
-/* The stage: the one dark band on the site, and the only place the particle
-   cloud can live.
+/* The stage: the one dark band on the site, and where the opening happens.
 
-   It is tall on purpose and its inner panel is sticky, so a reader scrolls
-   through roughly two and a half screens of travel while the panel stays
-   pinned. That travel is the timeline: the cloud runs its whole choreography
-   inside it, the copy rises and clears out of the cloud's way, and the two
-   floating artifacts come in from opposite sides at different rates. By the
-   time the stage ends the cloud has dissolved and the page is paper.
+   Its inner panel is sticky, so a reader scrolls about a screen of travel while
+   the panel stays pinned: the copy rises and clears out of the way, two paper
+   artifacts rise in underneath it, and the particle cloud runs the first part
+   of its choreography beside them. Then the black fades, the cloud is read as
+   ink instead of as light, and it carries on down the paper page beside the
+   writing.
 
-   Why it has to work this way rather than the cloud simply following the page
-   down, which is what it used to do: the particles are drawn with additive
-   blending, so on a white background they add to white and disappear. The
-   choreography needed somewhere dark to happen, and a band the reader passes
-   through is better than a band that sits behind the words they are trying to
-   read.
+   It used to be three and a half screens tall, and four and a half on a
+   desktop, because it had to contain the entire timeline. The particles are
+   drawn with additive blending, so on a white background they add to white and
+   disappear, and the choreography needed somewhere dark to happen. The final
+   pass reads the same accumulation as ink coverage on the paper half now, so
+   the stage is an opening rather than a container and it is two screens.
 
    The artifacts are white cards on the dark stage, which is deliberate. They
-   are the design system's own floating product fragments, and putting them
-   here is what stops the seam between the stage and the paper below it
-   reading as two different websites glued together. */
+   are the design system's own floating product fragments, and putting them here
+   is what stops the seam between the stage and the paper below it reading as
+   two different websites glued together. They sit low on the cloud's side and
+   travel a third of the distance they used to, so they are under it rather than
+   through it. */
 export function Hero() {
   return (
     <section
       id="hero"
       data-stage=""
-      /* Tall enough for the choreography to breathe. At 380vh the cloud ran
-         its whole timeline in about two and a half screens of scroll and was
-         already dispersed by the time a reader had read the headline; the
-         timeline is seven states long and each one needs room to be seen. A
-         phone gets less, because a phone scrolls a viewport in a flick and
-         because its cloud is smaller. */
-      className="stage relative h-[340vh] w-full sm:h-[460vh]"
+      /* Two screens: one of travel with the panel pinned, and the second
+         carrying the panel back off the top as the black fades. A phone gets
+         slightly less, because a phone scrolls a viewport in a flick. */
+      className="stage relative h-[200vh] w-full sm:h-[220vh]"
     >
       <div className="stage-panel-inner sticky top-0 flex h-screen w-full items-center overflow-hidden">
         <div className="shell relative w-full">
-          {/* The copy. It starts under the cloud's resting place and rises as
-              the stage is scrolled, which is the "text moves around the brain"
-              the brief asks for: the cloud holds its position on the screen
-              while the words travel past it. */}
+          {/* The copy. It rises as the stage is scrolled, which is the "text
+              moves around the brain" the brief asks for: the cloud holds its
+              position on the screen while the words travel past it. */}
           <div className="stage-copy max-w-[32rem] lg:max-w-[30rem]">
             <p className="t-label flex items-center gap-2.5 text-pass">
               <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />

@@ -51,6 +51,16 @@ export const BOKEH_FOCAL_DEPTH = 0.267;
    runs the same arithmetic over the same cloud and fails if the separation
    goes away again. */
 export const BOKEH_APERTURE = 0.000002;
+/* How fast ink saturates with density, on the paper half of the page.
+
+   The coverage curve is 1 - exp(-mass * gain), so this is the reciprocal of the
+   mass at which a pixel reaches about 63% opaque. At 6.5 the sparse drift
+   between the folds lands around a tenth and a gyral crown around nine tenths,
+   which is the separation that makes a fold read. Raising it much past this
+   flattens the cloud into a silhouette; dropping it much below leaves the
+   crowns as grey as the floor. */
+export const INK_GAIN = 6.5;
+
 export const BOKEH_RINGS = 4;
 export const BOKEH_SAMPLES = 6;
 const EXPOSURE = 1;
@@ -132,6 +142,8 @@ export class PostChain {
       "u_grain",
       "u_exposure",
       "u_contentDim",
+      "u_inkiness",
+      "u_inkGain",
     ]);
   }
 
@@ -236,7 +248,23 @@ export class PostChain {
   }
 
   /* Everything after the particles have been drawn into the scene target. */
-  render(level: PostLevel, config: ParticleBrainConfig, seconds: number, contentDim: number) {
+  /* `ink` is nought while the page is the dark stage and one once it is paper.
+
+     Three of the finishing effects below are lights, and a light has no meaning
+     on paper. Each is scaled by how far into the ink the frame is, at the point
+     it is uploaded, rather than being switched off by a branch: bloom because
+     a glow around dark ink is a grey halo over white and because it is baked
+     into the composed target before the final pass can see it, the vignette
+     because a black corner over paper is a grey frame round the viewport, and
+     the grain because on paper it is speckle over the reading. */
+  render(
+    level: PostLevel,
+    config: ParticleBrainConfig,
+    seconds: number,
+    contentDim: number,
+    ink: number,
+  ) {
+    const lit = 1 - Math.max(0, Math.min(1, ink));
     const gl = this.gl;
     if (!this.scene || !this.composed || !this.defocused) return;
 
@@ -278,7 +306,7 @@ export class PostChain {
         for (let i = 0; i < BLOOM_LEVELS; i++) {
           bindTexture(gl, 1 + i, this.bloomA[i]!.texture, this.bloomUniforms[`t_level${i}`] ?? null);
         }
-        gl.uniform1f(this.bloomUniforms.u_strength ?? null, config.bloomStrength);
+        gl.uniform1f(this.bloomUniforms.u_strength ?? null, config.bloomStrength * lit);
       });
       source = this.composed;
     }
@@ -308,13 +336,18 @@ export class PostChain {
       bindTexture(gl, 0, last.texture, this.finalUniforms.t_source ?? null);
       gl.uniform1f(this.finalUniforms.u_time ?? null, seconds);
       gl.uniform1f(this.finalUniforms.u_vignetteOffset ?? null, config.vignetteOffset);
-      gl.uniform1f(this.finalUniforms.u_vignetteDarkness ?? null, config.vignetteDarkness);
+      gl.uniform1f(
+        this.finalUniforms.u_vignetteDarkness ?? null,
+        config.vignetteDarkness * lit,
+      );
       gl.uniform1f(
         this.finalUniforms.u_grain ?? null,
-        level === "full" ? config.grainStrength : config.grainStrength * 0.6,
+        (level === "full" ? config.grainStrength : config.grainStrength * 0.6) * lit,
       );
       gl.uniform1f(this.finalUniforms.u_exposure ?? null, EXPOSURE);
       gl.uniform1f(this.finalUniforms.u_contentDim ?? null, contentDim);
+      gl.uniform1f(this.finalUniforms.u_inkiness ?? null, 1 - lit);
+      gl.uniform1f(this.finalUniforms.u_inkGain ?? null, INK_GAIN);
     });
   }
 

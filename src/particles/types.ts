@@ -64,8 +64,8 @@ export const DEFAULTS: ParticleBrainConfig = {
      startup, which happens behind the intro, and two and a quarter times the
      instances, which is nothing on a desktop GPU. A phone builds a smaller
      cloud rather than paying for particles its tier will not draw. */
-  gridSize: 150,
-  gridSizeMobile: 105,
+  gridSize: 180,
+  gridSizeMobile: 120,
   factorDesktop: 5.15,
   /* Down from 2.5. The cloud has to fit between the call to action and a
      little past the bottom of a phone's viewport, and at 2.5 it was half a
@@ -100,18 +100,28 @@ export const DEFAULTS: ParticleBrainConfig = {
   morphDelayMobile: 0.000025,
   secondaryMorphDelay: 0.0005,
   explosionDelay: 0.00015,
-  /* A reach of 0.13 is about two fifths of the cloud's radius, so the hole is
-     local rather than the whole brain moving. The push is set against the
-     spring: a particle settles where the two balance, which at these values is
-     roughly a third of the radius out of place. */
-  /* Tuned by looking at it, against a sweep. A reach of 0.18 is a little over
-     half the cloud's radius, so the hole is local and the brain keeps its
-     shape. The push is set against the spring, which is what closes the hole
-     again: a particle settles where the two balance. The first values here were
-     a fifth of these and the parting was real but almost invisible. */
-  pointerReach: 0.18,
-  pointerPush: 0.003,
-  pointerSwirl: 0.0017,
+  /* How far the pointer reaches, in the space the shapes are built in, where
+     the cloud's furthest particle sits at 0.34.
+
+     So 0.18, which is what this was, is 53% of the cloud's radius: over half
+     the brain moved for every twitch of the mouse, and a comment here claimed
+     that was local. It was measured against the wrong thing. Two fifths and a
+     half of a radius are both most of a brain.
+
+     0.055 is a sixth of the radius, which on a cloud drawn at the opening
+     composition is a dimple a little wider than a fingertip. The falloff is
+     sharpened as well, because the smoothstep the shader uses is broad by
+     construction and trails influence out to the full reach: squared, the
+     displacement concentrates near the pointer and the far edge of the reach
+     barely moves at all. The push comes down with it, so the particles that are
+     touched move less as well as fewer of them being touched.
+
+     Counted rather than judged, by scripts/check-brain-targets.ts: at the
+     densest place a pointer can be put, a reach of 0.18 had 47.4% of the cloud
+     inside it, 0.13 had 19.6%, and this has 3.0%. */
+  pointerReach: 0.055,
+  pointerPush: 0.0022,
+  pointerSwirl: 0.0013,
   mouseSmoothing: 0.1,
   scrollEase: 0.075,
   timelineEase: 0.1,
@@ -126,7 +136,7 @@ export const DEFAULTS: ParticleBrainConfig = {
      field: measured over the brain's bounding box, near white pixels went from
      1.0% of it to 4.1% and took the gyri in the top half with them. */
   bloomStrength: 0.2,
-  bloomThreshold: 0.6,
+  bloomThreshold: 0.68,
   bloomRadius: 0.75,
   vignetteOffset: 0.3,
   vignetteDarkness: 4,
@@ -140,7 +150,7 @@ export const DEFAULTS: ParticleBrainConfig = {
      rather than by eye: the two together bring the near white share of the
      brain's bounding box back from 4.1% to 1.8%, against 1.0% before the
      density went up. */
-  colourFactor: 0.88,
+  colourFactor: 0.7,
 };
 
 /* Everything the timeline produces and the renderer consumes. Each of these is
@@ -162,6 +172,12 @@ export type ParticleTimelineState = {
   /* How far the cloud's brightness is pulled down so that text laid over it
      keeps its contrast ratio. Zero is full strength. */
   contentDim: number;
+  /* Which surface the cloud is being drawn on. Nought is the dark stage, where
+     the particles are a light; one is paper, where the same cloud is read as
+     ink coverage instead. Everything between is the hand-over, and the black
+     plate behind the stage fades on this same number so the two cannot
+     disagree. */
+  inkiness: number;
 };
 
 export type MouseState = {

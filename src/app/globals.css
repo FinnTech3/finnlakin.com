@@ -211,6 +211,20 @@
   /* The brief's layout block: a 1200px measure, 80px between sections, and a
      4px base unit underneath both. */
   --container-page: 75rem;
+  /* How much of the screen is given over to the lane the brain travels down,
+     as a share of the viewport rather than of a container.
+
+     The viewport is the right unit and the difference is not academic. Against
+     a fixed container the lane's position in world space moves with the screen
+     width, so the engine cannot know where it is without reading the layout;
+     against the viewport it is a constant fraction, and the timeline works it
+     out from the field of view alone. LANE_FRACTION in timeline.ts is this
+     number and the two have to be changed together.
+
+     The size is set by the cloud, which is about 370 pixels across at the
+     opening factor: a narrower lane has it overlapping the column at every
+     scroll position rather than at the crossings only. */
+  --lane: 36vw;
   --spacing-section: 5rem;
 
   --radius-card: 24px;
@@ -299,19 +313,29 @@ body:has(.stage) .site-header {
 /* Out of the flow on a wide screen, where there is room beside the copy, and
    back into it on a narrow one, where there is not. A phone gets the stage's
    words and the cloud, and meets the numbers as ordinary blocks underneath. */
-/* Both cards along the bottom, so the cloud keeps the upper right of the stage
-   to itself. Centred vertically the table sat exactly over the brain and hid
-   it: the artifacts are meant to float around the composition, not on top of
-   the one thing the page is built around. */
+/* Both cards low and to the right, under the cloud rather than over it.
+
+   The fault they had was not which side they were on, it was how far they
+   travelled: the table's keyframe carried it up forty six viewport heights'
+   worth of translation, straight through the band the cloud holds, and two
+   things clear of each other at both ends of an animation can still collide in
+   the middle of it. The travel is a third of that now and they stay below.
+
+   They were tried on the left, with the copy, and that was worse for a reason
+   worth writing down. The copy column is centred in a viewport tall panel and
+   runs to about seven hundred pixels; a card three hundred tall anchored near
+   the bottom of the same column lands on the call to action. Playwright caught
+   it as a click the table intercepted, which is the second time a card placed
+   by eye on this stage has quietly made a button unpressable. */
 .stage-artifact-table {
   right: 0;
-  bottom: 4%;
+  bottom: 5%;
   width: 20rem;
 }
 
 .stage-artifact-stat {
   right: 21.5rem;
-  bottom: 12%;
+  bottom: 13%;
   width: 14rem;
 }
 
@@ -383,14 +407,14 @@ body:has(.stage) .site-header {
       .stage-artifact-table {
         animation: stage-artifact-table linear both;
         animation-timeline: --stage;
-        animation-range: contain 0% contain 62%;
+        animation-range: contain 22% contain 96%;
         will-change: transform, opacity;
       }
 
       .stage-artifact-stat {
         animation: stage-artifact-stat linear both;
         animation-timeline: --stage;
-        animation-range: contain 26% contain 92%;
+        animation-range: contain 40% contain 100%;
         will-change: transform, opacity;
       }
     }
@@ -424,6 +448,11 @@ body:has(.stage) .site-header {
     rgb(0 0 0 / 0.78) 52%,
     rgb(0 0 0 / 0) 64%
   );
+  /* Goes with the plate, on the same number. A shade whose job is to hold a
+     white headline off a bright cloud has nothing to do once the page is paper
+     and the cloud is ink: left running it is a black gradient over the first
+     paper band. */
+  opacity: var(--stage-veil, 1);
 }
 
 /* A phone has no free half: the words are above the cloud rather than beside
@@ -465,17 +494,25 @@ body:not(:has(.stage)) .stage-shade {
    transform is a percentage of the element, which was correct while the cards
    were positioned against the middle of the panel and became nonsense the
    moment they were anchored to its bottom. */
+/* Rises in as the copy above it rises out, holds while it can be read, and
+   leaves with the stage. The travel is a third of what it was, because the
+   stage is a third of the height it was: these numbers are viewport heights,
+   so a shorter stage covering the same translation simply moves faster. */
 @keyframes stage-artifact-table {
   0% {
+    transform: translate3d(0, 24vh, 0);
+    opacity: 0;
+  }
+  26% {
     transform: none;
     opacity: 1;
   }
-  64% {
-    transform: translate3d(-1vw, -22vh, 0);
+  74% {
+    transform: translate3d(0, -6vh, 0);
     opacity: 1;
   }
   100% {
-    transform: translate3d(-3vw, -46vh, 0);
+    transform: translate3d(-2vw, -16vh, 0);
     opacity: 0;
   }
 }
@@ -485,19 +522,19 @@ body:not(:has(.stage)) .stage-shade {
    as depth, where two things moved together read as a page scrolling. */
 @keyframes stage-artifact-stat {
   0% {
-    transform: translate3d(-4vw, 26vh, 0);
+    transform: translate3d(-3vw, 20vh, 0);
     opacity: 0;
   }
-  22% {
+  30% {
     transform: none;
     opacity: 1;
   }
-  74% {
-    transform: translate3d(1vw, -26vh, 0);
+  76% {
+    transform: translate3d(0, -9vh, 0);
     opacity: 1;
   }
   100% {
-    transform: translate3d(4vw, -52vh, 0);
+    transform: translate3d(2vw, -20vh, 0);
     opacity: 0;
   }
 }
@@ -538,7 +575,39 @@ body:not(:has(.stage)) .stage-shade {
   inset: 0;
   z-index: -20;
   pointer-events: none;
-  opacity: 1;
+  /* Written by the engine every frame it changes, from the same number that
+     decides whether the particles are drawn as a light or as an ink. One
+     number, so the black cannot still be there when the cloud has turned to
+     ink, or be gone while the cloud is still a light. The fallback of 1 is what
+     a page with no engine on it sees before the animation below takes over. */
+  opacity: var(--stage-veil, 1);
+}
+
+/* The particle canvas.
+
+   The layer is a variable because it changes, and it has to. On the dark stage
+   the cloud belongs behind the page: the stage sets no background of its own,
+   so a canvas at a negative layer shows through it, and text laid over the
+   cloud is text over a thing that is genuinely behind it.
+
+   On the paper half it cannot stay there. Every band below the stage carries an
+   opaque background, white or fog, and an opaque background paints over every
+   negative layer beneath it: the first build of the ink pass rendered perfectly
+   and showed nothing at all, because the work section was painted on top of it.
+   The alternatives were to make the bands transparent, which leaves a contrast
+   checker walking up from a paragraph to a root element that is black on this
+   route and reporting dark text on black, or to draw the cloud over the page.
+
+   So it goes over the page, and the composition is what keeps it off the words:
+   it travels in the margin beside the reading column, and where it does cross,
+   the timeline holds it down in proportion to how far in it has come. Measured
+   by the contrast suite rather than asserted here. */
+.brain-host {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: var(--brain-layer, -10);
 }
 
 /* The black the stage is made of. Fixed and behind everything, including the
@@ -566,9 +635,15 @@ body:not(:has(.stage)) main {
   padding-top: 5.5rem;
 }
 
+/* The fallback, for a page where the engine is not running: no WebGL2, a
+   driver that refused a float target, or the chunk never arriving. The engine
+   marks the document when it takes the veil over, and this stands down.
+
+   It cannot simply be left on underneath, because an animation beats a declared
+   property whatever the property says, so the two cannot both be live. */
 @supports (animation-timeline: view()) {
-  .stage-decoration,
-  .stage-shade {
+  html:not([data-veil="engine"]) .stage-decoration,
+  html:not([data-veil="engine"]) .stage-shade {
     animation: stage-decoration linear both;
     animation-timeline: --stage;
     animation-range: contain 90% contain 100%;
@@ -578,6 +653,85 @@ body:not(:has(.stage)) main {
 @keyframes stage-decoration {
   to {
     opacity: 0;
+  }
+}
+
+/* Testimonials, on a surface of their own.
+
+   Each card declares its two colours and everything inside reads them, so a
+   third tint is four lines rather than a rewrite. The measurements are in
+   endorsements.tsx, on the surfaces these actually land on. */
+@layer components {
+  .quote-card {
+    position: relative;
+    border-radius: var(--radius-card);
+    padding: 2.25rem 2rem 2rem;
+    background: var(--quote-surface);
+    overflow: hidden;
+  }
+
+  .quote-peach {
+    --quote-surface: var(--blush-peach);
+    --quote-ink: var(--sienna-brown);
+    --quote-soft: #6b4436;
+  }
+
+  .quote-ice {
+    /* Drawn from the cloud's own pigments: the pale ink it lays down where it
+       is thin, and the deep indigo it pools to where it is thick. */
+    --quote-surface: #e4eaf5;
+    --quote-ink: #23345c;
+    --quote-soft: #41506f;
+  }
+
+  /* Large, and behind the words rather than above them. At a tenth of an
+     opacity it is a texture on the card; at full strength it is a punctuation
+     mark the size of a headline, which is a thing design blogs do and readers
+     do not thank them for. */
+  .quote-mark {
+    position: absolute;
+    top: -0.35em;
+    right: 0.35em;
+    font-family: var(--font-serif);
+    font-size: 9rem;
+    line-height: 1;
+    color: var(--quote-ink);
+    opacity: 0.1;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .quote-body {
+    position: relative;
+    font-family: var(--font-serif);
+    font-size: 1.3125rem;
+    line-height: 1.45;
+    color: var(--quote-ink);
+  }
+
+  .quote-name {
+    color: var(--quote-ink);
+  }
+
+  .quote-role,
+  .quote-note {
+    color: var(--quote-soft);
+  }
+
+  /* The initials. A photograph would be better and there is not one, so this
+     is the honest version of the same affordance: it says a person said this
+     without inventing a face for them. */
+  .quote-disc {
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex: none;
+    border-radius: 9999px;
+    background: var(--quote-ink);
+    color: var(--quote-surface);
+    font-size: 0.875rem;
+    letter-spacing: 0.02em;
   }
 }
 
@@ -654,6 +808,47 @@ body {
     max-width: var(--container-page);
     padding-inline: clamp(1.25rem, 4vw, 2.5rem);
   }
+
+  /* A band's own container: the wide measure, and asymmetric.
+
+     The paper half of the home page is laid out around the lane. The content of
+     each band sits to one side of it and the cloud travels down the other,
+     changing sides at the band boundaries, so the two are beside each other all
+     the way down the page rather than on top of each other.
+
+     That is not decoration, it is the only arrangement that works. The cloud is
+     about 370 pixels across and the old 1200px column left 120 pixels of gutter
+     on a 1440px screen, so there was nowhere for it to be that was not over
+     somebody's paragraph: the first build of the ink pass put a dispersed brain
+     straight across the deflated-sharpe write-up.
+
+     Below the breakpoint the lane collapses and the band is an ordinary centred
+     column, because a phone has no width to give away. The cloud is behind the
+     reading there and the timeline holds it right down, which is what it
+     already did. */
+  .band-inner {
+    width: 100%;
+    padding-inline: clamp(1.25rem, 5vw, 7rem);
+  }
+
+  @media (min-width: 1100px) {
+    .band-lane-right > .band-inner {
+      padding-right: var(--lane);
+    }
+
+    .band-lane-left > .band-inner {
+      padding-left: var(--lane);
+    }
+  }
+
+  /* There is deliberately no escape from the lane here.
+
+     A class that pulled a figure out into the lane was written and then taken
+     out again, because on this page there is nowhere for it to go: the cloud is
+     in one lane or the other at every scroll position on the home page, so a
+     figure that reaches into either is a figure with a brain drawn over it,
+     which is the fault this layout exists to fix. Figures use the band, and the
+     band grows with the screen. */
 
   /* Kept for the stage, which still reaches the edges. */
   .gutter {
@@ -1014,6 +1209,22 @@ button {
 
    Opacity during the dissolve is driven from JavaScript rather than by a
    transition here, so the intro adds nothing to document.getAnimations(). */
+/* The page is held still while the opening animation runs.
+
+   Both properties, because they do different jobs: overflow stops a wheel or a
+   drag moving the document, and overscroll-behavior stops the gesture being
+   handed to the browser as a pull to refresh on a phone. The scroll bar's width
+   is not compensated for, because the page underneath is covered by an opaque
+   black sheet and there is nothing to see shift.
+
+   Released at the hand-over rather than when the veil has finished fading: by
+   then the reader is looking at the finished page through a dissolving sheet
+   and the animation no longer owns anything. */
+html[data-intro-locked] {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 .intro {
   position: fixed;
   inset: 0;

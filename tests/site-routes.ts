@@ -8,6 +8,7 @@ export const PUBLIC_ROUTES = [
   "/",
   "/writing",
   ...writing.map((piece) => `/writing/${piece.slug}`),
+  "/path",
   "/cv",
   "/privacy",
 ];

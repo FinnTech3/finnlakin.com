@@ -6,16 +6,15 @@ textures, driven by a spring solver that runs entirely on the graphics card,
 morphing between four shapes as the page scrolls. A phone builds eleven
 thousand.
 
-It is the opening animation and the whole of the stage, which is the tall dark
-band at the top of the home page. Nothing else on the site uses it, and nothing
-else downloads it.
+It is the opening animation, the dark stage at the top of the home page, and
+the cloud that goes on travelling down the paper below it beside the writing.
 
-**Why it lives in a band rather than behind the page.** The particles are drawn
-with additive blending, so on a white surface they add to white and disappear.
-The rest of the site is paper, so the cloud has one place it can be, and the
-stage is that place: a tall section whose inner panel is sticky, which the
-reader scrolls through while the cloud runs its whole timeline in one spot. It
-dissolves into the paper at the end. See `Scroll` below.
+The particles accumulate additively into a float target, which is the only way
+to draw thirty thousand overlapping shards without sorting them. On black that
+accumulation is read as emitted light. On paper it is read as **ink coverage**
+instead, because an additive cloud over white adds to white and disappears, and
+that one change at the last pass is what let the choreography leave the stage
+and carry on down the document. See [Ink](#ink).
 
 ## Why it is written by hand
 
@@ -41,9 +40,9 @@ scroll ─┐
 pointer ┘                                 │
                                           ▼
       velocity pass  ──swap──→  position pass  ──swap──→  position texture
-       (150 x 150)               (150 x 150)                     │
+       (180 x 180)               (180 x 180)                     │
                                                                  ▼
-                                             instanced draw, 22,500 pyramids
+                                             instanced draw, 32,400 pyramids
                                                                  │
                                           ┌──────────────────────┤
                                           ▼                      ▼
@@ -105,8 +104,8 @@ once per drawn frame they describe a different animation on every machine.
 
 Sizes are given as a rule rather than as numbers, because the grid is
 configurable and the numbers were wrong in this table within a week of being
-written. `G` is `gridSize` on a desktop and `gridSizeMobile` on a phone: 150 and
-105, for 22,500 and 11,025 particles.
+written. `G` is `gridSize` on a desktop and `gridSizeMobile` on a phone: 180 and
+120, for 32,400 and 14,400 particles.
 
 | Texture | Size | Holds |
 |---|---|---|
@@ -201,6 +200,39 @@ was perfectly smooth. A stencil has no relief, catches no light differently and
 moves the surface nowhere, which is exactly why it read as texture rather than
 as structure.
 
+### The named sulci, and a fissure that is not a hole
+
+Uniform folding everywhere makes a walnut. What makes a folded mass read as a
+brain in a lateral view is that its folds are interrupted by clefts that are
+deeper and longer than any gyrus and always run the same way: the **lateral
+(Sylvian) fissure** and the **central sulcus**, which between them divide the
+frontal, parietal and temporal lobes. Both are polylines in the same profile
+coordinates as the traced outline, placed against it rather than by eye on a
+rendered frame, and `foldOffset` composes them with the gyral banding into a
+**signed** offset: one is the crown of a gyrus, nought the floor of an ordinary
+sulcus, and a negative value is below the smooth solid's own surface, which is
+the only way to say "cut in" in a scheme where the folds are otherwise all
+relief.
+
+The **longitudinal fissure** is separate, carved into `baseDistance` as a groove
+down the midline from above, deep at the crown and closing before the base
+because the hemispheres are joined underneath. It was 0.045 wide, which in a
+cloud of ten thousand is about one particle across.
+
+**The first version emptied the clefts of particles and the silhouette guard
+caught it**, dropping from 93.6% to 86.1% overlap with the traced outline. The
+guard was right, and the model was wrong: a fissure is not a hole. It is a slit
+the cortex folds down into, its two banks pressed together, and in projection
+there is no gap at all, only a groove. So the **displacement** follows the signed
+offset and the **density** follows the gyral banding alone, which is why
+`foldPhase` and `foldOffset` are two functions rather than one.
+
+The validator had to learn the same thing. It reconstructs the surface to decide
+which particles are on the skin, and through `foldPhase` alone every particle on
+the wall of the lateral fissure reads as interior: the skin check failed at 85%
+while the shape was exactly right. A validator that reconstructs a surface has to
+reconstruct all of it.
+
 ### Density, and why the sulci are thinned rather than cut
 
 A skin of `SKIN` deep carries most of the particles, a counted `INTERIOR_SHARE`
@@ -266,6 +298,24 @@ things worth naming:
   a smooth ball it would be nought. Every other assertion in the file passes for
   a smooth ball with a stencil over it, which is what the cortex was.
 
+- **The hemispheres are parted**, measured as the notch the longitudinal fissure
+  cuts in the crown: how far the top of the midline band falls below the top of
+  the band beside it. Not as an absence of particles, which is the version that
+  was written first and failed a working fissure at 91%. A fissure has walls and
+  the walls carry cortex, so the midline is nearly as dense as the band beside
+  it; what a fissure does to the *shape* is lower the surface along the midline.
+  Swept, the notch is 0.078 at a half width of 0.062, 0.141 at 0.075, and 0.660
+  at 0.090, where the fissure has stopped parting the hemispheres and started
+  severing them.
+- **The named sulci are cut into the cortex**, measured in the cloud rather than
+  in the function that made it. Asserting that `landmarkPhase` returns one on its
+  own polyline would be asserting arithmetic; what can actually go wrong is the
+  sampler dropping the walls or the offset never reaching the surface, and both
+  leave the field perfectly correct and the brain smooth.
+- **The pointer parts a patch rather than most of the cloud**, as the share of
+  particles inside `pointerReach` at the densest place it can be put. See
+  [The pointer](#the-pointer).
+
 The silhouette guard compares the cloud against the traced profile itself,
 rasterised at the cloud's own scale, rather than against a stored snapshot: the
 snapshot had to be re-pasted every time a change shifted the random stream,
@@ -286,32 +336,40 @@ every shape it passes through and a morph reads as the cloud rearranging.
 
 ## The pointer
 
-The cloud parts around the cursor, like a shoal of fish getting out of the way.
-Two forces per particle, both falling off with distance:
-
-```glsl
-vec3 away = previous - u_pointer;
-float reach = (1.0 - smoothstep(0.0, u_pointerReach, length(away))) * u_pointerActive;
-vec3 flee = (direction * u_pointerPush + cross(direction, axis) * u_pointerSwirl) * reach;
-```
-
-The radial term opens the hole. The tangential one is what makes it a shoal
-rather than an explosion: they stream around the obstruction instead of straight
-out. Nothing pulls them back, because the spring already does that, so the hole
+The cloud parts around the cursor like a shoal of fish rather than being pushed
+by a blast wave: a radial force opens the hole and a tangential one at right
+angles to it makes the particles stream around the obstruction. Nothing pulls
+them back, because the spring that holds the shape already does, so the hole
 closes on its own as the pointer leaves.
 
-Two things to know before changing it. **`smoothstep` is undefined in GLSL when
-its first edge is not less than its second**, and written the natural way round,
-`smoothstep(u_pointerReach, 0.0, gap)`, this driver returns zero for every
-particle: the force is wired correctly all the way through and multiplied by
-nothing at the last step, which is invisible in a screenshot and survives every
-check that the uniforms arrived. And the pointer is a screen position while the
-simulation works in a unit cube, so `pointerInCloudSpace` in `mouse.ts` undoes
-the projection, the offset, the rotation and the scale, once a frame on the
-processor rather than per particle on the card.
+**How much of the cloud it moves is a number, not an impression.** `pointerReach`
+is in the space the shapes are built in, where the furthest particle sits at an
+extent of 0.34. It was 0.18, which is 53% of the cloud's radius, and a comment in
+`types.ts` called that local. Counted at the densest place a pointer can be put,
+`scripts/check-brain-targets.ts` reports:
 
-Off under reduced motion, and the listeners are only attached when
-`(hover: hover)` matches, so a phone is unaffected rather than subtly broken.
+| `pointerReach` | share of the cloud inside it |
+|---|---|
+| 0.18 | 47.4% |
+| 0.13 | 19.6% |
+| **0.055** | **3.0%** |
+
+The falloff is squared as well. `1 - smoothstep(0, reach, gap)` is broad by
+construction — still worth a fifth of full strength at two thirds of the reach —
+so the influence trailed across the cloud however small the reach was set.
+Squared, the displacement concentrates near the pointer and the outer half of
+the reach barely moves, which is the difference between a dimple and a wave.
+
+The pointer is smoothed twice and never used raw, and it is carried back through
+the projection into the simulation's own space once a frame on the processor
+rather than per particle on the card. `pointerInCloudSpace` in `mouse.ts` undoes
+the field rotation in the opposite order and with the opposite sign.
+
+`smoothstep` is undefined in GLSL when its first edge is not less than its
+second. Written the other way round, `smoothstep(reach, 0.0, gap)`, this driver
+returns zero for every particle: the force was wired correctly end to end and
+multiplied by nothing at the last step, which is invisible in a screenshot and
+survives every check that the uniforms arrived.
 
 ## The opening animation
 
@@ -387,6 +445,65 @@ cloud, in `npm run lint`, and fails if the near surface stops being sharp, the
 far surface stops being soft, the gap between them closes, or any part of the
 cloud reaches the clamp where the aperture stops meaning anything.
 
+## Ink
+
+The constraint that shaped everything else: **the particles are drawn with
+additive blending, so on a white page they add to white and disappear.** The
+dark stage existed to give the choreography somewhere to happen.
+
+The way out is not to change the blending. Thirty thousand unsorted tetrahedra
+alpha-blended in three dimensions are order-dependent and look wrong from every
+angle, and the accumulation is the correct measurement anyway: it is not really
+a light, it is a count of how much particle is at each pixel. What changes is
+what that count is read as, and that happens in one place, `FINAL_FRAGMENT`.
+
+`u_inkiness` is nought on the stage and one on paper, and it follows the same
+path `u_contentDim` does: `timeline.ts` to `types.ts` to `engine.ts` to
+`PostChain.render()` to the shader. In the shader both readings are built from
+the same `mass`, and mixed:
+
+- **Light**, unchanged: the tone-mapped colour, sRGB encoded, with `presence`
+  for alpha. At `u_inkiness` nought the output is exactly the line the stage was
+  measured on, so the stage cannot regress while the paper is being tuned.
+- **Ink**: coverage is `1 - exp(-mass * u_inkGain)`, saturating rather than
+  linear because that is how ink lays down — the first particles over a pixel
+  darken it a great deal and the hundredth hardly at all. A linear clamp gives a
+  cloud that is either invisible or a flat silhouette with nothing in between,
+  and the folds live in the in between. The pigment runs from a pale icy blue
+  where the cloud is thin to a nearly black indigo where it is thick, which is
+  the opposite direction from light and the right one for ink.
+
+Three things are scaled to nothing as the ink comes up, at the point they are
+uploaded in `post.ts`: **bloom**, because a glow around dark ink is a grey halo
+and because it is baked into the composed target before the final pass can see
+it; the **vignette**, because a black corner over paper is a grey frame; and the
+**grain**, because on paper it is speckle over the reading.
+
+### Two things the ink pass forced
+
+**The ink is premultiplied explicitly.** The light path never had to be: its
+colour is black wherever its alpha is nought, so the physics did the
+multiplication. A dark pigment on a transparent pixel is not, and left
+unmultiplied it paints full strength indigo over the whole page wherever the
+cloud is thin, which is everywhere.
+
+**The canvas changes layer.** On the stage it is behind the page at `z-index:
+-10`, which works because the stage sets no background of its own. Every band
+below it carries an opaque background, and an opaque background paints over
+every negative layer beneath it: the first build of the ink pass rendered
+perfectly and showed nothing, because the work section was painted on top of it.
+The engine writes `--brain-layer` and the canvas goes in front of the page once
+past halfway through the hand-over. What keeps it off the words is the lane, not
+the layer.
+
+**The black plate rides the same number.** `.stage-decoration`'s opacity is
+`var(--stage-veil)`, written by the engine from `1 - inkiness`. It used to fade
+on the stage's own `view()` timeline, which is a second schedule: drift between
+the two is a window of dark ink on black, or bright particles on white, and
+neither is recoverable by tuning the other. The view-timeline version is kept as
+the fallback for a page with no engine running, and stands down when the engine
+marks the document.
+
 ## Contrast
 
 `tests/backdrop.spec.ts` hides the page, photographs what is left, and compares
@@ -431,50 +548,58 @@ neutralises that one property and touches no colour.
 
 ## Scroll
 
-Progress runs nought to six and is read off **the stage's own travel**, not off
-the sections and not off the document height. The stage is a tall block with a
-sticky panel inside it, so its travel is its height less the one viewport the
-panel occupies, which is exactly the distance over which the panel stays pinned.
-`STAGE_TIMELINE_END` is the fraction of that travel the timeline finishes in;
-the remainder is the cloud dissolving before the paper starts.
+Progress runs nought to six and is read off **the real sections**: section *n*'s
+top reaching the top of the viewport is progress *n*, and between two boundaries
+it is the fraction of the way between them.
 
-The section boundaries are kept as the fallback for any route with no stage, and
-because the measurement they need is the interesting part.
+This went round a circle. It was the sections; then, while the cloud could only
+be drawn on black, the whole timeline was compressed into the stage's own travel
+so it could be seen at all; and with the ink pass it is the sections again. The
+change back was a deletion.
 
-Things that are easy to get wrong and were:
+Two things are different from the first version:
 
-- **The boundaries have to be re-measured.** Measured once from resize, they are
-  measured before the web fonts arrive, and fonts change the height of every
-  block of text on the page. They are re-measured when `document.fonts.ready`
-  resolves and whenever the stage, a section or the body changes size, which
-  also covers an image finishing, a chart laying out and a phone being turned.
-- **The eased value needs a speed limit.** An ease covers a proportion of
-  whatever gap it is given, so a gap of six sections is crossed about as quickly
-  as a gap of one, and the call to action is an anchor to the contact section,
-  which makes exactly that gap. Capped at `MAX_SECTIONS_PER_SECOND`.
-- **The timeline has to start where the page is.** Its constructor starts it at
-  the opening composition, which is right for a reader arriving at the top and
-  wrong for one who reloaded halfway down. The opening animation is the one
-  exception, because releasing its held composition is what carries the cloud
-  into place.
-- **The composition has to hold still.** The excursions in `timeline.ts` used to
-  be four to six units, which was correct while the cloud travelled down a page
-  and had to keep out of the way of whichever paragraph a reader was on. In a
-  sticky stage the same numbers carry it off the edge and leave a reader looking
-  at an empty black rectangle for a screen and a half. It stays in one place and
-  the choreography is carried by what it does rather than by where it goes.
-- **The cloud shrinks as it disperses**, tied to the same explode value that
-  scatters it. At a constant size a fully dispersed cloud is several times the
-  width of the screen, so a reader is not watching it break up, they are flying
-  through the middle of it.
+- **Progress is normalised by the number of gaps** rather than being the section
+  index itself, so moving a section to its own page does not take the last state
+  off the end of the timeline. Six is the end of the page whatever the page is
+  made of.
+- **The last boundary is clamped to the furthest the page can scroll.** The
+  contact section is shorter than a viewport, so its top never reaches the top
+  of the screen: measured, it began at 16,166 pixels on a document whose maximum
+  scroll is 16,130, and progress six was unreachable by thirty six pixels. The
+  reassembly at the end of the timeline never played.
 
-At phone width the stage's panel is **not sticky**: a phone has to hold the copy
-and the reconstruction table one under the other, and pinning that to a single
-screen either clipped the table or left no room for the cloud. The cloud is
-fixed behind all of it, so it stays put while the words scroll past. The panel
-also carries top padding for the header, which is laid over the page rather than
-above it — centred in a full height panel the copy cleared it by accident, and
-at the top of the panel the headline was drawn straight through the navigation.
+Dividing scroll by document height is what the specification allows and it is
+wrong here, because the sections are not equal heights: measured on the home
+page the work section is 10,139 pixels and the path section is 803, so a
+proportional mapping would race the cloud through the reading and dawdle over
+the footer.
+
+`ScrollController.measure()` re-reads the boundaries once at startup, again when
+`document.fonts.ready` resolves and whenever a section or the body changes size.
+Fonts change the height of every block of text, and measuring once, before the
+fonts arrive, left the timeline mapped to positions the page no longer had.
+
+### The lane
+
+On the paper half the cloud travels down a lane the layout leaves empty for it,
+`--lane` in `globals.css`, currently 36% of the viewport. `timeline.ts` derives
+where that is from the field of view, the camera's distance and the same
+fraction, so the cloud goes where the gap is at any screen width rather than at
+the one width it was tuned on. `LANE_FRACTION` and `--lane` are one decision
+written in two files.
+
+The bands take their lanes **in pairs**: right for the work and about bands,
+left for the path and the tools, right again for the references and the contact.
+Alternating every band guarantees a collision, because two sections share the
+viewport for most of a scroll through the boundary between them and if their
+lanes differ one of them has its content wherever the cloud is. In pairs, four
+of the five boundaries need no crossing at all.
+
+Where the cloud does cross, it is dimmed and shrunk by how far it has come in
+over the column, both from the same `overColumn` term, so the two cannot drift
+apart. Below 1100 pixels the layout has no lane to give, so the cloud is behind
+the reading the whole way and is held down accordingly.
 
 ### Two stacking traps
 
@@ -527,7 +652,7 @@ Everything in `DEFAULTS` in `src/particles/types.ts`:
 
 | Level | Desktop | Mobile | Post chain |
 |---|---|---|---|
-| high | 22,500 | 11,025 | bloom, bokeh, vignette, grain |
+| high | 32,400 | 14,400 | bloom, bokeh, vignette, grain |
 | medium | 14,000 | 7,000 | bloom, vignette, grain |
 | low | 6,000 | 3,500 | vignette, grain |
 

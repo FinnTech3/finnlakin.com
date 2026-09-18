@@ -12,7 +12,15 @@ export function ProvenanceLegend() {
   );
 
   return (
-    <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+    /* Container queries, not viewport ones, and that is the whole point of the
+       change. The bands now leave a third of the screen to the cloud, so a card
+       that is two thirds of a 1440px window is 830px wide while every sm: and
+       lg: rule in it still thinks it has the whole screen: measured, the four
+       column statistics grid was giving each label about a hundred pixels and
+       setting "mean absolute error against the published headline" one word to
+       a line. A component inside a lane has to lay itself out against the room
+       it has rather than against the window. */
+    <dl className="grid gap-x-6 gap-y-4 @xl:grid-cols-2 @4xl:grid-cols-4">
       {used.map((kind) => (
         <div
           key={kind}
@@ -52,8 +60,8 @@ export function ProjectCard({
   const ordinal = String(index + 1).padStart(2, "0");
 
   return (
-    <article className="rounded-[--radius-card] bg-card px-6 py-9 sm:px-9 sm:py-11">
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] lg:gap-16">
+    <article className="@container rounded-[--radius-card] bg-card px-6 py-9 sm:px-9 sm:py-11">
+      <div className="grid gap-10 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] @4xl:gap-16">
         <div>
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <span className="t-caption tnum text-faint">{ordinal}</span>
@@ -73,7 +81,7 @@ export function ProjectCard({
           <p className="measure text-[16px] leading-[1.55] text-ink">{project.body}</p>
 
           {project.stats.length > 0 ? (
-            <dl className="mt-9 grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-4">
+            <dl className="mt-9 grid grid-cols-2 gap-x-8 gap-y-6 @5xl:grid-cols-4">
               {project.stats.map((stat) => (
                 <div key={stat.label} className="flex flex-col gap-1.5">
                   <dt className="sr-only">{stat.label}</dt>

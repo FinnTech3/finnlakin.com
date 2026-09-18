@@ -261,6 +261,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   let lastPointer: [number, number, number] = [0.5, 0.5, 0.5];
   let lastPointerActive = 0;
   let postUsable = Boolean(post);
+  let lastVeil = "";
   let introActive = runIntro;
   let introMs = 0;
   /* When the first frame ran. The opening reveal and the animation's phases are
@@ -475,14 +476,52 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     );
 
     if (chain) {
-      chain.render(tier.post, config, seconds, state.contentDim);
+      chain.render(tier.post, config, seconds, state.contentDim, state.inkiness);
     } else {
-      /* No post chain means no final pass, so the one place the dimming lives
-         is not running. The canvas element carries it instead: a single style
-         property, set only when it changes, which the compositor applies for
-         free. Contrast is not something to leave to a fallback path. */
-      const opacity = (1 - state.contentDim).toFixed(3);
+      /* No post chain means no final pass, so neither the dimming nor the ink
+         conversion is running: the particles go straight to the canvas,
+         additively, and on paper additive adds to white and disappears.
+
+         So on this path the cloud belongs to the dark stage and fades with it.
+         That is a real loss and it is the right way round: it happens only when
+         the driver refused a float render target, which is also a driver that
+         was never going to hold the full choreography. The canvas element
+         carries both numbers as one style property, set only when it changes,
+         which the compositor applies for free. */
+      const opacity = ((1 - state.contentDim) * (1 - state.inkiness)).toFixed(3);
       if (canvas.style.opacity !== opacity) canvas.style.opacity = opacity;
+    }
+
+    /* The black the stage is made of, driven from the same number that decides
+       whether the particles are a light or an ink.
+
+       It used to fade on the stage's own view() timeline, which is a second
+       schedule: if the plate and the particles ever drifted apart there would be
+       a window of dark ink on black, or of bright particles on white, and
+       neither is recoverable by tuning the other. One number, written as a
+       custom property, so they cannot disagree. globals.css keeps the
+       view-timeline version as the fallback for a page with no engine running
+       on it at all.
+
+       Written only when it changes, and rounded to a hundredth first, because
+       setting a custom property on the root element invalidates style for the
+       document and doing that every frame is how a smooth page stops being
+       one. */
+    const veil = (1 - state.inkiness).toFixed(2);
+    if (veil !== lastVeil) {
+      const root = document.documentElement;
+      /* The marker the stylesheet reads to stand its own fallback animation
+         down. Set alongside the first value rather than at construction, so a
+         page whose engine started and then failed before drawing anything does
+         not lose the fallback as well. */
+      if (lastVeil === "") root.dataset.veil = "engine";
+      lastVeil = veil;
+      root.style.setProperty("--stage-veil", veil);
+      /* And which side of the page the canvas is on. Switched at the halfway
+         point of the hand-over rather than at the first trace of ink: the copy
+         on the stage has finished rising out by then, so the cloud never
+         crosses in front of the headline on its way over. */
+      root.style.setProperty("--brain-layer", state.inkiness >= 0.5 ? "2" : "-10");
     }
 
     lastFrameMs = performance.now() - started;
@@ -513,6 +552,16 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     resize,
     frame,
     dispose() {
+      /* Hand the veil back. Left behind, the last value written sits on the
+         root element for the life of the document, so a route change away from
+         the home page would take the page's black with it or leave it on. */
+      if (lastVeil !== "") {
+        const root = document.documentElement;
+        delete root.dataset.veil;
+        root.style.removeProperty("--stage-veil");
+        root.style.removeProperty("--brain-layer");
+        lastVeil = "";
+      }
       scroll.unwatch();
       simulation.dispose();
       renderer.dispose();

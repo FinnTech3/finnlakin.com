@@ -1,4 +1,5 @@
-import { easeForFrame, mapClamped } from "./pack";
+import { clamp, easeForFrame, mapClamped } from "./pack";
+import { CAMERA_FOV, CAMERA_POSITION } from "./renderer";
 import type { ParticleTimelineState } from "./types";
 
 /* Scroll position in, everything the renderer needs out.
@@ -27,6 +28,39 @@ const BASE = { x: 0, y: -1.19, z: 0 };
    solid, not enough to throw away the view that identifies it. The reference
    shows its own brain at very nearly this angle, for the same reason. */
 export const INITIAL_YAW = -0.1 * Math.PI;
+
+/* The lane the cloud travels down on the paper half, derived rather than
+   chosen.
+
+   This is the share of the viewport the bands leave empty beside their content,
+   and it is --lane in globals.css: the two have to be changed together, which
+   is why both say so. Everything else here follows from it and from the camera,
+   so the cloud goes where the layout says the gap is at any screen width rather
+   than at the one width it was tuned on.
+
+   Half the viewport, in the world units the offset is in, is the distance from
+   the camera to the cloud's plane times the tangent of half the field of view,
+   times the aspect. The lane's centre then sits (1 - lane) of that out from the
+   middle and the content's inner edge at (1 - 2 * lane). */
+const LANE_FRACTION = 0.36;
+
+function halfViewport(aspect: number) {
+  return Math.abs(CAMERA_POSITION[2]) * Math.tan((CAMERA_FOV * Math.PI) / 360) * aspect;
+}
+
+/* The extent every shape is normalised to, which the factor scales into the
+   same world units as the offset: factor times this is the cloud's radius. */
+const CLOUD_RADIUS = 0.34;
+
+/* How far the cloud is held down while it is over the column. Set by the
+   contrast suite rather than by eye: it walks every run of text on the page and
+   reads the pixels actually behind it. */
+const PAPER_DIM = 0.96;
+
+/* And on a screen too narrow to have a lane, where the cloud has nowhere to be
+   but behind the words. A faint moving presence rather than a picture, which is
+   the same answer the old full page layout came to for the same reason. */
+const NARROW_PAPER_DIM = 0.88;
 
 function targets(progress: number, baseFactor: number, aspect: number) {
   const p = progress;
@@ -84,44 +118,121 @@ function targets(progress: number, baseFactor: number, aspect: number) {
      now, under the words and above the fold. */
   const openY = narrow ? -1.3 : 2.1;
 
-  /* Where the cloud sits, and this is the number the stage changed most.
+  /* Which surface the cloud is being drawn on.
 
-     The excursions here used to be enormous, four to six units at a time, and
-     they were correct for the layout they were written for: the cloud
-     travelled down a page of seven sections, crossing from one side to the
-     other so it was never behind the paragraph a reader was on. The page it
-     travelled down does not exist any more. The stage is sticky, so the cloud
-     holds one place on the screen for the whole of the timeline, and an
-     excursion of four units now simply carries it off the edge and leaves a
-     reader looking at an empty black rectangle for a screen and a half of
-     scrolling, which is exactly what it did.
+     Nought is the dark stage, where the particles are a light accumulated over
+     black. One is paper, where the same accumulation is read as ink coverage
+     instead. The ramp is the hand-over, and it sits in the last quarter of the
+     hero, so the black plate has gone by the time the first paper band arrives.
 
-     So the cloud stays where it was put and drifts. The choreography is
-     carried by what it does rather than by where it goes: it settles, breaks
-     apart, reforms as the data field, unwinds into the helix and gathers back
-     into a brain, all of it in the same corner of the screen. That is also the
-     more legible version of the idea. A shape that stays still while it
-     changes can be watched; one that changes while crossing the screen cannot
-     be. */
-  const x =
+     This is the number that let the stage stop being the whole timeline. The
+     cloud used to have to be gone before the paper started, because additive
+     blending on white adds to white and disappears; it does not have to be gone
+     now, so the stage is an opening rather than a container and the cloud
+     carries on down the page beside the writing.
+
+     Computed here, before the composition, because the composition depends on
+     it: the stage and the paper want the cloud in different places. */
+  const inkiness = mapClamped(p, 0.72, 0.95, 0, 1);
+
+  /* Whether the page is wide enough to have given the cloud a lane.
+
+     The bands below the stage push their content to one side and leave the
+     other for the cloud, and they stop doing it below 1100 pixels, where there
+     is no width to give away. The two have to agree: a cloud travelling down a
+     lane that the layout has collapsed is a cloud travelling down the middle of
+     the reading. An aspect of 1.22 is 1100 by 900, which is that breakpoint. */
+  const wide = aspect >= 1.22;
+
+  /* Where the cloud sits.
+
+     This went round a full circle and the record is worth keeping. It began as
+     excursions of four to six units, choreographed for a page that scrolled
+     past the cloud. The sticky stage made those wrong: the cloud held one place
+     on the screen for the whole timeline, so an excursion of four units carried
+     it off the edge and left a reader looking at an empty black rectangle for a
+     screen and a half. They were cut to a few tenths.
+
+     Now there are two compositions and the ink mixes between them. On the stage
+     the cloud sits beside the copy and drifts. On paper it sits in the lane and
+     changes sides at the band boundaries, so it is beside the work, across
+     during the about band, back for the path, across again, and gathering
+     towards the middle for the contact section, where the column is short.
+
+     The lane's centre is not a number here at all. It comes out of the field of
+     view, the camera's distance and the share of the screen the bands leave
+     empty, so it tracks the layout at every width instead of being right at the
+     one the tuning was done on. */
+  const half = halfViewport(aspect);
+  const laneX = (1 - LANE_FRACTION) * half;
+
+  const stageX =
     openX +
     mapClamped(p, 0, 1, 0, -0.55 * spread) +
-    mapClamped(p, 1.25, 1.5, 0, 0.7 * spread) -
-    mapClamped(p, 2.8, 3, 0, 0.5 * spread) +
-    mapClamped(p, 3.3, 3.5, 0, 0.8 * spread) -
-    mapClamped(p, 4.5, 5, 0, 0.45 * spread);
+    mapClamped(p, 1.2, 1.5, 0, 0.55 * spread);
 
+  /* The crossings finish just before each boundary rather than straddling it.
+
+     Straddled, the cloud was halfway across the screen at the exact moment a
+     section's heading arrived at the top of the viewport, which is the one place
+     on the page where it is guaranteed to be over something: measured, it sat
+     on "Where I have studied and worked" at 42% of full strength. Finished
+     early, the cloud is already in the new lane when the heading appears, and
+     the crossing itself happens over the tail of the section before, which is
+     that section's bottom padding. */
+  /* Two crossings on the paper half, not five.
+
+     The sections are laid out in pairs, right, right, left, left, right, right,
+     and the reason is in page.tsx: two adjacent sections with opposite lanes
+     collide by construction, because they share the viewport for most of a
+     scroll through the boundary between them and one of them therefore has its
+     content wherever the cloud is. In pairs, four of the five boundaries need no
+     crossing at all.
+
+     Each crossing finishes just before the boundary, so the cloud is in the new
+     lane by the time the incoming heading reaches the top of the screen. The
+     lanes in page.tsx and these two windows are one decision written in two
+     files; if one changes the other has to. */
+  const laneSide =
+    1 - mapClamped(p, 2.6, 2.95, 0, 2) + mapClamped(p, 4.6, 4.95, 0, 2);
+  const paperX = wide ? laneX * laneSide : 0;
+
+  const x = stageX + (paperX - stageX) * inkiness;
+
+  /* Vertical drift, and it is small on purpose. The canvas is fixed, so this is
+     movement within the viewport rather than down the page: the page supplies
+     the travel, and a cloud that also rides up and down the screen reads as two
+     motions fighting rather than as one.
+
+     The one large step is the hand-over. The opening composition sits high on
+     the stage, beside the headline and clear of the artifact cards below it; on
+     paper there are no artifact cards and the cloud drops back to the middle of
+     the screen, which is where the lane is. */
   const y =
     openY +
+    mapClamped(p, 0.7, 1.1, 0, -1.9) +
     mapClamped(p, 2.7, 3, 0, 0.4) -
     mapClamped(p, 3.3, 3.5, 0, 0.4) +
     mapClamped(p, 5.7, 6, 0, 0.6);
 
-  const explode =
+  /* How far apart the cloud is thrown, and it is a quarter of itself on paper.
+
+     The explosion was choreographed against the stage, where nothing is behind
+     the cloud and a reader watching it come apart is watching the only thing on
+     the screen. On paper it is over a page of writing, and at full strength it
+     is not a brain coming apart, it is a spray of ink across two paragraphs:
+     the first build of this put a fully dispersed cloud over the whole of the
+     deflated-sharpe card. Held down, the same ramps read as the cloud
+     breathing, which is what a thing travelling beside the reading should do.
+
+     Scaled rather than removed, because it is still what the morphs are hung
+     off: the cloud has to loosen before it can become something else. */
+  const burst =
     mapClamped(p, 1.1, 2.2, 0, 1) -
     mapClamped(p, 2.8, 3, 0, 1) +
     mapClamped(p, 4.5, 5, 0, 1) -
     mapClamped(p, 5.7, 6, 0, 1);
+  const explode = burst * (1 - 0.74 * inkiness);
 
   /* How large the cloud is drawn, and it now falls as the cloud comes apart.
 
@@ -137,7 +248,7 @@ function targets(progress: number, baseFactor: number, aspect: number) {
      in step by construction, rather than by two ramps that have to be kept
      lined up by hand. The dispersed cloud ends up about the size of the whole
      brain, which is what makes it read as the brain having come apart. */
-  const factor =
+  const baseSize =
     baseFactor +
     mapClamped(p, 0, 1, 0, 0.5) -
     Math.max(0, Math.min(1, explode)) * 1.9 +
@@ -202,35 +313,54 @@ function targets(progress: number, baseFactor: number, aspect: number) {
 
      Measured, not assumed: the contrast suite walks every run of text on the
      page and reads the pixels actually behind it. */
-  const contentDim = Math.max(
-    /* Barely anything on a wide screen, and that is the point of the stage.
+  /* How far the cloud is turned down so that text laid over it keeps its
+     contrast ratio.
 
-       Dimming the whole cloud to protect the words was the old layout's
-       answer, and it ramped to 0.988: a hundredth of full strength, for the
-       whole page, because there the cloud really did travel behind two
-       thousand words. Chasing it here went the same way. Moving the cloud right
-       took the headline's background from 0.49 to 0.38 and stopped, because the
-       bloom carries five downsample levels past the particles; dimming to 0.42
-       cleared the headline and the failure simply moved to the 15px grey line
-       under it, which needs its background under 0.183 even in pure white type.
+     On the stage this is a ramp against the scroll, and it is nearly nothing on
+     a wide screen: the copy sits in the left half and the cloud in the right,
+     and the words carry their own shade. See stage-copy in globals.css.
 
-       So the words carry their own shade instead, in a gradient behind the copy
-       column only, and the cloud keeps its half of the stage at full strength.
-       See stage-copy in globals.css. */
-    narrow ? mapClamped(p, 0.05, 0.3, 0, 0.72) : mapClamped(p, 0, 0.5, 0.1, 0.2),
-    /* And the cloud takes itself out at the end of the stage, before the paper
-       starts. It has to go: additive blending on white adds to white, so a
-       cloud left running over the sections below is a faint grey haze over the
-       whole editorial half of the page.
-
-       Done here rather than by fading the canvas element in CSS, which is where
-       it was. That fade rode the stage's own view timeline, and a view timeline
-       whose subject is not being rendered is inactive: anything that hid the
-       page took the cloud to nothing with it, including the three tests that
-       hide the page precisely so they can photograph what is behind the
-       words. */
-    mapClamped(p, 5.4, 6, 0, 1),
+     On paper it is a ramp against the cloud's own position instead, which is
+     the part worth reading twice. The cloud is over the column exactly when its
+     offset is near nought, so the protection is computed from the composition
+     rather than from a second set of ramps lined up against it by hand. Two
+     independent ramps drift the moment either is retuned, and the failure is
+     silent: the cloud simply starts crossing the text at full strength one
+     tuning session later. */
+  /* Where the reading starts, plus the cloud's own radius: the point on the way
+     in at which the two begin to overlap. Derived from the layout and from the
+     factor rather than being a number of its own, so it cannot go stale when
+     either of them changes. */
+  const columnClear = (1 - 2 * LANE_FRACTION) * half + CLOUD_RADIUS * baseSize;
+  /* Raised to a power below one, so it bites as soon as the cloud starts to
+     come in rather than only once it is on top of the words. Linear, the cloud
+     was still at 42% of full strength with its middle over a heading, which is
+     the arithmetic working exactly as written and the number being wrong. */
+  const overColumn = Math.pow(
+    1 - clamp(Math.abs(BASE.x + x) / Math.max(0.1, columnClear), 0, 1),
+    0.55,
   );
+  const contentDim = Math.max(
+    narrow ? mapClamped(p, 0.05, 0.3, 0, 0.72) : mapClamped(p, 0, 0.5, 0.1, 0.2),
+    /* On paper, and only there. A page with no lane, which is every screen
+       under 1100 pixels, has the cloud behind the reading at every scroll
+       position, so it is held down the whole way rather than at the crossings
+       only. */
+    inkiness * (wide ? overColumn * PAPER_DIM : NARROW_PAPER_DIM),
+  );
+
+  /* And it shrinks as it crosses, as well as going faint.
+
+     There is no scroll position at which a crossing is over nothing. A section
+     one and a half viewports tall has its heading on screen from about six
+     tenths of a boundary away, and the band before it is still on screen until
+     the boundary itself, so the two overlap and the cloud has to pass through
+     one of them. Dimming alone leaves a faint thing the width of a column
+     sliding over a serif heading, which reads as a smear; dimming and shrinking
+     together make it a small faint thing passing behind the words, which is
+     what it is meant to be. Tied to the same overColumn that does the dimming,
+     so the two cannot drift apart. */
+  const factor = baseSize - overColumn * 1.5 * inkiness;
 
   return {
     offset: { x: BASE.x + x, y: BASE.y + y, z: BASE.z },
@@ -240,6 +370,7 @@ function targets(progress: number, baseFactor: number, aspect: number) {
     progress2,
     rotation: { x: 0, y: INITIAL_YAW + rotationY, z: rotationZ },
     contentDim,
+    inkiness,
   } satisfies ParticleTimelineState;
 }
 
@@ -293,6 +424,7 @@ export class ParticleTimeline {
         z: approach(from.rotation.z, to.rotation.z, step),
       },
       contentDim: approach(from.contentDim, to.contentDim, step),
+      inkiness: approach(from.inkiness, to.inkiness, step),
     };
     return this.state;
   }
@@ -312,6 +444,7 @@ export class ParticleTimeline {
       progress2: 0,
       rotation: { x: 0, y: yaw, z: 0 },
       contentDim: 0,
+      inkiness: 0,
     };
     return this.state;
   }
