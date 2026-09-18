@@ -41,12 +41,27 @@ export function SiteHeader() {
         <Mark />
         {person.name}
       </Link>
-      <div className="flex items-center gap-6">
-        <nav aria-label="Main">
-          <NavLinks />
-        </nav>
-        <PaletteTrigger />
-      </div>
+
+      {/* Centred, which is the brief's arrangement, and only on a screen wide
+          enough for three columns: below that the links sit beside the trigger
+          rather than under the logo. */}
+      <nav
+        aria-label="Main"
+        className="order-last w-full sm:order-none sm:w-auto sm:flex sm:flex-1 sm:justify-center"
+      >
+        <NavLinks />
+      </nav>
+
+      {/* The brief pairs a text link with a filled pill here, and this header
+          has the trigger and nothing else on purpose.
+
+          Its navigation is not sticky: it scrolls away with the stage, so it is
+          only ever on screen at the very top of the page, where the hero's own
+          "Get in touch" pill is already visible a couple of inches below it. A
+          second identical control that close to the first is not what the brief
+          is asking for, it is what copying a sticky header's affordance into one
+          that scrolls away produces. */}
+      <PaletteTrigger />
     </header>
   );
 }

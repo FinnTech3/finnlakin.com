@@ -89,12 +89,12 @@ test.describe("performance budget", () => {
     expect(result.lcp, "largest contentful paint").toBeLessThan(1500);
     expect(result.cls, "cumulative layout shift").toBeLessThan(0.05);
 
-    /* 560KB, up from 500, and the increase is the particle engine: 47KB of
-       simulation, shaders and geometry, measured, which is about 12KB over the
-       wire. It is loaded only here, dynamically, and largest contentful paint
-       is unchanged because the hero is server rendered text that does not wait
-       for it. Every other route still holds the old 500KB, asserted below, so
-       the engine cannot quietly leak back into a page that has no use for it.
+    /* 560KB, up from 500, and the increase is the particle engine: the
+       simulation, the shaders and the geometry. It is loaded only here,
+       dynamically, and largest contentful paint is unchanged because the hero
+       is server rendered text that does not wait for it. Every other route
+       still holds the old 500KB, asserted below, so the engine cannot quietly
+       leak back into a page that has no use for it.
 
        The number before that was 500KB, down from 600. Inlining the command
        palette instead of splitting it measured 580KB on this same page, so the

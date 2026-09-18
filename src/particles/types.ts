@@ -9,7 +9,6 @@ export type QualityLevel = "high" | "medium" | "low";
 export type PostLevel = "full" | "bloom" | "minimal";
 
 export type ParticleBrainConfig = {
-  particleCount: number;
   /* The logical particle grid is square and its side is this. The simulation
      textures are twice this on each axis, because they carry four target
      quadrants. */
@@ -51,7 +50,6 @@ export type ParticleBrainConfig = {
    named a number, that number is here. Where it named a range, the middle of
    the range is here and the comment says so. */
 export const DEFAULTS: ParticleBrainConfig = {
-  particleCount: 22500,
   /* A hundred and fifty on a side, up from a hundred.
 
      Measured rather than felt: over the brain's own bounding box in a rendered

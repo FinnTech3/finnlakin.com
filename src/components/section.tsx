@@ -37,7 +37,7 @@ export function Section({
 
   return (
     <section id={id} className={`w-full ${band ? "bg-band" : "bg-paper"}`}>
-      <div className="shell py-16 sm:py-20 lg:py-28">
+      <div className="shell py-16 sm:py-20">
         <p className="t-label">{eyebrow}</p>
         <Heading className="t-h mt-4 max-w-[20ch] text-ink text-balance">{title}</Heading>
         {intro ? (
