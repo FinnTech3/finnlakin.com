@@ -27,8 +27,8 @@ export function IntervalBand({
   return (
     <figure className="m-0 flex flex-col gap-4 border-y border-rule py-6">
       <figcaption className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <span className="t-caption uppercase tracking-[0.12em] text-muted">{caption}</span>
-        <span className="t-caption uppercase tracking-[0.12em] text-spark">{widthLabel}</span>
+        <span className="t-label">{caption}</span>
+        <span className="t-label">{widthLabel}</span>
       </figcaption>
 
       <div aria-hidden="true" className="relative mx-2 my-3 h-5">
@@ -46,10 +46,10 @@ export function IntervalBand({
 
       {point ? (
         <p
-          className="-mt-1 flex flex-col text-[13px] leading-snug font-extralight text-muted"
+          className="-mt-1 flex flex-col text-[13px] leading-snug text-muted"
           style={{ marginLeft: `min(${at}%, calc(100% - 9rem))` }}
         >
-          <span className="tnum text-[15px] text-spark">
+          <span className="tnum text-[15px] text-ink">
             {point.value}
           </span>
           {point.note}
@@ -59,16 +59,16 @@ export function IntervalBand({
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col">
           <span className="tnum text-[17px] text-ink">{low.value}</span>
-          <span className="text-[13px] leading-snug font-extralight text-muted">{low.note}</span>
+          <span className="text-[13px] leading-snug text-muted">{low.note}</span>
         </div>
         <div className="flex flex-col text-right">
           <span className="tnum text-[17px] text-ink">{high.value}</span>
-          <span className="text-[13px] leading-snug font-extralight text-muted">{high.note}</span>
+          <span className="text-[13px] leading-snug text-muted">{high.note}</span>
         </div>
       </div>
 
       {reading ? (
-        <p className="max-w-[58ch] border-t border-rule pt-4 text-[14px] leading-relaxed font-extralight text-muted">
+        <p className="max-w-[58ch] border-t border-rule pt-4 text-[14px] leading-relaxed text-muted">
           {reading}
         </p>
       ) : null}
@@ -89,7 +89,7 @@ export function ProportionBar({
 }) {
   return (
     <figure className="m-0 flex flex-col gap-4 border-y border-rule py-6">
-      <figcaption className="t-caption uppercase tracking-[0.12em] text-muted">{caption}</figcaption>
+      <figcaption className="t-label">{caption}</figcaption>
 
       <div aria-hidden="true" className="flex h-5 w-full overflow-hidden bg-rule">
         {parts.map((part) => (
@@ -108,7 +108,7 @@ export function ProportionBar({
               aria-hidden="true"
               className={`size-2 shrink-0 ${part.tone === "flag" ? "bg-flag" : "bg-action"}`}
             />
-            <dt className="text-[14px] font-extralight text-muted">{part.label}</dt>
+            <dt className="text-[14px] text-muted">{part.label}</dt>
             <dd
               className={`tnum text-[15px] ${part.tone === "flag" ? "text-flag" : "text-ink"}`}
             >
@@ -119,7 +119,7 @@ export function ProportionBar({
       </dl>
 
       {reading ? (
-        <p className="max-w-[58ch] border-t border-rule pt-4 text-[14px] leading-relaxed font-extralight text-muted">
+        <p className="max-w-[58ch] border-t border-rule pt-4 text-[14px] leading-relaxed text-muted">
           {reading}
         </p>
       ) : null}

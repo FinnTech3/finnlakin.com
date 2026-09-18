@@ -25,7 +25,7 @@ export default function WritingIndexPage() {
             <article className="flex flex-col gap-4">
               <time
                 dateTime={piece.published}
-                className="t-caption uppercase tracking-[0.11em] text-spark"
+                className="t-label"
               >
                 {new Date(piece.published).toLocaleDateString("en-GB", {
                   day: "numeric",
@@ -38,11 +38,11 @@ export default function WritingIndexPage() {
                   moderate and the gate only fails on serious and critical,
                   which is why it shipped. */}
               <h2 className="t-hsm max-w-[20ch] text-pretty text-ink">
-                <Link href={`/writing/${piece.slug}`} className="hover:text-accent">
+                <Link href={`/writing/${piece.slug}`} className="hover:underline">
                   {piece.title}
                 </Link>
               </h2>
-              <p className="measure text-[17px] leading-relaxed font-extralight text-ink-soft">
+              <p className="measure text-[17px] leading-relaxed text-ink-soft">
                 {piece.dek}
               </p>
             </article>

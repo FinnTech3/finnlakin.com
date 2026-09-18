@@ -417,14 +417,12 @@ export function Scrim() {
   );
 }
 
-/* Long-form pages stack a second one. Composited, the gradient reaches the
-   reader at about 12%, which is atmosphere rather than something competing
-   with a paragraph. */
-export function ReadingScrim() {
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none fixed inset-0 -z-20 bg-black/55"
-    />
-  );
-}
+/* The long-form pages used to stack a second scrim over the first, which took
+   the gradient down to about 12% so it read as atmosphere rather than as
+   something competing with a paragraph.
+
+   Gone, along with the gradient it was holding down. Those pages are paper
+   now, and the backdrop belongs to the stage at the top of the home page. Left
+   in place it was a black sheet at 55% over a white page: every write-up
+   rendered on a mid grey, every run of body text on it measured 3.7:1, and it
+   was invisible as a fault because the page still looked deliberate. */

@@ -145,7 +145,7 @@ export default function PalettePanel({
           aria-activedescendant={active >= 0 ? optionId(active) : undefined}
           autoComplete="off"
           spellCheck={false}
-          className="border-b border-rule bg-transparent px-5 py-4 text-[16px] font-extralight outline-none placeholder:text-muted"
+          className="border-b border-rule bg-transparent px-5 py-4 text-[16px] outline-none placeholder:text-muted"
         />
 
         {/* Announces the count as the query narrows, so a screen reader user
@@ -187,7 +187,7 @@ export default function PalettePanel({
                       "Repository" down the whole list. */}
                   <span
                     aria-hidden="true"
-                    className="t-caption shrink-0 uppercase tracking-[0.1em] text-muted"
+                    className="t-label shrink-0"
                   >
                     {item.group}
                   </span>

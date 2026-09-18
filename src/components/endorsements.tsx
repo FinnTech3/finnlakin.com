@@ -10,11 +10,11 @@ export function Endorsements() {
           </blockquote>
           <figcaption className="mt-auto flex flex-col gap-1 border-t border-rule pt-5">
             <span className="text-[16px] text-ink">{endorsement.name}</span>
-            <span className="text-[14px] font-extralight text-muted">{endorsement.role}</span>
+            <span className="text-[14px] text-muted">{endorsement.role}</span>
           </figcaption>
           {endorsement.trimmed ? (
-            <p className="text-[13px] leading-relaxed font-extralight text-muted">
-              <span className="t-caption uppercase tracking-[0.1em] text-spark">Cut. </span>
+            <p className="text-[13px] leading-relaxed text-muted">
+              <span className="t-label">Cut. </span>
               {endorsement.trimNote}
             </p>
           ) : null}

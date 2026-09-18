@@ -54,7 +54,7 @@ function BarList({ rows, unit }: { rows: Row[]; unit?: string }) {
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="border-t border-rule pt-6">
-      <h2 className="t-label mb-5 text-spark">
+      <h2 className="t-label mb-5 text-ink">
         {title}
       </h2>
       {children}
@@ -66,7 +66,7 @@ function SignIn() {
   return (
     <div className="mx-auto w-full max-w-sm px-5 py-24">
       <form method="post" action="/api/admin/session" className="flex flex-col gap-4">
-        <label htmlFor="password" className="t-label text-spark">
+        <label htmlFor="password" className="t-label">
           Password
         </label>
         <input
@@ -75,7 +75,7 @@ function SignIn() {
           type="password"
           autoComplete="current-password"
           required
-          className="border border-rule bg-black px-4 py-3 text-[16px] font-extralight outline-none focus:border-action"
+          className="border border-rule bg-black px-4 py-3 text-[16px] outline-none focus:border-action"
         />
         <button
           type="submit"
@@ -90,7 +90,7 @@ function SignIn() {
 
 function Dashboard({ data, days }: { data: Dashboard; days: number }) {
   return (
-    <div className="gutter w-full py-14">
+    <div className="shell w-full py-14">
       <header className="flex flex-wrap items-baseline justify-between gap-4 border-b border-rule pb-6">
         <h1 className="t-h text-ink">Analytics</h1>
         <nav className="t-label flex gap-4">
@@ -98,7 +98,7 @@ function Dashboard({ data, days }: { data: Dashboard; days: number }) {
             <a
               key={option}
               href={`/admin/analytics?days=${option}`}
-              className={option === days ? "text-accent underline" : "text-muted hover:text-accent"}
+              className={option === days ? "text-ink underline" : "text-muted hover:text-ink"}
             >
               {option}d
             </a>
@@ -108,13 +108,13 @@ function Dashboard({ data, days }: { data: Dashboard; days: number }) {
 
       <dl className="mt-8 grid grid-cols-2 gap-6 sm:grid-cols-4">
         <div className="flex flex-col gap-1">
-          <dt className="t-label text-spark">Views</dt>
+          <dt className="t-label">Views</dt>
           <dd className="tnum text-[2rem] tracking-[-0.03em]">
             {data.totals.views.toLocaleString("en-GB")}
           </dd>
         </div>
         <div className="flex flex-col gap-1">
-          <dt className="t-label text-spark">
+          <dt className="t-label">
             Visitors
           </dt>
           <dd className="tnum text-[2rem] tracking-[-0.03em]">
@@ -122,11 +122,11 @@ function Dashboard({ data, days }: { data: Dashboard; days: number }) {
           </dd>
         </div>
         <div className="flex flex-col gap-1">
-          <dt className="t-label text-spark">Window</dt>
+          <dt className="t-label">Window</dt>
           <dd className="tnum text-[2rem] tracking-[-0.03em]">{days}d</dd>
         </div>
         <div className="flex flex-col gap-1">
-          <dt className="t-label text-spark">
+          <dt className="t-label">
             Retention
           </dt>
           <dd className="tnum text-[2rem] tracking-[-0.03em]">{RETENTION_DAYS}d</dd>
@@ -223,7 +223,7 @@ export default async function AnalyticsPage({
     data = await loadDashboard(days);
   } catch {
     return (
-      <div className="gutter w-full py-14">
+      <div className="shell w-full py-14">
         <h1 className="t-h text-ink">Analytics</h1>
         <p className="mt-4 max-w-[60ch] text-sm text-muted">
           The database is not reachable. Collection keeps returning 204 to

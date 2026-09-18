@@ -788,31 +788,43 @@ test.describe("the particle engine", () => {
     expect(middle, "the opening did not start outside the frame").toBeLessThan(whole / 3);
   });
 
-  test("maps the scroll onto the sections it was measured against", async ({ page }) => {
+  test("maps the scroll onto the stage it is choreographed against", async ({ page }) => {
     test.slow();
-    /* The contract in scroll.ts is exact: section n's top reaching the top of
-       the viewport is progress n. It is only exact if the boundaries were
-       measured after the page stopped moving, and they used to be measured once
-       from resize, which runs before the web fonts arrive. Fonts change the
-       height of every block of text, so every section below the first moves,
-       and the timeline spent the rest of the session mapped to positions the
-       page no longer had. */
+    /* The contract in scroll.ts used to be section boundaries: section n's top
+       reaching the top of the viewport was progress n. The page that contract
+       described is gone. The cloud cannot travel down a paper white page,
+       because it is drawn with additive blending and adds to white, so the
+       whole timeline now happens inside the dark stage at the top, whose inner
+       panel is sticky: the reader scrolls the stage's own height and the cloud
+       runs its seven states without moving down the document at all.
+
+       So the contract is now a proportion of the stage's travel, and the
+       measurement that matters is still the same one: it is only exact if the
+       stage was measured after the page stopped moving. Fonts change the height
+       of every block of text below it, which moves nothing about the stage, but
+       a resize does, and the boundaries used to be read once before the web
+       fonts arrived. */
     await page.addInitScript((key: string) => sessionStorage.setItem(key, "1"), INTRO_KEY);
     await page.goto("/?brainQuality=low&brainDebug=1");
     await handleReady(page);
 
-    for (const [id, expected] of [
-      ["about", 2],
-      ["skills", 4],
+    /* Two thirds of the way through the stage's travel is two thirds of the way
+       through the timeline, less the tail the cloud spends dissolving. The
+       constant is STAGE_TIMELINE_END in scroll.ts. */
+    for (const [share, expected] of [
+      [0.25, (0.25 / 0.86) * 6],
+      [0.6, (0.6 / 0.86) * 6],
     ] as const) {
-      const top = await page.evaluate((section: string) => {
-        const element = document.getElementById(section);
-        if (!element) return -1;
-        const to = element.getBoundingClientRect().top + window.scrollY;
-        window.scrollTo(0, to);
-        return Math.round(to);
-      }, id);
-      expect(top, `there is no #${id} section to scroll to`).toBeGreaterThan(0);
+      const travel = await page.evaluate((fraction: number) => {
+        const stage = document.querySelector("[data-stage]");
+        if (!stage) return -1;
+        const box = stage.getBoundingClientRect();
+        const top = box.top + window.scrollY;
+        const distance = Math.max(1, box.height - window.innerHeight);
+        window.scrollTo(0, Math.round(top + distance * fraction));
+        return Math.round(distance);
+      }, share);
+      expect(travel, "there is no stage to scroll through").toBeGreaterThan(0);
 
       await expect
         .poll(() => scrollReading(page), { timeout: 20_000 })
@@ -883,7 +895,12 @@ type TextBox = {
 /* Eight samples across the six section timeline. The cloud moves, disperses,
    reforms and changes brightness as the page scrolls, so one position proves
    nothing about the others. */
-const SAMPLE_POINTS = [0, 0.5, 1, 2, 3, 4, 5, 6];
+/* Where down the document to stand and look. Fractions of the whole scroll
+   rather than section indices: the timeline is no longer mapped to sections,
+   and what this test needs to cover is every position a reader can stop at,
+   which is the document. The first four land inside the stage, where the cloud
+   is behind the words; the rest land on the paper below it, where it is not. */
+const SAMPLE_POINTS = [0, 0.04, 0.09, 0.15, 0.24, 0.4, 0.6, 0.85];
 
 function relativeLuminance(rgb: [number, number, number]) {
   const channel = (value: number) => {
@@ -910,17 +927,12 @@ test.describe("contrast where the words actually are", () => {
 
     const decoder = await browser.newPage();
     const worst: { ratio: number; label: string; at: number }[] = [];
+    let found = 0;
 
     for (const point of SAMPLE_POINTS) {
       await page.evaluate((target) => {
-        const ids = ["hero", "work", "about", "timeline", "skills", "endorsements", "contact"];
-        const tops = ids.map((id) => {
-          const element = document.getElementById(id);
-          return element ? element.getBoundingClientRect().top + window.scrollY : 0;
-        });
-        const index = Math.min(tops.length - 2, Math.floor(target));
-        const fraction = target - index;
-        window.scrollTo(0, tops[index]! + (tops[index + 1]! - tops[index]!) * fraction);
+        const travel = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+        window.scrollTo(0, Math.round(travel * target));
       }, point);
 
       /* Long enough for the eased timeline to arrive and for the spring to
@@ -944,6 +956,40 @@ test.describe("contrast where the words actually are", () => {
           const style = getComputedStyle(element);
           if (style.visibility === "hidden" || style.display === "none") continue;
           if (Number.parseFloat(style.opacity) < 0.95) continue;
+
+          /* Text on a surface of its own is not this test's business.
+
+             The measurement below hides the page and screenshots what is left,
+             which is the only honest way to ask what a reader sees behind a
+             word when there is nothing between the word and the moving cloud.
+             It assumes there is nothing between them, and on the site this was
+             written for there never was: that design had no cards, no panels
+             and no filled controls, so every glyph sat directly on the
+             backdrop.
+
+             This one has all three. A label on a filled pill or inside a card
+             sits on an opaque surface, the cloud behind it reaches the reader
+             not at all, and measuring it against the cloud reports a white
+             button's dark text against black and calls it 1.1:1. Those
+             elements are not unmeasured: axe resolves an element's own
+             background and checks exactly this case, on every route, in
+             a11y.spec.ts. What is left here is what only this test can do. */
+          let opaque = false;
+          for (
+            let node: HTMLElement | null = element;
+            node && node !== document.body;
+            node = node.parentElement
+          ) {
+            const fill = getComputedStyle(node).backgroundColor;
+            const parts = fill.match(/-?\d+(\.\d+)?/g);
+            if (!parts) continue;
+            const alpha = parts.length > 3 ? Number(parts[3]) : 1;
+            if (alpha >= 0.95) {
+              opaque = true;
+              break;
+            }
+          }
+          if (opaque) continue;
 
           const box = element.getBoundingClientRect();
           if (box.width < 4 || box.height < 4) continue;
@@ -976,7 +1022,14 @@ test.describe("contrast where the words actually are", () => {
         return found;
       });
 
-      expect(boxes.length, `no text found at section progress ${point}`).toBeGreaterThan(0);
+      /* Not every stop has text over the backdrop, and that is a correct
+         answer rather than a broken selector. Deep into the stage the copy has
+         faded out and the only words left on screen are inside the artifact
+         cards, which sit on their own opaque surface and are excluded above; on
+         the paper below, everything is on a surface. What has to hold is that
+         the selector finds text somewhere, which is asserted once at the end
+         over the whole walk. */
+      found += boxes.length;
 
       await page.addStyleTag({
         content: "body > header, body > main, body > footer { visibility: hidden !important }",
@@ -1048,6 +1101,19 @@ test.describe("contrast where the words actually are", () => {
         ).toBeGreaterThanOrEqual(floor);
       });
     }
+
+    /* Five, not a round twenty: the number is small by design and the bar has
+       to be set from what the page actually has rather than from what feels
+       like a lot. Almost every word on this site now sits on a card, a pill or
+       a band, and text on its own surface is excluded above because the cloud
+       behind it reaches the reader not at all. What is left is the stage's own
+       copy, which is eleven runs at the top of a desktop and fifteen across the
+       whole walk on a phone. The assertion is here to catch the selector
+       silently matching nothing, and five does that. */
+    expect(
+      found,
+      "no text was measured anywhere on the page, so this proves nothing",
+    ).toBeGreaterThan(5);
 
     await decoder.close();
 

@@ -1,126 +1,147 @@
 import { reconstructions } from "@/lib/reconstructions";
 import { person } from "@/lib/site";
 
-/* The design reference puts a particle visualisation beside the headline. This
-   site has something better to put there: the four reconstructions, which are
-   the claim the rest of the page is evidence for. The decorative version of
-   that idea is already running behind the whole page.
+/* The stage: the one dark band on the site, and the only place the particle
+   cloud can live.
 
-   Every row, every caveat and every figure from the previous design survives.
-   What went is the box around them. */
+   It is tall on purpose and its inner panel is sticky, so a reader scrolls
+   through roughly two and a half screens of travel while the panel stays
+   pinned. That travel is the timeline: the cloud runs its whole choreography
+   inside it, the copy rises and clears out of the cloud's way, and the two
+   floating artifacts come in from opposite sides at different rates. By the
+   time the stage ends the cloud has dissolved and the page is paper.
+
+   Why it has to work this way rather than the cloud simply following the page
+   down, which is what it used to do: the particles are drawn with additive
+   blending, so on a white background they add to white and disappear. The
+   choreography needed somewhere dark to happen, and a band the reader passes
+   through is better than a band that sits behind the words they are trying to
+   read.
+
+   The artifacts are white cards on the dark stage, which is deliberate. They
+   are the design system's own floating product fragments, and putting them
+   here is what stops the seam between the stage and the paper below it
+   reading as two different websites glued together. */
 export function Hero() {
   return (
-    <section id="hero" className="gutter w-full pt-8 pb-24 sm:pt-16 sm:pb-32">
-      <p className="t-label flex items-center gap-2.5 text-pass">
-        <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
-        Available Summer 2026
-      </p>
+    <section
+      id="hero"
+      data-stage=""
+      /* Tall enough for the choreography to breathe. At 380vh the cloud ran
+         its whole timeline in about two and a half screens of scroll and was
+         already dispersed by the time a reader had read the headline; the
+         timeline is seven states long and each one needs room to be seen. A
+         phone gets less, because a phone scrolls a viewport in a flick and
+         because its cloud is smaller. */
+      className="stage relative h-[340vh] w-full sm:h-[460vh]"
+    >
+      <div className="stage-panel-inner sticky top-0 flex h-screen w-full items-center overflow-hidden">
+        <div className="shell relative w-full">
+          {/* The copy. It starts under the cloud's resting place and rises as
+              the stage is scrolled, which is the "text moves around the brain"
+              the brief asks for: the cloud holds its position on the screen
+              while the words travel past it. */}
+          <div className="stage-copy max-w-[32rem] lg:max-w-[30rem]">
+            <p className="t-label flex items-center gap-2.5 text-pass">
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
+              Available Summer 2026
+            </p>
 
-      {/* Half width on a wide screen, because the particle cloud rests in the
-          other half. It is a fixed background rather than a column, so the
-          space is reserved here rather than occupied by an element. */}
-      <div className="mt-8 lg:w-1/2 lg:pr-8">
-        <div>
-          <h1 className="t-display text-ink">{person.name}</h1>
+            {/* Shrink to fit, so the heading's box is the width of its letters
+                rather than the width of the column. The contrast suite measures
+                the brightest pixel inside a run of text's box, and a block level
+                heading whose box runs on past the last letter measures whatever
+                is behind that empty space: here, the cloud, at a luminance of
+                0.65 against white type. The overlap it was reporting is real
+                where the box is, and there are no letters there. */}
+            <h1 className="t-display mt-6 w-fit text-ink">{person.name}</h1>
 
-          <p className="t-sub mt-10 max-w-[22ch] text-pretty text-ink">
-            I rebuild published numbers from primitives and report the gap.{" "}
-            <em className="text-spark not-italic">Sometimes the gap is the finding.</em>
-          </p>
+            <p className="t-sub mt-7 max-w-[26ch] text-pretty text-ink-soft">
+              I rebuild published numbers from primitives and report the gap.{" "}
+              <em className="font-serif text-ink italic">Sometimes the gap is the finding.</em>
+            </p>
 
-          <p className="mt-8 max-w-[46ch] text-[18px] leading-relaxed font-extralight text-ink-soft">
-            {person.course}, {person.university}. Exchange year at {person.exchange}.
-            Class of {person.graduation}.
-          </p>
+            {/* The brief's matched pair: one filled pill and one ghost, on the
+                same baseline. */}
+            <div className="mt-9 flex flex-wrap items-center gap-3">
+              <a href="#contact" className="pill pill-filled min-h-11">
+                Get in touch
+              </a>
+              <a href="#work" className="pill pill-ghost min-h-11">
+                See the work
+              </a>
+            </div>
 
-          {/* The one filled control on the page. The reference reserves the
-              violet for exactly this and nothing else. */}
-          <a
-            href="#contact"
-            className="t-label mt-10 inline-flex min-h-11 items-center rounded-full bg-action px-6 text-action-ink hover:opacity-90"
-          >
-            Get in touch
-          </a>
+            <p className="t-caption mt-8 max-w-[44ch] text-muted">
+              {person.course}, {person.university}. Exchange year at {person.exchange}.
+              Class of {person.graduation}.
+            </p>
+          </div>
+
+          {/* Artifact one: the four reconstructions. This is the claim the
+              whole site is evidence for, so it is the artifact that gets the
+              room, and it is a table rather than a picture of one. */}
+          <figure className="stage-artifact stage-artifact-table shadow-artifact">
+            <figcaption className="t-label px-1 pb-3">
+              Four reconstructions, against the published series
+            </figcaption>
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b border-rule">
+                  <th scope="col" className="t-caption pr-3 pb-2 font-normal text-muted">
+                    Quantity
+                  </th>
+                  <th scope="col" className="t-caption pb-2 text-right font-normal text-muted">
+                    Deviation
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="settle-rows">
+                {reconstructions.map((row) => (
+                  <tr key={row.quantity} className="border-b border-rule last:border-b-0">
+                    <td className="py-2.5 pr-3 align-top">
+                      <span className="block text-[15px] text-ink">{row.quantity}</span>
+                      <span className="mt-0.5 block text-[13px] text-muted">
+                        {row.reference}
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-right align-top">
+                      <span
+                        className={`tnum text-[15px] ${
+                          row.tone === "flag" ? "font-medium text-flag" : "text-ink"
+                        }`}
+                      >
+                        {row.deviation}
+                      </span>
+                      <span
+                        className={`mt-0.5 block text-[12px] ${
+                          row.tone === "flag" ? "text-flag" : "text-pass"
+                        }`}
+                      >
+                        {row.verdict}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </figure>
+
+          {/* Artifact two: the one row of the table above that did not hold,
+              pulled out on its own. It travels at a different rate from the
+              table, which is the reference site's whole trick for making a
+              scroll feel like depth rather than like a page moving. */}
+          <figure className="stage-artifact stage-artifact-stat shadow-artifact">
+            <figcaption className="t-label pb-2">Term premium, ten year</figcaption>
+            <p className="tnum text-[28px] leading-none text-ink">14 bp</p>
+            <p className="mt-2 text-[13px] leading-snug text-muted">
+              against 0.45 bp on the curve it is drawn from, from the same model,
+              the same data and the same estimation window.
+            </p>
+            <p className="mt-3 text-[13px] font-medium text-flag">31× the fitted error</p>
+          </figure>
         </div>
-
       </div>
-
-      {/* The cloud's own space, at phone width only.
-
-          On a wide screen it rests in the half this column leaves free, and
-          nothing has to be reserved because the column already is the
-          reservation. A phone has no free half, so the composition puts the
-          cloud under the call to action instead of beside it, and without this
-          the table sat in the same band: the brain came up through the
-          reconstruction rows, which is the thing Finn pointed at.
-
-          Sized in viewport heights, because what it is reserving is a share of
-          the screen rather than a number of rows. The floor keeps it honest on
-          a short phone held in landscape, where a third of the height is not
-          very much. */}
-      <div aria-hidden="true" className="h-[32vh] min-h-[200px] lg:hidden" />
-
-      <table className="mt-8 w-full border-collapse text-left lg:mt-20">
-          <caption className="t-label pb-4 text-left text-muted">
-            Four reconstructions, against the published series
-          </caption>
-          <thead>
-            <tr className="border-b border-rule-strong">
-              <th scope="col" className="t-caption pr-4 pb-3 font-normal uppercase tracking-[0.1em] text-muted">
-                Quantity
-              </th>
-              <th scope="col" className="t-caption hidden pr-4 pb-3 font-normal uppercase tracking-[0.1em] text-muted sm:table-cell">
-                Reference
-              </th>
-              <th scope="col" className="t-caption pb-3 text-right font-normal uppercase tracking-[0.1em] text-muted">
-                Deviation
-              </th>
-            </tr>
-          </thead>
-          <tbody className="settle-rows">
-            {reconstructions.map((row) => (
-              <tr key={row.quantity} className="border-b border-rule last:border-b-0">
-                <td
-                  className={`py-5 pr-4 align-top ${
-                    row.tone === "flag" ? "border-l-2 border-flag pl-4" : ""
-                  }`}
-                >
-                  <span className="text-[17px] text-ink">{row.quantity}</span>
-                  <span className="mt-1 block text-[14px] text-muted">{row.detail}</span>
-                  <span className="mt-1 block text-[14px] text-muted sm:hidden">
-                    Against {row.reference}
-                  </span>
-                </td>
-                <td className="hidden py-5 pr-4 align-top text-[15px] text-ink-soft sm:table-cell">
-                  {row.reference}
-                </td>
-                <td className="py-5 text-right align-top">
-                  <span
-                    className={`tnum text-[17px] ${
-                      row.tone === "flag" ? "font-medium text-flag" : "text-ink"
-                    }`}
-                  >
-                    {row.deviation}
-                  </span>
-                  <span
-                    className={`mt-1 block text-[13px] ${
-                      row.tone === "flag" ? "text-flag" : "text-pass"
-                    }`}
-                  >
-                    {row.verdict}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-      </table>
-
-      <p className="measure mt-14 border-t border-rule pt-7 text-[16px] leading-relaxed font-extralight text-muted">
-        The yield curve reproduces to less than half a basis point. The premium
-        drawn out of that same curve reproduces to fourteen, and moving the
-        estimation start date from 1961 to 2000 moves the ten-year premium by
-        eighty-one. The fit is pinned down. The decomposition is not.
-      </p>
     </section>
   );
 }

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ReadingScrim } from "@/components/backdrop";
 import { ArticleSchema } from "@/components/structured-data";
 import { writingBodies } from "@/content/writing";
 import { buildMetadata } from "@/lib/metadata";
@@ -51,12 +50,9 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
   return (
     <article>
       <ArticleSchema piece={piece} />
-      {/* A second layer of black over the gradient. A shader moving behind two
-          thousand words is a different proposition from one behind a headline. */}
-      <ReadingScrim />
-      <header className="gutter w-full pt-6 pb-16 sm:pt-12 sm:pb-20">
-          <div className="t-caption flex flex-wrap items-center gap-x-3 gap-y-1 uppercase tracking-[0.12em] text-muted">
-            <Link href="/writing" className="text-accent hover:underline">
+      <header className="shell w-full pt-6 pb-16 sm:pt-12 sm:pb-20">
+          <div className="t-label flex flex-wrap items-center gap-x-3 gap-y-1">
+            <Link href="/writing" className="link-arrow">
               Writing
             </Link>
             <span aria-hidden="true">·</span>
@@ -73,7 +69,7 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
             {piece.title}
           </h1>
 
-          <p className="measure mt-7 text-[19px] leading-relaxed font-extralight text-ink-soft">
+          <p className="measure t-body-lg mt-7 text-muted">
             {piece.dek}
           </p>
 
@@ -83,16 +79,16 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
                 <a
                   key={link.href}
                   href={link.href}
-                  className="t-label border-b border-rule pb-1 text-accent hover:border-accent"
+                  className="link-arrow text-[16px]"
                 >
-                  {link.label}
+                  {link.label} <span aria-hidden="true">&rarr;</span>
                 </a>
               ))}
             </div>
           ) : null}
       </header>
 
-      <div className="gutter w-full pb-20">
+      <div className="shell w-full pb-20">
         <div className="longform">
           <Body />
         </div>
@@ -109,8 +105,8 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
                 href={`/writing/${previous.slug}`}
                 className="group flex flex-col gap-1.5 no-underline"
               >
-                <span className="t-caption uppercase tracking-[0.13em] text-spark">Previous</span>
-                <span className="t-h2xs max-w-[28ch] text-ink group-hover:text-accent">
+                <span className="t-label">Previous</span>
+                <span className="t-h3 max-w-[28ch] text-ink group-hover:underline">
                   {previous.title}
                 </span>
               </Link>
@@ -122,8 +118,8 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
                 href={`/writing/${next.slug}`}
                 className="group flex flex-col gap-1.5 no-underline sm:items-end sm:text-right"
               >
-                <span className="t-caption uppercase tracking-[0.13em] text-spark">Next</span>
-                <span className="t-h2xs max-w-[28ch] text-ink group-hover:text-accent">
+                <span className="t-label">Next</span>
+                <span className="t-h3 max-w-[28ch] text-ink group-hover:underline">
                   {next.title}
                 </span>
               </Link>

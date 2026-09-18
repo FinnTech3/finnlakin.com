@@ -16,6 +16,28 @@ import type { ScrollState } from "./types";
 
 const SECTIONS = ["hero", "work", "about", "timeline", "skills", "endorsements", "contact"];
 
+/* The stage is the tall dark band at the top of the home page, and where it
+   exists it owns the whole timeline.
+
+   The seven section boundaries below were the right measurement for a page
+   that was dark all the way down, because the cloud travelled beside the text
+   the whole way. It cannot any more: the page below the stage is paper white,
+   and a cloud drawn with additive blending is invisible on white. So the
+   choreography is compressed into the stage's own scroll, which is what the
+   stage is tall for, and the cloud has faded out by the time the paper
+   begins.
+
+   The section measurement is kept rather than deleted. It is what every other
+   route still uses, and it is what this one falls back to if the markup ever
+   loses its stage. */
+const STAGE = "[data-stage]";
+
+/* How far into the stage's travel the timeline has finished. The last stretch
+   is the cloud leaving: it has nowhere to go once the paper starts, so it
+   arrives at the end of the choreography a little early and spends the
+   remainder dissolving. */
+const STAGE_TIMELINE_END = 0.86;
+
 /* How fast the timeline is allowed to travel, in sections a second.
 
    Without this the eased progress is only ever a proportion of the gap, so a
@@ -53,6 +75,8 @@ export function stepToward(
 
 export class ScrollController {
   private state: ScrollState = { sectionProgress: 0, target: 0 };
+  private stageTop = 0;
+  private stageTravel = 0;
   private boundaries: number[] = [];
   private ease: number;
   private observer: ResizeObserver | null = null;
@@ -110,6 +134,8 @@ export class ScrollController {
       const element = document.getElementById(id);
       if (element) this.observer.observe(element);
     }
+    const stage = document.querySelector(STAGE);
+    if (stage) this.observer.observe(stage);
     if (document.body) this.observer.observe(document.body);
   }
 
@@ -125,6 +151,21 @@ export class ScrollController {
      janky one. */
   measure() {
     if (typeof document === "undefined") return;
+
+    const stage = document.querySelector(STAGE);
+    if (stage) {
+      const box = stage.getBoundingClientRect();
+      const top = box.top + window.scrollY;
+      /* The stage is a tall block with a sticky panel inside it, so its travel
+         is its own height less the one viewport the panel occupies. That is
+         exactly the distance over which the panel stays pinned, which is the
+         distance the choreography has to happen in. */
+      this.stageTop = top;
+      this.stageTravel = Math.max(1, box.height - window.innerHeight);
+    } else {
+      this.stageTravel = 0;
+    }
+
     const tops: number[] = [];
     for (const id of SECTIONS) {
       const element = document.getElementById(id);
@@ -135,6 +176,11 @@ export class ScrollController {
   }
 
   private progressFor(scrollY: number) {
+    if (this.stageTravel > 0) {
+      const through = (scrollY - this.stageTop) / this.stageTravel;
+      return clamp((through / STAGE_TIMELINE_END) * 6, 0, 6);
+    }
+
     const tops = this.boundaries;
     if (tops.length < 2) {
       /* No sections on this route, so fall back to the plain proportion. */

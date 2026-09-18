@@ -24,15 +24,20 @@ export default function HomePage() {
         intro="Ordered by how much of each result you can check for yourself, rather than by how large the number is. Every project states what it does not show."
       >
         <ProvenanceLegend />
-        <div className="mt-8 flex flex-col gap-6">
+        <div className="mt-10 flex flex-col gap-6">
           {projects.map((project, index) => (
-            <ProjectCard key={project.slug} project={project} index={index} />
+            <ProjectCard
+              key={project.slug}
+              project={project}
+              index={index}
+              accent={index === 0}
+            />
           ))}
         </div>
       </Section>
 
-      <Section id="about" eyebrow="About" title="Why this way">
-        <div className="measure flex flex-col gap-6 text-[18px] leading-[1.7] font-light text-ink-soft">
+      <Section id="about" eyebrow="About" title="Why this way" band>
+        <div className="measure flex flex-col gap-6 text-[17px] leading-[1.6] text-ink">
           <p>
             I read {person.course} at {person.university}, and I have just come
             back from an exchange year at {person.exchange}, taught in French.
@@ -68,7 +73,7 @@ export default function HomePage() {
         <Timeline />
       </Section>
 
-      <Section id="skills" eyebrow="Tools" title="What I actually use">
+      <Section id="skills" eyebrow="Tools" title="What I actually use" band>
         <Skills />
       </Section>
 
@@ -84,44 +89,42 @@ export default function HomePage() {
         id="contact"
         eyebrow="Contact"
         title="Open to Summer 2026 conversations"
+        band
         intro={`Available for ${person.seeking}. Happy to talk through any of the methods above, including the parts that did not work.`}
       >
-        <dl className="flex flex-wrap gap-x-16 gap-y-8">
-          <div className="flex flex-col gap-2">
-            <dt className="t-label text-spark">
-              Email
-            </dt>
+        <div className="flex flex-wrap items-center gap-3">
+          <a href={`mailto:${contact.email}`} className="pill pill-filled min-h-11">
+            Email me
+          </a>
+          <a href={contact.linkedin} className="pill pill-ghost min-h-11">
+            LinkedIn
+          </a>
+          <a href={contact.github} className="pill pill-ghost min-h-11">
+            GitHub
+          </a>
+        </div>
+
+        <dl className="mt-10 flex flex-wrap gap-x-16 gap-y-6">
+          <div className="flex flex-col gap-1.5">
+            <dt className="t-label">Email</dt>
             <dd>
-              <a
-                href={`mailto:${contact.email}`}
-                className="border-b border-accent pb-1 text-[18px] text-accent hover:border-b-2"
-              >
+              <a href={`mailto:${contact.email}`} className="link-arrow text-[17px]">
                 {contact.email}
               </a>
             </dd>
           </div>
-          <div className="flex flex-col gap-2">
-            <dt className="t-label text-spark">
-              LinkedIn
-            </dt>
+          <div className="flex flex-col gap-1.5">
+            <dt className="t-label">LinkedIn</dt>
             <dd>
-              <a
-                href={contact.linkedin}
-                className="border-b border-accent pb-1 text-[18px] text-accent hover:border-b-2"
-              >
+              <a href={contact.linkedin} className="link-arrow text-[17px]">
                 /in/finnlakin
               </a>
             </dd>
           </div>
-          <div className="flex flex-col gap-2">
-            <dt className="t-label text-spark">
-              GitHub
-            </dt>
+          <div className="flex flex-col gap-1.5">
+            <dt className="t-label">GitHub</dt>
             <dd>
-              <a
-                href={contact.github}
-                className="border-b border-accent pb-1 text-[18px] text-accent hover:border-b-2"
-              >
+              <a href={contact.github} className="link-arrow text-[17px]">
                 FinnTech3
               </a>
             </dd>

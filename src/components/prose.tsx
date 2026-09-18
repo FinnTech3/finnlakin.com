@@ -25,10 +25,10 @@ export function WrongFirst({
       role="note"
       className="my-12 flex flex-col gap-4 border-t border-rule pt-6 sm:flex-row sm:gap-8"
     >
-      <p className="t-caption shrink-0 self-start rounded-full border border-flag px-3 py-1 uppercase tracking-[0.12em] text-flag">
+      <p className="t-caption shrink-0 self-start rounded-full border border-flag px-3 py-1 text-flag">
         Wrong first
       </p>
-      <div className="flex max-w-[62ch] flex-col gap-3 text-[16px] leading-relaxed font-light">
+      <div className="flex max-w-[62ch] flex-col gap-3 text-[16px] leading-relaxed">
         <p className="text-muted line-through decoration-flag">{struck}</p>
         <p className="text-ink-soft">{children}</p>
       </div>
@@ -40,8 +40,8 @@ export function WrongFirst({
 export function Marginal({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div role="note" className="my-10 max-w-[58ch] border-l-2 border-action pl-6">
-      <p className="t-caption uppercase tracking-[0.12em] text-spark">{label}</p>
-      <div className="mt-2 text-[15px] leading-relaxed font-light text-muted">{children}</div>
+      <p className="t-label">{label}</p>
+      <div className="mt-2 text-[15px] leading-relaxed text-muted">{children}</div>
     </div>
   );
 }
@@ -106,7 +106,7 @@ export function Embed({
           className="block h-[32rem] w-full border-0"
         />
       </div>
-      <figcaption className="flex flex-col gap-1.5 text-[14px] leading-relaxed font-light text-muted">
+      <figcaption className="flex flex-col gap-1.5 text-[14px] leading-relaxed text-muted">
         <span>{note}</span>
         <a
           href={href}
@@ -124,8 +124,8 @@ export function Embed({
 export function Limits({ children }: { children: ReactNode }) {
   return (
     <section className="my-12 max-w-[64ch] border-t border-rule-strong pt-6">
-      <h2 className="t-label text-spark">What this does not show</h2>
-      <div className="mt-4 flex flex-col gap-4 text-[15px] leading-relaxed font-light text-muted">
+      <h2 className="t-label">What this does not show</h2>
+      <div className="mt-4 flex flex-col gap-4 text-[15px] leading-relaxed text-muted">
         {children}
       </div>
     </section>

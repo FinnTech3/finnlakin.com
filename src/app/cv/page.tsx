@@ -1,4 +1,3 @@
-import { ReadingScrim } from "@/components/backdrop";
 import { buildMetadata } from "@/lib/metadata";
 import { contact, person } from "@/lib/site";
 import { languages, skillGroups } from "@/lib/skills";
@@ -19,19 +18,19 @@ function Entries({ entries }: { entries: typeof timeline }) {
       {entries.map((entry) => (
         <li key={entry.id} className="flex flex-col gap-2">
           <div className="flex flex-wrap items-baseline justify-between gap-x-6">
-            <h3 className="t-h2xs text-ink">{entry.title}</h3>
+            <h3 className="t-h3 text-ink">{entry.title}</h3>
             <span className="tnum text-[15px] text-muted">
               {entry.start} – {entry.end}
             </span>
           </div>
-          <p className="text-[15px] font-extralight text-muted">
+          <p className="text-[15px] text-muted">
             {entry.org} · {entry.location}
           </p>
           <ul className="mt-2 flex list-disc flex-col gap-2 pl-5">
             {entry.points.map((point) => (
               <li
                 key={point}
-                className="max-w-[72ch] text-[16px] leading-relaxed font-extralight text-ink-soft"
+                className="max-w-[72ch] text-[16px] leading-relaxed text-ink-soft"
               >
                 {point}
               </li>
@@ -51,7 +50,7 @@ function Entries({ entries }: { entries: typeof timeline }) {
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="grid gap-x-16 gap-y-5 border-t border-rule pt-8 lg:grid-cols-[14rem_minmax(0,1fr)] print:block">
-      <h2 className="t-label text-spark">{title}</h2>
+      <h2 className="t-label">{title}</h2>
       <div>{children}</div>
     </section>
   );
@@ -59,11 +58,10 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
 
 export default function CvPage() {
   return (
-    <div className="cv-print gutter w-full pt-6 pb-24 sm:pt-12">
-      <ReadingScrim />
+    <div className="cv-print shell w-full pt-6 pb-24 sm:pt-12">
       <header className="flex flex-col gap-5 pb-14">
         <h1 className="t-hlg max-w-[12ch] text-ink">{person.name}</h1>
-        <p className="text-[18px] font-extralight text-ink-soft">
+        <p className="text-[18px] text-ink-soft">
           {person.course} · {person.university} · Class of {person.graduation}
         </p>
         <div className="flex flex-wrap gap-x-7 gap-y-2">
@@ -81,7 +79,7 @@ export default function CvPage() {
           <a
             href="/finn-lakin-cv.pdf"
             data-analytics-event="cv_download"
-            className="t-label print-hidden inline-flex min-h-11 items-center rounded-full bg-action px-6 text-action-ink hover:opacity-90"
+            className="pill pill-filled print-hidden min-h-11"
           >
             Download PDF
           </a>
@@ -90,7 +88,7 @@ export default function CvPage() {
 
       <div className="flex flex-col gap-12">
         <Block title="Profile">
-          <p className="max-w-[72ch] text-[17px] leading-relaxed font-extralight text-ink-soft">
+          <p className="max-w-[72ch] text-[17px] leading-relaxed text-ink-soft">
             Final-year {person.course} student at {person.university}, on track for
             First-Class Honours, back from an exchange year at {person.exchange}{" "}
             taught in French. I rebuild published financial and economic series
@@ -111,19 +109,19 @@ export default function CvPage() {
           <dl className="flex flex-col gap-5">
             {skillGroups.map((group) => (
               <div key={group.id} className="flex flex-col gap-1 sm:flex-row sm:gap-6">
-                <dt className="t-caption min-w-36 uppercase tracking-[0.1em] text-muted">
+                <dt className="t-label min-w-36">
                   {group.label}
                 </dt>
-                <dd className="text-[16px] font-extralight text-ink-soft">
+                <dd className="text-[16px] text-ink-soft">
                   {group.items.join(" · ")}
                 </dd>
               </div>
             ))}
             <div className="flex flex-col gap-1 sm:flex-row sm:gap-6">
-              <dt className="t-caption min-w-36 uppercase tracking-[0.1em] text-muted">
+              <dt className="t-label min-w-36">
                 Languages
               </dt>
-              <dd className="text-[16px] font-extralight text-ink-soft">
+              <dd className="text-[16px] text-ink-soft">
                 {languages
                   .map((language) => `${language.name}, ${language.level.toLowerCase()}`)
                   .join(" · ")}

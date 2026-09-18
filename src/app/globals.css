@@ -13,111 +13,604 @@
    A red figure must never read as "clickable", and a link must never read as
    "this failed". */
 
+/* Steep. The brief is DESIGN.md at the root of this repository, and every
+   brand value below is lifted from its token tables so any colour on the site
+   can be traced back to a row in that document. @theme maps them onto the
+   roles the components ask for; the indirection is the point.
+
+   Three roles must never merge:
+     --accent  interactive text: links, and nothing else.
+     --action  the one filled control per view. Never text.
+     --pass / --flag  measurement verdicts only.
+   A red figure must never read as "clickable", and a link must never read as
+   "this failed". */
+
 :root {
+  color-scheme: light;
+
+  /* Steep, from DESIGN.md's colour table. */
+  --ink-black: #17191c;
+  --paper-white: #ffffff;
+  --mist-gray: #f2f2f3;
+  --fog-white: #fafafb;
+  --blush-peach: #fbe1d1;
+  --sienna-brown: #5d2a1a;
+  --hairline: #ececec;
+
+  /* The brief's three greys, darkened, and the reason is measured rather than
+     stylistic. Slate Gray #777b86 is 4.23:1 on paper white, Ash Gray #979799
+     is 2.92 and Smoke Gray #a3a6af is 2.43, against the 4.5 that AA asks of
+     text at these sizes; on the mist card surface each is lower again. The
+     brief is a visual reference and does not claim to have been checked, and
+     this site does not ship text a reader cannot read.
+
+     Two steps are kept rather than three, because three cannot be fitted
+     between 4.5:1 and the point where a grey stops looking quiet. Both clear
+     AA on paper, on mist and on fog: 6.02 and 5.26 on paper, 5.38 and 4.70 on
+     the mist card, which is the tightest surface either sits on.
+
+     The lighter of the two was 0.4% darker than this and measured 4.495 on
+     mist, which rounds to the bar in a report and fails it in the arithmetic,
+     on thirty two elements. A token that needs the rounding to go its way is
+     not chosen, it is lucky. */
+  --slate: #5f636c;
+  --smoke: #686c76;
+
+  /* Page surfaces, in the brief's own order: canvas, the quiet nested layer,
+     the alternating band, and the one chromatic surface. */
+  --paper: var(--paper-white);
+  --card: var(--mist-gray);
+  --band: var(--fog-white);
+  --panel: var(--paper-white);
+
+  --ink: var(--ink-black);
+  --ink-soft: var(--ink-black);
+  --muted: var(--slate);
+  --faint: var(--smoke);
+
+  /* Hairlines, not rules. The brief asks for 1px #ececec and nothing heavier,
+     which is enough to hold a column of figures together on white where on
+     black it needed a lifted alpha. */
+  --rule: var(--hairline);
+  --rule-strong: #d8d8da;
+
+  /* Links are ink, and the arrow suffix carries the affordance: the brief is
+     explicit that nothing is underlined at rest. Colour cannot do the work
+     here, so the underline appears on hover and focus instead, which is also
+     the only version of this that survives a reader who cannot see the arrow
+     as decoration. */
+  --accent: var(--ink-black);
+  --accent-soft: rgb(23 25 28 / 0.08);
+
+  /* The filled pill, which is the system's single action. Ink on paper for
+     the fill and paper on ink for its label. */
+  --action: var(--ink-black);
+  --action-ink: var(--paper-white);
+  --action-soft: rgb(23 25 28 / 0.1);
+
+  /* The editorial accent, and its ink. Never body text, never off a peach
+     surface: both are the brief's instruction and both are right. */
+  --accent-warm: var(--blush-peach);
+  --accent-warm-ink: var(--sienna-brown);
+
+  /* Verdicts stay their own pair, and this is a considered departure from the
+     brief's "no chromatic colour beyond the peach and brown".
+
+     The brief is written for a product page where colour is decoration. Half
+     of this site is reconstructions of published figures, and whether one held
+     is the single thing a reader is here to find out. The brief's own
+     principle is that colour is rationed to functional emphasis, and there is
+     no more functional emphasis on this site than this. Retuned from the pair
+     that was here for pure black: 6.47:1 and 7.56:1 on paper, 5.78 and 6.75 on
+     the mist card, where the old pair measured 1.7 and 2.2 and would have been
+     unreadable. Print still renders both as black and separates them by
+     weight. */
+  --pass: #0d6b53;
+  --flag: #a3201a;
+
+}
+
+/* The dark stage: the one band that stays the site it was, because that is
+   what carries the particle brain and the opening animation. Everything the
+   brief describes happens on paper below it.
+
+   A scope rather than a second theme file. The tokens keep their names, so a
+   component that renders inside the stage and one that renders on paper are
+   the same component, and neither has to know which it is in. */
+.stage {
   color-scheme: dark;
 
-  /* Dala */
-  --void: #000000;
-  --bone: #ffffff;
-  --silver: #bdbdbd;
-  --ash: #9a9a9a;
-  --iris: #8052ff;
-  --spark: #ffb829;
-  --verdant: #15846e;
-
-  /* Verdicts stay their own pair rather than borrowing from the palette above.
-     Dala has no verdict colours, and putting a flag on amber would make "this
-     did not hold" share a hue with "look at this", so a figure that failed
-     would read as merely highlighted. These two are retuned for pure black:
-     11.0:1 and 8.25:1, against 4.3 and 3.1 for the light-theme pair. */
-  --pass: #4fd1a5;
-  --flag: #ff7a6b;
-
-  /* Page surfaces. Dala has no panels, and almost nothing here needs one: the
-     command palette is the exception, because a dialog with no background over
-     a moving gradient cannot be read. */
-  --paper: var(--void);
+  --paper: #000000;
+  --card: rgb(255 255 255 / 0.04);
+  --band: #000000;
   --panel: rgb(8 8 10 / 0.94);
 
-  --ink: var(--bone);
-  --ink-soft: var(--silver);
-  --muted: var(--ash);
+  --ink: #ffffff;
+  --ink-soft: #bdbdbd;
+  --muted: #9a9a9a;
+  --faint: #9a9a9a;
 
-  /* "No visible borders" is the reference's instruction and it is right for a
-     landing page. This site puts numbers in columns that get compared, and a
-     table with no rules is a list. Hairlines at 12% are the smallest thing
-     that still reads as a table. */
   --rule: rgb(255 255 255 / 0.12);
   --rule-strong: rgb(255 255 255 / 0.26);
 
-  /* Amber, not violet, and the reference says so outright: links are #ffb829
-     or #ffffff. It also happens to be the only choice that survives the
-     backdrop. Violet text measures 4.57:1 on pure black, which passes, but the
-     gradient behind the scrim lifts the real background to a luminance of
-     0.0144 and that same violet drops to 3.5:1, which does not. Amber measures
-     9.4:1 against the composited background. Contrast is checked against what
-     a reader actually sees, not against the token. */
-  --accent: var(--spark);
+  /* Amber, and the measurement is in the note this replaces: violet text
+     drops to 3.5:1 once the gradient behind the scrim lifts the background,
+     where amber holds 9.4:1 against what a reader actually sees. */
+  --accent: #ffb829;
   --accent-soft: rgb(255 184 41 / 0.16);
 
-  /* Violet is a surface, per the reference: filled buttons and the focus ring,
-     both of which sit opaque on top of the backdrop rather than through it. */
-  --action: var(--iris);
-  --action-ink: var(--bone);
-  --action-soft: rgb(128 82 255 / 0.22);
+  /* The brief's filled pill, inverted. On paper it is ink on white; on the
+     stage the same control has to be white on ink, or it disappears into the
+     background it is meant to stand out from. The violet that used to be here
+     belonged to the palette this design replaced, and it was the last of it
+     left on the page: the brain and the opening animation keep their icy blue,
+     which is what was asked for, and nothing else is coloured. */
+  --action: #ffffff;
+  --action-ink: #17191c;
+  --action-soft: rgb(255 255 255 / 0.14);
 
-  /* How much of the gradient reaches the reader. The backdrop composites
-     against this, so it is the single number that sets every contrast ratio on
-     the site. Reading pages raise it in the rule below. */
-  --scrim: 0.72;
-}
+  /* The verdict pair the dark theme was tuned for: 11.0:1 and 8.25:1 on pure
+     black, where the paper pair above measures 1.7 and 2.2 and disappears. */
+  --pass: #4fd1a5;
+  --flag: #ff7a6b;
 
-/* Long-form pages turn the gradient down. A shader moving behind two thousand
-   words is a different proposition from one behind a headline. */
-.reading {
-  --scrim: 0.88;
+  /* No background of its own. The black comes from the fixed plate at the back
+     of the decoration layer, because the particle canvas and the gradient sit
+     at negative z-index and an opaque background here would paint straight
+     over both of them. */
+  background: transparent;
+  color: var(--ink);
 }
 
 @theme inline {
-  --color-void: var(--void);
   --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-band: var(--band);
   --color-panel: var(--panel);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-muted: var(--muted);
+  --color-faint: var(--faint);
   --color-rule: var(--rule);
   --color-rule-strong: var(--rule-strong);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-warm: var(--accent-warm);
+  --color-accent-warm-ink: var(--accent-warm-ink);
   --color-action: var(--action);
   --color-action-ink: var(--action-ink);
   --color-action-soft: var(--action-soft);
-  --color-spark: var(--spark);
-  --color-verdant: var(--verdant);
   --color-pass: var(--pass);
   --color-flag: var(--flag);
 
-  /* One typeface, which is the reference's rule and also the cheapest thing on
-     the page: Inter at three weights replaces two families at two weights each
-     plus a serif with a true italic. Inline code keeps the system monospace
-     stack, which downloads nothing. */
+  /* Two families, where the black site had one. The brief names Signifier for
+     display and Sohne for everything else, and names the substitutes it is
+     happy with: Source Serif 4 and Inter, both of which are on Google Fonts
+     as variable faces.
+
+     The serif is the whole signature and it is used for nothing but headings,
+     at weight 400 at every size. Its italic is a real optical italic rather
+     than a slant, which matters because the brief's hero sets one phrase of
+     the headline in it. */
+  --font-serif: var(--font-source-serif), ui-serif, Georgia, serif;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Menlo", monospace;
 
-  --text-caption: 0.75rem;
-  --text-nav: 0.875rem;
-  --text-body: 1.125rem;
-  --text-h2xs: 1.5rem;
-  --text-hxs: 1.6875rem;
-  --text-sub: 2.25rem;
-  --text-hsm: 2.625rem;
-  --text-h: 3rem;
-  --text-hlg: 4.875rem;
-  --text-display: 7.0625rem;
+  /* The brief's scale, to the pixel, in rem so it still answers to a reader
+     who has changed their browser's text size. */
+  --text-caption: 0.9375rem;
+  --text-nav: 1rem;
+  --text-body: 1.0625rem;
+  --text-body-lg: 1.25rem;
+  --text-sub: 1.375rem;
+  --text-hsm: 1.625rem;
+  --text-h: 2.75rem;
+  --text-hlg: 4rem;
+  --text-display: 5.625rem;
+
+  /* The brief's layout block: a 1200px measure, 80px between sections, and a
+     4px base unit underneath both. */
+  --container-page: 75rem;
+  --spacing-section: 5rem;
+
+  --radius-card: 24px;
+  --radius-card-sm: 16px;
+  --radius-artifact: 20px;
+  --radius-image: 12px;
+  --radius-input: 16px;
+}
+
+/* The header lies over the top of the page rather than above it, so the dark
+   stage reaches the top of the window. It is not sticky: it leaves with the
+   stage, which is what spares it having to change colour mid-scroll.
+
+   On a page that has a stage it takes the stage's ink. :has() is doing real
+   work here rather than being clever: the header is in the shared layout and
+   cannot know which route it is on, and the alternative was threading a prop
+   through the layout for a purely visual fact that the document already
+   states. */
+.site-header {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 40;
+}
+
+body:has(.stage) .site-header {
+  --ink: #ffffff;
+  --ink-soft: #bdbdbd;
+  --muted: #9a9a9a;
+  --faint: #9a9a9a;
+  --accent: #ffffff;
+  --rule: rgb(255 255 255 / 0.12);
+  --rule-strong: rgb(255 255 255 / 0.26);
+
+  color: #ffffff;
+}
+
+/* The stage's own layout and motion.
+
+   Everything below is scroll driven, and all of it is CSS. The reference site
+   this is measured against ships about nine hundred kilobytes of animation and
+   3D libraries to do the equivalent; scroll-driven animations do it with no
+   JavaScript at all, which also means it cannot jank against the particle
+   engine's own frame loop, because it is not competing for one.
+
+   The timeline is declared on the stage and referenced by its descendants. Its
+   contain range is exactly the stretch where the inner panel is pinned: from
+   the stage's top meeting the top of the viewport to its bottom meeting the
+   bottom, which for a block this tall is the whole sticky period. */
+.stage {
+  view-timeline-name: --stage;
+}
+
+/* The decoration layer is a sibling of the stage, not a descendant, so the
+   timeline has to be lifted to their common ancestor to be visible to both. */
+.stage-host {
+  timeline-scope: --stage;
+}
+
+/* The artifacts are paper, on a dark stage. Re-declaring the roles here rather
+   than giving them their own names means the table inside one is the same
+   markup as a table anywhere else on the site: it asks for --ink and gets ink
+   on paper, because it is on paper. */
+.stage-artifact {
+  color-scheme: light;
+
+  --paper: var(--paper-white);
+  --card: var(--mist-gray);
+  --ink: var(--ink-black);
+  --ink-soft: var(--ink-black);
+  --muted: var(--slate);
+  --faint: var(--smoke);
+  --rule: var(--hairline);
+  --rule-strong: #d8d8da;
+  --pass: #0d6b53;
+  --flag: #a3201a;
+
+  position: absolute;
+  border-radius: var(--radius-artifact);
+  background: var(--paper-white);
+  color: var(--ink-black);
+  padding: 1rem 1.25rem 0.75rem 0.75rem;
+}
+
+/* Out of the flow on a wide screen, where there is room beside the copy, and
+   back into it on a narrow one, where there is not. A phone gets the stage's
+   words and the cloud, and meets the numbers as ordinary blocks underneath. */
+/* Both cards along the bottom, so the cloud keeps the upper right of the stage
+   to itself. Centred vertically the table sat exactly over the brain and hid
+   it: the artifacts are meant to float around the composition, not on top of
+   the one thing the page is built around. */
+.stage-artifact-table {
+  right: 0;
+  bottom: 4%;
+  width: 20rem;
+}
+
+.stage-artifact-stat {
+  right: 21.5rem;
+  bottom: 12%;
+  width: 14rem;
+}
+
+@media (max-width: 1023px) {
+  .stage-artifact {
+    position: static;
+    width: auto;
+    max-width: 24rem;
+    transform: none;
+  }
+
+  .stage-artifact-stat {
+    display: none;
+  }
+
+  .stage-artifact-table {
+    margin-top: 2rem;
+  }
+}
+
+/* A phone has no room beside the cloud, so the stage puts the words at the top
+   and leaves the lower half of the screen for it.
+
+   Not sticky, and not a viewport tall. A phone's stage has to hold the copy and
+   the reconstruction table one under the other, and pinning that to a single
+   screen either clipped the table or left no room for the cloud; the cloud is
+   fixed behind all of it anyway, so it stays put while the words scroll past.
+
+   The top padding is for the header, which is laid over the page rather than
+   above it. Centred in a full height panel the copy cleared it by accident; at
+   the top of the panel the headline was drawn straight through the navigation,
+   which is the sort of fault that only shows up at one width. */
+@media (max-width: 1023px) {
+  .stage-panel-inner {
+    position: static;
+    height: auto;
+    min-height: 100vh;
+    align-items: flex-start;
+    padding-top: 6.5rem;
+    padding-bottom: 4rem;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* The copy rises and fades as the stage is scrolled. The cloud holds its
+       place on the screen while this happens, so what a reader sees is the
+       text travelling around it rather than the two moving together. */
+    .stage-copy {
+      animation: stage-copy linear both;
+      animation-timeline: --stage;
+      animation-range: contain 0% contain 44%;
+      will-change: transform, opacity;
+    }
+
+    /* The two artifacts scrub at different rates and in opposite directions,
+       which is the reference's one real trick: a single scroll that moves two
+       things by different amounts reads as depth, where moving them together
+       reads as a page scrolling.
+
+       Only where the artifacts are positioned. Their keyframes carry the
+       offsets that place them, so the table's own -58% is what centres it
+       against the panel; below this breakpoint the cards drop into the flow
+       and that same -58% is 216 pixels of its own height dragged upward, which
+       put the table on top of the call to action and made the button
+       unclickable on a phone. A transform written for one layout is not a
+       decoration that degrades in another, it is part of the layout. */
+    @media (min-width: 1024px) {
+      .stage-artifact-table {
+        animation: stage-artifact-table linear both;
+        animation-timeline: --stage;
+        animation-range: contain 0% contain 62%;
+        will-change: transform, opacity;
+      }
+
+      .stage-artifact-stat {
+        animation: stage-artifact-stat linear both;
+        animation-timeline: --stage;
+        animation-range: contain 26% contain 92%;
+        will-change: transform, opacity;
+      }
+    }
+  }
+}
+
+/* The copy's own shade: a gradient between the cloud and the words.
+
+   It exists because contrast cannot be bought any other way here. The cloud's
+   bloom spreads five downsample levels past the particles, far enough left that
+   the fifteen pixel grey line under the headline needs its background below
+   0.183 in relative luminance, which even white type would not clear. The
+   alternatives were to dim the whole cloud to near nothing, which is what the
+   old layout did and why it ran at a hundredth of full strength, or to stop
+   putting words on the stage at all.
+
+   Outside main, and that is not an implementation detail. The contrast suite
+   measures what is behind a word by hiding the page and photographing what is
+   left, which is the only honest way to read it, so a shade that lives inside
+   the page is hidden along with the page and measures nothing. Sitting here it
+   is measured exactly as a reader sees it. At z-index -5 it is in front of the
+   cloud at -10 and behind everything that carries words. */
+.stage-shade {
+  position: fixed;
+  inset: 0;
+  z-index: -5;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    rgb(0 0 0 / 0.95) 40%,
+    rgb(0 0 0 / 0.78) 52%,
+    rgb(0 0 0 / 0) 64%
+  );
+}
+
+/* A phone has no free half: the words are above the cloud rather than beside
+   it, so the shade covers the band they sit in and lets it go below. */
+@media (max-width: 1023px) {
+  .stage-shade {
+    background: linear-gradient(
+      to bottom,
+      rgb(0 0 0 / 0.93) 56%,
+      rgb(0 0 0 / 0.62) 70%,
+      rgb(0 0 0 / 0) 84%
+    );
+  }
+}
+
+body:not(:has(.stage)) .stage-shade {
+  display: none;
+}
+
+@keyframes stage-copy {
+  0% {
+    transform: none;
+    opacity: 1;
+  }
+  62% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0, -16vh, 0);
+    opacity: 0;
+  }
+}
+
+/* The table is on screen from the first frame: it is the evidence the page is
+   built on, and a reader who never scrolls should still see it. It rises and
+   leaves once the stat card beside it has arrived to take over.
+
+   In viewport heights rather than percentages of the card. A percentage in a
+   transform is a percentage of the element, which was correct while the cards
+   were positioned against the middle of the panel and became nonsense the
+   moment they were anchored to its bottom. */
+@keyframes stage-artifact-table {
+  0% {
+    transform: none;
+    opacity: 1;
+  }
+  64% {
+    transform: translate3d(-1vw, -22vh, 0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(-3vw, -46vh, 0);
+    opacity: 0;
+  }
+}
+
+/* And the stat card comes up the other way, at a different rate, which is the
+   whole of the effect: two things moved different distances by one scroll read
+   as depth, where two things moved together read as a page scrolling. */
+@keyframes stage-artifact-stat {
+  0% {
+    transform: translate3d(-4vw, 26vh, 0);
+    opacity: 0;
+  }
+  22% {
+    transform: none;
+    opacity: 1;
+  }
+  74% {
+    transform: translate3d(1vw, -26vh, 0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(4vw, -52vh, 0);
+    opacity: 0;
+  }
+}
+
+/* The fixed decoration layer: the gradient, its scrim and the particle canvas.
+   All three belong to the stage, so they are pinned behind it and dissolve as
+   it ends. Without this the cloud would carry on over the paper below, adding
+   its colours to white and showing as nothing but a faint grey haze, and the
+   gradient would wash the whole editorial half of the page.
+
+   Opacity is driven here rather than from the engine because it has to be
+   right before any script runs. A reader who lands deep in the page on a
+   reload, or one with JavaScript off, gets the same answer. That reasoning
+   holds for the gradient and the plate, which exist without JavaScript, and it
+   does not hold for the cloud, which does not: the cloud fades itself, from the
+   timeline, in timeline.ts. The reason is a sharp edge rather than a
+   preference. A view timeline whose subject stops being rendered goes
+   inactive, and Chrome then applies the animation's end state, so anything
+   that hides the stage takes the cloud to nought opacity with it. Three tests
+   hide the page to photograph what is behind the words, which is the only
+   honest way to measure it, and all three were photographing an empty canvas
+   and calling the result a measurement. */
+/* Fixed and explicitly behind the cloud, and both halves of that matter.
+
+   The wrapper animates its own opacity, so it creates a stacking context. With
+   no position and no z-index of its own it painted in the ordinary positioned
+   step, which is after every negative z-index layer in the root context: the
+   cloud sits at -10, so the black plate inside this wrapper painted straight
+   over it and the brain disappeared from the page entirely. It was invisible
+   as a fault from the markup, because nothing in the wrapper says "on top" and
+   the elements inside it all carry negative z-indices of their own, which only
+   order them against each other.
+
+   Pinning it at -20 puts the whole group behind the cloud again, which is
+   where it was when the cloud was still inside it. */
+.stage-decoration {
+  position: fixed;
+  inset: 0;
+  z-index: -20;
+  pointer-events: none;
+  opacity: 1;
+}
+
+/* The black the stage is made of. Fixed and behind everything, including the
+   gradient and the cloud, so it is the surface all three are composited onto,
+   and it fades out with them: the dark stage does not end at a seam, it
+   dissolves into the paper underneath. */
+.stage-plate {
+  position: fixed;
+  inset: 0;
+  z-index: -40;
+  background: #000000;
+  pointer-events: none;
+}
+
+/* Every other route is paper from the top. The gradient, the cloud and the
+   plate belong to the stage, and a page with no stage should not be paying
+   for a canvas it never shows. */
+body:not(:has(.stage)) .stage-decoration {
+  display: none;
+}
+
+/* The header is laid over the page, so a page without a full-height stage
+   under it has to leave room for it rather than starting underneath it. */
+body:not(:has(.stage)) main {
+  padding-top: 5.5rem;
+}
+
+@supports (animation-timeline: view()) {
+  .stage-decoration,
+  .stage-shade {
+    animation: stage-decoration linear both;
+    animation-timeline: --stage;
+    animation-range: contain 90% contain 100%;
+  }
+}
+
+@keyframes stage-decoration {
+  to {
+    opacity: 0;
+  }
+}
+
+/* The one elevation in the system. The brief gives it exactly, and is equally
+   explicit that content cards never get it: only the product fragments that
+   float over the page earn a shadow, and only at a tenth of an opacity. */
+@utility shadow-artifact {
+  box-shadow:
+    0 0 0 1px rgb(4 23 43 / 0.05),
+    0 20px 25px -5px rgb(0 0 0 / 0.1),
+    0 8px 10px -6px rgb(0 0 0 / 0.1);
 }
 
 html {
-  background: var(--void);
+  background: var(--paper-white);
+}
+
+/* On a page whose top is the stage, the document's canvas is black.
+
+   The stage's black used to come only from a fixed plate behind everything,
+   which is fine to look at and wrong to measure: the header lies over the
+   stage with no background of its own, so walking up the tree from a
+   navigation link found body (transparent) and then html (paper white), and
+   the accessibility gate reported the nav at 2.8:1 against a white background
+   that is not on the screen. The root element's background paints before any
+   negative z-index layer, so putting the black here puts it underneath the
+   gradient and the cloud exactly as the plate did, and puts it somewhere a
+   contrast checker can find it.
+
+   Every paper region below states its own surface, so nothing else inherits
+   this. */
+html:has(.stage) {
+  background: #000000;
 }
 
 /* Transparent on purpose: the backdrop is fixed behind it and this is what
@@ -129,99 +622,202 @@ body {
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: var(--text-body);
-  font-weight: 200;
+  /* Weight 400, where the black site ran 200.
+
+     Ultra-light is a choice that only works on a backlit dark page, where the
+     strokes bloom and a heavier weight reads as shouting. On paper the same
+     weight is a grey suggestion of a letterform: the stems thin out below the
+     rendering engine's stem-darkening threshold and the text looks faded
+     rather than quiet. The brief's own lightest body weight is 400 and its
+     hierarchy comes from the half steps above it. */
+  font-weight: 400;
   line-height: 1.5;
   font-feature-settings: "ss01" on;
 }
 
-/* Full bleed. The reference centres content at 1280px; this site does not,
-   because the brief was that text reaches the edges of the screen. Width is
-   reinstated only where a line of prose needs a measure, which is what .measure
-   is for. */
-.gutter {
-  padding-inline: clamp(1.25rem, 4vw, 5rem);
+/* In the components layer on purpose.
+
+   An unlayered rule beats every layered one, whatever the specificity, and
+   Tailwind's utilities live in @layer utilities. So while these sat outside a
+   layer, .t-label quietly won against text-action-ink on the one element that
+   used both, and the CV's download button rendered grey text on its own near
+   black fill at 3.5:1. Nothing about the markup suggested that was possible.
+   In the components layer the ordinary rule applies again: the class sets a
+   default and a utility beside it overrides. */
+@layer components {
+  /* The brief's page model: a 1200px measure, centred, with a gutter that never
+     lets content touch the edge of a phone. The black site was full bleed, which
+     was right for a landing page made of headlines and wrong for one made of
+     editorial sections. */
+  .shell {
+    margin-inline: auto;
+    max-width: var(--container-page);
+    padding-inline: clamp(1.25rem, 4vw, 2.5rem);
+  }
+
+  /* Kept for the stage, which still reaches the edges. */
+  .gutter {
+    padding-inline: clamp(1.25rem, 4vw, 5rem);
+  }
+
+  .measure {
+    max-width: 66ch;
+  }
+
+  .measure-tight {
+    max-width: 54ch;
+  }
+
+  /* Display type. Serif, weight 400 at every size, which the brief calls its
+     signature and means literally: hierarchy comes from scale and tracking, and
+     a bold serif headline here would be a different design. The tracking values
+     are the brief's own, converted from its pixel figures to em so they hold at
+     the clamped sizes a narrow screen actually renders.
+
+     Every one of these clamps down. The brief is written for a desktop spread
+     and its 90px display is 25% of a phone's width per character. */
+  .t-display {
+    font-family: var(--font-serif);
+    font-size: clamp(2.75rem, 8vw, var(--text-display));
+    font-weight: 400;
+    line-height: 1.12;
+    letter-spacing: -0.025em;
+  }
+
+  .t-hlg {
+    font-family: var(--font-serif);
+    font-size: clamp(2.25rem, 6vw, var(--text-hlg));
+    font-weight: 400;
+    line-height: 1.16;
+    letter-spacing: -0.015em;
+  }
+
+  .t-h {
+    font-family: var(--font-serif);
+    font-size: clamp(2rem, 4.5vw, var(--text-h));
+    font-weight: 400;
+    line-height: 1.22;
+    letter-spacing: -0.015em;
+  }
+
+  /* Below the serif sizes the brief hands over to the sans, and the half step
+     weights start doing the work. 26px at 450 is its subhead. */
+  .t-hsm {
+    font-family: var(--font-sans);
+    font-size: var(--text-hsm);
+    font-weight: 450;
+    line-height: 1.18;
+    letter-spacing: -0.009em;
+  }
+
+  .t-sub {
+    font-family: var(--font-sans);
+    font-size: var(--text-sub);
+    font-weight: 430;
+    line-height: 1.5;
+  }
+
+  /* The brief's card title: 20px at weight 500. The smallest thing on the site
+     that is still a heading, and the level at which the serif hands over to the
+     sans entirely. */
+  .t-h3 {
+    font-family: var(--font-sans);
+    font-size: var(--text-body-lg);
+    font-weight: 500;
+    line-height: 1.3;
+    letter-spacing: -0.009em;
+  }
+
+  .t-body-lg {
+    font-size: var(--text-body-lg);
+    font-weight: 400;
+    line-height: 1.35;
+  }
+
+  /* Category tags: Marketing, Finance, Sales in the brief, Reconstruction and
+     Provenance here. Typographic rather than a badge, which is the brief's
+     instruction and the reason there is no background or border on them.
+
+     Not uppercase, and not tracked out. The black site set these as spaced small
+     caps because that was the only way to make a label read as a label without a
+     surface behind it; on paper the grey does that on its own, and the brief's
+     own tags are sentence case. */
+  .t-label {
+    font-family: var(--font-sans);
+    font-size: var(--text-caption);
+    font-weight: 400;
+    line-height: 1.2;
+    color: var(--faint);
+  }
+
+  .t-caption {
+    font-size: var(--text-caption);
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  /* Figures that get compared down a column have to line up. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-weight: 450;
+  }
+
+  /* The two controls the brief describes, as a matched pair on one baseline.
+     Fully rounded, 16px label, 20px of horizontal padding, and no shadow on
+     either: the brief is explicit that only floating artifacts get elevation. */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    padding: 0.6875rem 1.25rem;
+    font-family: var(--font-sans);
+    font-size: var(--text-nav);
+    font-weight: 450;
+    line-height: 1;
+    border: 1px solid transparent;
+  }
+
+  .pill-filled {
+    background: var(--action);
+    border-color: var(--action);
+    color: var(--action-ink);
+  }
+
+  .pill-filled:hover {
+    opacity: 0.86;
+  }
+
+  .pill-ghost {
+    background: transparent;
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  .pill-ghost:hover {
+    background: var(--accent-soft);
+  }
+
+  /* The lowest emphasis interactive element in the system. The arrow is part of
+     the label rather than an icon, and the underline appears only on hover,
+     which is the brief's rule.
+
+     The arrow alone cannot carry the affordance for everyone, so the underline
+     is on focus as well as hover, and the arrow is marked decorative so it is
+     not read out as a word. */
+  .link-arrow {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .link-arrow:hover,
+  .link-arrow
 }
 
-.measure {
-  max-width: 66ch;
-}
-
-.measure-tight {
-  max-width: 54ch;
-}
-
-/* Display type. Every one of these is weight 400: the reference gets its
-   hierarchy from scale and tracking rather than from weight, and a bold
-   headline here would look like a different design. */
-.t-display {
-  font-size: clamp(2.75rem, 11vw, var(--text-display));
-  font-weight: 400;
-  line-height: 1.02;
-  letter-spacing: -0.04em;
-}
-
-.t-hlg {
-  font-size: clamp(2.25rem, 7vw, var(--text-hlg));
-  font-weight: 400;
-  line-height: 1.08;
-  letter-spacing: -0.04em;
-}
-
-.t-h {
-  font-size: clamp(2rem, 5vw, var(--text-h));
-  font-weight: 400;
-  line-height: 1.1;
-  letter-spacing: -0.035em;
-}
-
-.t-hsm {
-  font-size: clamp(1.75rem, 4vw, var(--text-hsm));
-  font-weight: 400;
-  line-height: 1.15;
-  letter-spacing: -0.035em;
-}
-
-.t-sub {
-  font-size: clamp(1.375rem, 3vw, var(--text-sub));
-  font-weight: 400;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-}
-
-.t-hxs {
-  font-size: var(--text-hxs);
-  font-weight: 400;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-}
-
-.t-h2xs {
-  font-size: var(--text-h2xs);
-  font-weight: 400;
-  line-height: 1.25;
-  letter-spacing: -0.02em;
-}
-
-/* The one place weight does the work rather than scale. */
-.t-label {
-  font-size: var(--text-nav);
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: 0.035em;
-  text-transform: uppercase;
-}
-
-.t-caption {
-  font-size: var(--text-caption);
-  font-weight: 400;
-  line-height: 1.5;
-}
-
-/* Figures that get compared down a column have to line up. Inter's tabular set
-   replaces the monospace family that used to do this. */
-.tnum {
-  font-variant-numeric: tabular-nums;
-  font-weight: 400;
+:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 :focus-visible {
@@ -244,15 +840,16 @@ main[id] {
 /* Long-form body. Element styles rather than a utility on every tag, so the
    essays stay readable as prose in the source too.
 
-   Weight 300, where the reference specifies 200 for body copy. Ultra-light
-   strokes on pure black bloom badly once a reader is two thousand words in,
-   and the reference is a landing page that never has to hold anyone that long.
-   The headings keep 400, so the relationship the reference is after survives. */
+   Weight 400 and ink, not 300 and a soft grey. Both of those were right for
+   two thousand words on pure black, where a full-weight body at full contrast
+   is exhausting to read; on paper they are the two things that make a long
+   piece look like a draft. Essays are the part of this site somebody reads for
+   twenty minutes, so they get the most legible setting it has. */
 .longform {
   font-size: var(--text-body);
-  font-weight: 300;
+  font-weight: 400;
   line-height: 1.65;
-  color: var(--ink-soft);
+  color: var(--ink);
 }
 
 .longform > * + * {
@@ -269,10 +866,11 @@ main[id] {
 .longform > h2 {
   margin-top: 2.6em;
   max-width: 24ch;
-  font-size: clamp(1.75rem, 4vw, var(--text-hsm));
+  font-family: var(--font-serif);
+  font-size: clamp(1.75rem, 3.6vw, var(--text-h));
   font-weight: 400;
-  line-height: 1.15;
-  letter-spacing: -0.035em;
+  line-height: 1.22;
+  letter-spacing: -0.015em;
   color: var(--ink);
   text-wrap: balance;
 }
@@ -286,11 +884,22 @@ main[id] {
   font-style: italic;
 }
 
+/* The one place the brief's "never underline at rest" gives way, and it has to:
+   a link inside a paragraph has no arrow suffix to carry the affordance and no
+   colour of its own to signal with, since links here are ink like the text
+   around them. An underline is what is left, and it is the right answer for
+   running prose anyway. */
 .longform > p a,
 .longform > ul a {
-  color: var(--accent);
+  color: var(--ink);
   text-decoration: underline;
+  text-decoration-color: var(--rule-strong);
   text-underline-offset: 3px;
+}
+
+.longform > p a:hover,
+.longform > ul a:hover {
+  text-decoration-color: currentColor;
 }
 
 .longform > ul {

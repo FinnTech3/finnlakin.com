@@ -11,13 +11,23 @@ export function generateStaticParams() {
 
 export const dynamicParams = false;
 
-/* Share cards have no viewer theme, so the light palette is hard-coded here
-   rather than read from tokens. */
-const PAPER = "#000000";
-const INK = "#ffffff";
-const MUTED = "#9a9a9a";
-const RULE = "#3a3a3a";
-const ACCENT = "#ffb829";
+/* Share cards have no viewer theme and no stylesheet, so the palette is
+   hard-coded here rather than read from tokens. The values are DESIGN.md's,
+   so a link preview looks like the page it opens.
+
+   Paper rather than the stage's black. The stage is the first thing a reader
+   sees in a browser, but it is one band of one route, and everything a shared
+   link actually lands on is paper. A preview card in the old palette was a
+   black rectangle with an amber kicker, which by the end of this rebuild
+   matched nothing on the site at all.
+
+   The kicker takes the sienna that goes with the peach, which is the one place
+   colour is allowed. */
+const PAPER = "#ffffff";
+const INK = "#17191c";
+const MUTED = "#5f636c";
+const RULE = "#ececec";
+const ACCENT = "#5d2a1a";
 
 const SIZE = { width: 1200, height: 630 };
 
@@ -56,8 +66,6 @@ export async function GET(
               style={{
                 display: "flex",
                 fontSize: 24,
-                letterSpacing: 3,
-                textTransform: "uppercase",
                 color: ACCENT,
                 marginBottom: 28,
               }}
