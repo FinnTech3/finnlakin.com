@@ -37,16 +37,24 @@ function targets(progress: number, baseFactor: number, aspect: number) {
   const narrow = aspect < 1.1;
   const spread = Math.min(1, aspect / 1.6);
   const openX = narrow ? 0 : 3;
-  /* Lower than it was, and the cloud is smaller to match. At minus two point
-     four the brain's top edge landed on the last line of the course paragraph
-     and across the call to action, which is the collision Finn pointed at: on a
-     wide screen the cloud has the half of the hero the text leaves free, and on
-     a phone there is no free half, so it has to go below the text instead of
-     beside it. At this offset and the mobile factor it runs from about three
-     quarters of the way down the viewport to a little past the bottom, which is
-     under the button and above nothing. The hero reserves the room below it so
-     the table does not sit in the same band. */
-  const openY = narrow ? -2.75 : 0;
+  /* Opposite directions on the two shapes of screen, and both of them are the
+     same rule: the cloud goes where the text is not.
+
+     A phone has no free half, so it goes below the text, and the hero reserves
+     the room below the call to action so the reconstruction table is not in the
+     same band. At minus two point four its top edge landed on the last line of
+     the course paragraph and across the button.
+
+     A wide screen has a free half, but it does not have a free bottom. The
+     hero's text column is a fixed number of characters wide, so the wider the
+     window the fewer lines it wraps to and the higher the table rides up to
+     meet the cloud: tuned at an aspect of 1.6 the cloud sat clear of it, and at
+     1.95, which is an ordinary monitor, it sat across the caption and the first
+     three rows. Raised by two point seven it sits beside the headline instead,
+     about a third of the way down the viewport, clear of the navigation above
+     it and the table below. It ramps back to the resting offset by the end of
+     the first section either way. */
+  const openY = narrow ? -2.75 : 2.7;
 
   const x =
     mapClamped(p, 0, 1, openX, -4.5 * spread) +
