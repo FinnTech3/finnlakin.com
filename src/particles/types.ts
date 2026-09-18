@@ -171,5 +171,11 @@ export type ParticleBrain = {
        top of the viewport has to read exactly n, and it does not if the
        measurement was taken before the fonts moved everything. */
     scroll: number;
+    /* Milliseconds of the engine's own clock since its first frame, which is
+       what the opening reveal is measured against. Exposed because it is the
+       only way for a test to know the animation has reached a moment: the wall
+       clock and the engine's clock are the same thing only on a machine that is
+       keeping up, and the one this is asserted on is not. */
+    since: number;
   };
 };

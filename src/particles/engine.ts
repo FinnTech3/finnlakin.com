@@ -264,6 +264,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
      behind the wall and anything timed off them plays in slow motion. The
      reveal was taking four and a half seconds instead of nine tenths. */
   let clockStartedMs = 0;
+  let elapsedMs = 0;
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
@@ -351,6 +352,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     if (previousMs === 0) previousMs = nowMs;
     if (clockStartedMs === 0) clockStartedMs = nowMs;
     const sinceStart = nowMs - clockStartedMs;
+    elapsedMs = sinceStart;
     const delta = clamp((nowMs - previousMs) / 1000, 0, MAX_DELTA_SECONDS);
     previousMs = nowMs;
     seconds += delta;
@@ -523,6 +525,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
         pointer: lastPointer,
         pointerActive: lastPointerActive,
         scroll: scroll.value.sectionProgress,
+        since: elapsedMs,
       };
     },
   };

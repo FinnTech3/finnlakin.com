@@ -223,19 +223,29 @@ test.describe("the particle engine", () => {
     timeline: { progress: number };
     pointerActive: number;
     scroll: number;
+    since: number;
+    frameMs: number;
   };
   type Handle = { particleBrain?: { inspect: () => Inspection } };
 
+  /* Waits until the engine exists and has drawn at least one frame.
+
+     The frame matters as much as the handle. The handle is hung on the window
+     when the engine is constructed and its clock does not start until its first
+     frame, so a test that starts measuring between the two is measuring an
+     engine that has not begun. The time a frame took is nought until one has
+     been drawn and never nought afterwards, which makes it the signal. */
   async function handleReady(page: Page) {
     await expect
       .poll(() => page.evaluate(() => Boolean((window as unknown as Handle).particleBrain)), {
         timeout: 30_000,
       })
       .toBe(true);
-    /* The engine settles the timeline to wherever the page already is on its
-       first frame, so one frame is enough; this is slack for a machine that
-       takes half a second to draw one. */
-    await page.waitForTimeout(1_500);
+    await expect
+      .poll(() => inspection(page).then((state) => state?.frameMs ?? 0), { timeout: 30_000 })
+      .toBeGreaterThan(0);
+    /* And a moment more, for a machine that takes half a second to draw one. */
+    await page.waitForTimeout(1_000);
   }
 
   /* The whole inspection comes back in one round trip, rather than a callback
@@ -527,7 +537,10 @@ test.describe("the particle engine", () => {
     /* A touch screen has no cursor to part the cloud around, and the engine
        does not listen for one there. */
     test.skip(Boolean(isMobile), "no hover pointer on a touch device");
-    test.slow();
+    /* Generous, because the poll below waits for a force that is applied per
+       simulation step on a machine whose step rate depends on what else the
+       suite is drawing at the time. */
+    test.setTimeout(240_000);
     /* The debug flag puts a handle on the engine, so this can assert that the
        pointer was heard as well as that the picture changed. Without it, a
        listener that never fired and a force that does nothing look identical. */
@@ -590,12 +603,34 @@ test.describe("the particle engine", () => {
     expect(before, "nothing painted where the cloud should be").toBeGreaterThan(50);
 
     /* Jiggled rather than parked, because a single move is one event and the
-       pointer is read once a frame. */
-    for (let step = 0; step < 24; step++) {
-      await page.mouse.move(centre.x + (step % 3), centre.y + (step % 2));
-      await page.waitForTimeout(80);
-    }
-    const during = await paintedWithin(page, centre.x, centre.y, radius);
+       pointer is read once a frame. And polled rather than timed.
+
+       The parting is a force applied per simulation step, so how long it takes
+       to open the hole is counted in steps, and this environment runs the
+       simulation at a fraction of real time when several pages are competing
+       for one software rasteriser. A fixed two seconds of jiggling opened
+       thirteen percent on an unloaded run and nine on a loaded one, against a
+       bar of ten, and four seconds moved the coin without settling it. Waiting
+       for the hole asserts the same thing and leaves the number of steps it
+       takes to the machine. */
+    let during = before;
+    await expect
+      .poll(
+        async () => {
+          for (let step = 0; step < 8; step++) {
+            await page.mouse.move(centre.x + (step % 3), centre.y + (step % 2));
+            await page.waitForTimeout(100);
+          }
+          during = await paintedWithin(page, centre.x, centre.y, radius);
+          return during;
+        },
+        { timeout: 120_000, message: "the pointer did not part the cloud" },
+      )
+      /* The drift between two measurements with the pointer away is about one
+         percent. A ten percent drop is ten times that, and the parting measured
+         seventeen when aimed at the middle of the cloud by hand. */
+      .toBeLessThan(before * 0.9);
+
     const heard = await page.evaluate(
       () =>
         (window as unknown as { particleBrain?: { inspect: () => { pointerActive: number } } })
@@ -603,22 +638,22 @@ test.describe("the particle engine", () => {
     );
     expect(heard, "the engine never heard the pointer").toBeGreaterThan(0.5);
 
+    /* Closing has never been marginal: the spring that does it is the same one
+       that holds the shape, and it has the whole cloud behind it. */
     await page.mouse.move(10, 10);
-    await page.waitForTimeout(2_500);
+    await page.waitForTimeout(4_000);
     const after = await paintedWithin(page, centre.x, centre.y, radius);
 
     console.log(`pointer hole: ${before} lit, ${during} with the pointer on it, ${after} after`);
 
-    /* The drift between the first and last measurements, with the pointer away
-       both times, is about one percent. A ten percent drop is ten times that,
-       and the parting measured seventeen when aimed at the middle of the cloud
-       by hand. */
-    expect(during, "the pointer did not part the cloud").toBeLessThan(before * 0.9);
     expect(after, "the cloud did not close again").toBeGreaterThan(during * 1.05);
   });
 
   test("flies the opening in from outside the frame", async ({ page }) => {
-    test.slow();
+    /* Generous, because everything here is counted in frames and this
+       environment draws about two a second with one page open and fewer with
+       several. */
+    test.setTimeout(240_000);
     /* The entrance is over in about two seconds and one canvas screenshot on
        the software rasteriser this runs on costs more real time than that, so
        the moment being measured has to be held rather than caught.
@@ -639,22 +674,51 @@ test.describe("the particle engine", () => {
        arrives at its moment with only part of the spring that belongs to it,
        and the frozen picture is of a state the animation never actually passes
        through. */
-    const FROZEN_AT = 500;
-    const MOST_PER_FRAME = 240;
+    const FROZEN_AT = 300;
+    /* As large as the moment itself, so one frame after the clock starts is
+       enough to reach it. It has to stay under the twenty steps the engine will
+       catch up on in a single frame, which is a third of a second; three tenths
+       is eighteen. Smaller, and this environment needs two frames, and two
+       frames at the top of a loaded suite can be most of a minute. */
+    const MOST_PER_FRAME = 300;
     await page.addInitScript(
       ({ frozenAt, mostPerFrame }: { frozenAt: number; mostPerFrame: number }) => {
         const raf = window.requestAnimationFrame.bind(window);
         let base: number | null = null;
-        let last = 0;
+        let last: number | null = null;
         let clock = 0;
+        /* Advanced once per real animation frame rather than once per callback.
+           Two things on this page ask for frames, the gradient and the engine,
+           and every callback scheduled for the same frame is handed the same
+           timestamp by the browser: comparing against the last one seen is what
+           makes this a clock rather than a counter of subscribers. Advanced per
+           callback, the engine would see twice the step it was given, past the
+           point where it caps how much catching up one frame may do. */
+        /* Held at nought until the test starts it.
+
+           The engine mounts several frames into the page's life and starts its
+           own clock at whatever it is handed then, so a clock that began
+           climbing at the first frame of all would leave the engine's reveal
+           short of the moment by however long the engine took to arrive. Held
+           at nought, every frame before the engine exists has a delta of
+           nought: it neither advances the reveal nor moves a particle, and the
+           moment the test starts the clock is the moment the engine calls
+           nought. */
+        let armed = false;
+        (window as unknown as { __startFrozenClock: () => void }).__startFrozenClock = () => {
+          armed = true;
+        };
         window.requestAnimationFrame = (callback: FrameRequestCallback) =>
           raf((stamp) => {
-            if (base === null) {
+            if (base === null || last === null) {
               base = stamp;
               last = stamp;
+            } else if (stamp !== last) {
+              if (armed) {
+                clock = Math.min(frozenAt, clock + Math.min(stamp - last, mostPerFrame));
+              }
+              last = stamp;
             }
-            clock = Math.min(frozenAt, clock + Math.min(stamp - last, mostPerFrame));
-            last = stamp;
             callback(base + clock);
           });
 
@@ -673,13 +737,25 @@ test.describe("the particle engine", () => {
 
     /* Nothing is clicked, scrolled or typed in this test on purpose: any of
        those ends the opening animation, which is the thing being measured. */
-    await page.goto("/?brainQuality=low");
+    await page.goto("/?brainQuality=low&brainDebug=1");
+    await handleReady(page);
+
+    await page.evaluate(() =>
+      (window as unknown as { __startFrozenClock?: () => void }).__startFrozenClock?.(),
+    );
+
+    /* Waited for rather than timed. How long the clock above takes to climb to
+       its moment depends on how many frames the machine manages, and a fixed
+       wait measured the animation half way there on a loaded run. */
     await expect
-      .poll(() => page.locator("[data-brain]").getAttribute("data-brain"), { timeout: 30_000 })
-      .toBe("live");
-    /* Long enough for the clock above to climb to its moment and be drawn, at
-       the two frames a second this environment manages. */
-    await page.waitForTimeout(3_000);
+      .poll(() => inspection(page).then((state) => state?.since ?? -1), { timeout: 150_000 })
+      /* A millisecond of slack, because the engine's clock is the difference of
+         two of these timestamps and the last run of this suite reported
+         299.99999999999994 for a clock that had arrived. */
+      .toBeGreaterThan(FROZEN_AT - 1);
+    /* And one more frame, so the moment the clock has reached is the moment
+       that has been drawn. */
+    await page.waitForTimeout(1_200);
 
     /* How densely lit the middle third of the frame is against the whole of it,
        at a threshold high enough to ignore the bloom. The bloom is a five level
@@ -689,8 +765,8 @@ test.describe("the particle engine", () => {
     const [middle, whole] = await paintedShares(page, [0.3, 1]);
 
     console.log(
-      `entrance at ${FROZEN_AT}ms: middle ${(middle * 100).toFixed(2)}% lit, ` +
-        `whole frame ${(whole * 100).toFixed(2)}%`,
+      `entrance at ${FROZEN_AT}ms: middle ${(middle * 100).toFixed(3)}% lit, ` +
+        `whole frame ${(whole * 100).toFixed(3)}%`,
     );
 
     /* If the veil ever did come off before the measurement, the page would be
@@ -698,18 +774,17 @@ test.describe("the particle engine", () => {
        else entirely. */
     expect(await introState(page), "the animation ended before it was measured").toBe("running");
     /* And an engine that drew nothing at all would pass the comparison below. */
-    expect(whole, "the engine drew nothing to measure").toBeGreaterThan(0.001);
+    expect(whole, "the engine drew nothing to measure").toBeGreaterThan(0.0015);
 
-    /* Half a second in, the particles are crossing the edges of the frame on
-       their way to the middle, and the middle itself measures at exactly nought
-       on both a monitor and a phone: nothing has got there yet, against six or
-       seven tenths of a percent across the frame as a whole. A tenth of a second
-       later the phone's middle is already at nine tenths of a percent and two
-       tenths later the monitor's is at four and a half, so this is a narrow
-       moment, which is why it is held rather than caught. The opening this
-       replaced started every particle at one and a half times its own radius
-       about the centre, which put the middle at its busiest in the very first
-       frame. */
+    /* Three tenths of a second in, the particles are pouring in across all four
+       edges of the frame and the middle measures at exactly nought on both a
+       monitor and a phone: nothing has got there yet, against about half a
+       percent lit across the frame as a whole. The first light is at about a
+       hundred and fifty milliseconds and the word is forming by four hundred, so
+       this is a narrow moment, which is why it is held rather than caught. The
+       opening this replaced started every particle at one and a half times its
+       own radius about the centre, which put the middle at its busiest in the
+       very first frame. */
     expect(middle, "the opening did not start outside the frame").toBeLessThan(whole / 3);
   });
 

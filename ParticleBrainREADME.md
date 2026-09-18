@@ -68,8 +68,9 @@ normalised nought to one. Two full screen passes a frame:
 
 1. **Velocity.** Reads the previous position and velocity, resolves where the
    particle should be right now by blending the four morph targets, applies the
-   explosion and the opening reveal, and accelerates towards it.
-   `velocity = (velocity + (target - previous) * spring) * friction`
+   explosion, gates the spring on for the entrance and adds the pointer's
+   parting, and accelerates towards it.
+   `velocity = (velocity + (target - previous) * spring + flee) * friction`
 2. **Position.** `position = previous + velocity`.
 
 The order matters. Velocity is written and swapped first, so the position pass
@@ -78,7 +79,7 @@ system lags its own forces by a frame: it does not look broken, it feels heavy,
 and it is nearly impossible to find by reading the shaders.
 
 **The simulation runs on its own fixed clock of one sixtieth of a second**, and
-the frame loop feeds it however many steps have come due, up to thirty. The
+the frame loop feeds it however many steps have come due, up to twenty. The
 spring constants are per frame at sixty frames a second, not per second; run
 once per drawn frame they describe a different animation on every machine.
 
@@ -125,10 +126,25 @@ underneath, a temporal lobe cut away by a lateral sulcus, a tapered occipital
 pole, a narrowed frontal pole, folds displacing the surface along its normal, a
 fissure down the midline, a cerebellum with its own foliation and a short stem.
 
-It fills rather than shells: a particle takes a direction on the surface and
-then a radius along it, biased hard towards the outside, so the cortex is dense
-and the interior is populated but thinner. A shell and a volume look identical
-until the cloud turns or comes apart, and then the shell reads as a paper model.
+It is mostly hollow, which is a decision rather than an accident: a thin skin
+carries about ninety five percent of the particles and a twentieth are scattered
+deeper, so the cortex is dense enough to read as folded matter and the cloud
+still has something inside it when it turns. Everything freed from the interior
+lands on the surface, so the same ten thousand particles buy a much denser
+cortex.
+
+**The sulci are emptied by rejection rather than by thinning.** A particle takes
+a direction, and if that direction lands in a valley between folds it takes
+another direction entirely, up to two dozen times. The earlier version computed
+the same probability and then, instead of resampling, moved the rejected
+particle six percent inward: every particle was written either way, the valleys
+were never empty, and from outside the cortex was a uniform fuzz. The gaps are
+what make folds read as folds.
+
+Colour comes from a slow regional field rather than from height or from fold
+depth. Fold depth was the obvious choice and it is wrong once the valleys are
+empty, because almost every surviving particle is then on a crest and the whole
+cloud comes out one colour.
 
 The other three targets are derived from the brain per particle rather than
 generated separately, so particle four thousand is the same speck of matter in
@@ -136,8 +152,45 @@ every shape it passes through and a morph reads as the cloud rearranging.
 
 `npm run check:brain` validates the result and prints a checksum: four targets,
 correct texture dimensions, no NaN or Infinity, everything in range, every
-ordering a true permutation, no collapsed quadrant, and the same bytes every
-time from seed 1337. It runs as part of `npm run lint`.
+ordering a true permutation, no collapsed quadrant, the shell measured by
+directional buckets rather than against a single radius, the colour ramp's
+spread, and the same bytes every time from seed 1337. It runs as part of
+`npm run lint`.
+
+The shell is measured directionally because a brain is not a sphere: the first
+attempt compared every particle against the single furthest one and reported
+twenty two percent skin for a cloud that was ninety five percent shell. It now
+buckets by direction and compares each particle against the furthest one in its
+own bucket, which measures 86.6%.
+
+## The pointer
+
+The cloud parts around the cursor, like a shoal of fish getting out of the way.
+Two forces per particle, both falling off with distance:
+
+```glsl
+vec3 away = previous - u_pointer;
+float reach = (1.0 - smoothstep(0.0, u_pointerReach, length(away))) * u_pointerActive;
+vec3 flee = (direction * u_pointerPush + cross(direction, axis) * u_pointerSwirl) * reach;
+```
+
+The radial term opens the hole. The tangential one is what makes it a shoal
+rather than an explosion: they stream around the obstruction instead of straight
+out. Nothing pulls them back, because the spring already does that, so the hole
+closes on its own as the pointer leaves.
+
+Two things to know before changing it. **`smoothstep` is undefined in GLSL when
+its first edge is not less than its second**, and written the natural way round,
+`smoothstep(u_pointerReach, 0.0, gap)`, this driver returns zero for every
+particle: the force is wired correctly all the way through and multiplied by
+nothing at the last step, which is invisible in a screenshot and survives every
+check that the uniforms arrived. And the pointer is a screen position while the
+simulation works in a unit cube, so `pointerInCloudSpace` in `mouse.ts` undoes
+the projection, the offset, the rotation and the scale, once a frame on the
+processor rather than per particle on the card.
+
+Off under reduced motion, and the listeners are only attached when
+`(hover: hover)` matches, so a phone is unaffected rather than subtly broken.
 
 ## The opening animation
 
@@ -147,6 +200,29 @@ everything else. Text is measured and drawn on an offscreen canvas and its
 covered pixels become positions; the block is sized to the middle third of the
 screen, taking most of the width on a phone and a little over a third on a
 monitor.
+
+**The entrance comes in from every edge of the screen.** Each particle is seeded
+on the perimeter of a rectangle a quarter beyond the viewport, at its own depth,
+and held there by having no spring at all until the reveal releases it; the slot
+it waits for is its display order, which is a shuffle of every index and so is
+uniform across the cloud whatever subset of it a quality level is drawing. The
+spring then does the whole animation, which is why there is no dispersal term in
+the velocity shader any more.
+
+The rectangle is walked in screen space and carried back into the simulation's
+own space by the same inverse the pointer uses, so portrait and landscape need
+no branch between them. Its four edges take shares of the walk in proportion to
+their length rather than a quarter each: a quarter each puts twice as many
+particles per centimetre on the short sides of a wide monitor, and the sides
+fountain while the top and bottom trickle. The entry is resolved along the ray
+through the screen point rather than on the cloud's own plane, so a particle
+coming in from behind is placed proportionally wider and stays exactly on the
+frame's edge; placed on the plane and given depth afterwards, a rotated cloud
+carries part of that depth into the horizontal and an eighth of the particles on
+a portrait phone start on screen.
+
+`scripts/check-motion.ts` asserts both properties, projecting every seeded
+position forward again through an independently written transform.
 
 The handover is invisible by construction: the intro's texture holds the brain
 shrunk by exactly the ratio between the two factors, so the texture swap and the
@@ -176,6 +252,34 @@ Behind text the cloud runs at about one percent of full strength. That is a real
 cost: the explosion and the morph are properly visible in the opening screen and
 in the gaps, and are a faint presence behind prose.
 
+## Scroll
+
+Progress runs nought to six and is read off the real sections rather than off
+the document height, because the sections are not equal heights: section n's top
+reaching the top of the viewport is progress n exactly.
+
+Three things that are easy to get wrong and were:
+
+- **The boundaries have to be re-measured.** Measured once from resize, they are
+  measured before the web fonts arrive, and fonts change the height of every
+  block of text on the page. They are re-measured when `document.fonts.ready`
+  resolves and whenever a section or the body changes size, which also covers
+  an image finishing, a chart laying out and a phone being turned.
+- **The eased value needs a speed limit.** An ease covers a proportion of
+  whatever gap it is given, so a gap of six sections is crossed about as quickly
+  as a gap of one, and the call to action is an anchor to the contact section,
+  which makes exactly that gap. Capped at four sections a second.
+- **The timeline has to start where the page is.** Its constructor starts it at
+  the opening composition, which is right for a reader arriving at the top and
+  wrong for one who reloaded halfway down. The opening animation is the one
+  exception, because releasing its held composition is what carries the cloud
+  into place.
+
+At phone width the cloud sits below the hero's text rather than beside it, and
+`hero.tsx` reserves the band so the reconstruction table is not in the same
+place. The dim ramp also finishes sooner on a narrow screen, because the text
+arrives under the cloud after a couple of hundred pixels of scroll.
+
 ## Configuration
 
 Everything in `DEFAULTS` in `src/particles/types.ts`:
@@ -187,8 +291,9 @@ Everything in `DEFAULTS` in `src/particles/types.ts`:
 | Particle scale | `particleScaleDesktop`, `particleScaleMobile` |
 | Colour palette | `RAMP`, `WARM`, `WARM_SHARE` in `palette.ts` |
 | Spring, friction | `spring`, `friction` |
-| Mouse sensitivity | `mouseStrength`, `mouseSmoothing` |
-| Scroll sensitivity | `scrollEase` |
+| Pointer parting | `pointerReach`, `pointerPush`, `pointerSwirl`, `mouseSmoothing` |
+| Entrance | `entryWindow`, `SHOW_SECONDS` in `engine.ts`, the constants in `entrance.ts` |
+| Scroll sensitivity | `scrollEase`, `MAX_SECTIONS_PER_SECOND` in `scroll.ts` |
 | Morph speed | `morphDelayDesktop`, `morphDelayMobile`, `secondaryMorphDelay` |
 | Explosion | `explosionDelay`, and the multiplier in `targets.ts` |
 | Bloom | `bloomStrength`, `bloomThreshold`, `bloomRadius` |
