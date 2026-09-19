@@ -34,6 +34,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.8,
     },
+    { url: `${siteUrl}/path`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${siteUrl}/reel`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${siteUrl}/cv`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${siteUrl}/privacy`, changeFrequency: "yearly", priority: 0.2 },
     ...writing.map((piece) => ({

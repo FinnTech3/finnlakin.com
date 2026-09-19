@@ -150,11 +150,14 @@ test.describe("icons and manifest", () => {
     }
   });
 
-  test("the theme colour resolves for both colour schemes", async ({ page }) => {
+  /* One theme colour now, where there used to be a media-scoped pair. The site
+     no longer follows the operating system: the design is black, in both. A
+     pair would have been two identical values pretending to be a choice. */
+  test("the theme colour is the page's own black", async ({ page }) => {
     await page.goto("/");
-    const light = page.locator('meta[name="theme-color"][media*="light"]');
-    const dark = page.locator('meta[name="theme-color"][media*="dark"]');
-    await expect(light).toHaveAttribute("content", "#f7f7f4");
-    await expect(dark).toHaveAttribute("content", "#101215");
+    const tags = page.locator('meta[name="theme-color"]');
+    await expect(tags).toHaveCount(1);
+    await expect(tags).toHaveAttribute("content", "#000000");
+    await expect(tags).not.toHaveAttribute("media", /.*/);
   });
 });
