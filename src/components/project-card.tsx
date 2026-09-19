@@ -93,11 +93,18 @@ export function ProjectCard({
                 <ClipPlayer clip={clip} />
               </div>
               <figcaption className="mt-3 text-[13px] leading-relaxed text-muted">
-                {clip.caption}{" "}
-                <a href={clip.href} className="link-arrow whitespace-nowrap">
+                {clip.caption}
+              </figcaption>
+              {/* The credit is its own block rather than a word at the end of
+                  the caption. A link inside a run of prose has to be
+                  distinguishable by something other than colour, and link-arrow
+                  underlines on hover and focus only; out of the sentence, the
+                  rule does not apply and the caption reads better for it. */}
+              <p className="mt-2 text-[13px] text-muted">
+                <a href={clip.href} className="link-arrow">
                   {clip.credit}
                 </a>
-              </figcaption>
+              </p>
             </figure>
           ) : null}
 

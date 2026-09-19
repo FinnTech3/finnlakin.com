@@ -670,6 +670,20 @@ body:not(:has(.stage)) main {
     color: var(--quote-soft);
   }
 
+  /* .t-label sets a colour of its own and is declared further down this layer,
+     so on an element carrying both it wins: neither specificity nor layering
+     separates two class rules in the same layer, source order does. The "Cut."
+     label came out as the page's light grey on the peach card at about 1.5:1,
+     which axe caught and a screenshot would not have.
+
+     This is the third time this file has been bitten by cascade order. The
+     first cost a download button 3.5:1 on its own fill. A descendant selector
+     is the smallest thing that settles it, and scoping it to the card means it
+     cannot reach any other label on the site. */
+  .quote-card .t-label {
+    color: var(--quote-soft);
+  }
+
   /* The initials. A photograph would be better and there is not one, so this
      is the honest version of the same affordance: it says a person said this
      without inventing a face for them. */
