@@ -68,7 +68,7 @@ export function SiteHeader() {
 
 export function SiteFooter() {
   return (
-    <footer className="site-footer mt-auto w-full bg-paper">
+    <footer className="site-footer mt-auto w-full">
       <div className="shell pt-10 pb-14">
       <div className="border-t border-rule pt-8">
         <div className="flex flex-wrap gap-x-8 gap-y-3">

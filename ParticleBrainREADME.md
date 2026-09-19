@@ -6,15 +6,19 @@ textures, driven by a spring solver that runs entirely on the graphics card,
 morphing between four shapes as the page scrolls. A phone builds eleven
 thousand.
 
-It is the opening animation, the dark stage at the top of the home page, and
-the cloud that goes on travelling down the paper below it beside the writing.
+It is the opening animation, the dark band at the top of the home page, and the
+cloud that goes on travelling down the page beside the writing.
 
 The particles accumulate additively into a float target, which is the only way
-to draw thirty thousand overlapping shards without sorting them. On black that
-accumulation is read as emitted light. On paper it is read as **ink coverage**
-instead, because an additive cloud over white adds to white and disappears, and
-that one change at the last pass is what let the choreography leave the stage
-and carry on down the document. See [Ink](#ink).
+to draw thirty thousand overlapping shards without sorting them, and that
+accumulation is read as emitted light. It only works over black, so the site is
+black: every band paints a translucent surface at most, the cloud sits behind
+all of it at `z-index: -10`, and what keeps it off the words is the lane rather
+than the layer.
+
+There was briefly an ink reading of the same buffer, for when the page below the
+stage was paper. It is gone with the paper, and it is in the history if the
+background ever goes light again.
 
 ## Why it is written by hand
 
@@ -352,7 +356,21 @@ extent of 0.34. It was 0.18, which is 53% of the cloud's radius, and a comment i
 |---|---|
 | 0.18 | 47.4% |
 | 0.13 | 19.6% |
-| **0.055** | **3.0%** |
+| 0.055 | 3.0% |
+| **0.085** | **7.9%** |
+
+0.055 went too far the other way, and that is worth recording as much as the
+original fault. It answered the complaint exactly and produced a dimple a
+fingertip wide in a cloud four hundred pixels across, which nobody ever finds.
+What was wrong was that the pointer moved *most of the brain*, not that it moved
+a lot of it, so the area stays small and the force inside it goes up.
+
+**The force is scaled by how fast the pointer is moving.** `MouseState.delta`
+had been computed, smoothed and clamped every frame since the engine was written
+and read by nothing at all. A resting cursor opens its hole at the base amount;
+one swept through the cloud drags a wake three times the size, and the wake
+decays with the velocity rather than with a timer. The swirl takes more of the
+speed than the push does, which is what reads as a wake rather than as a shove.
 
 The falloff is squared as well. `1 - smoothstep(0, reach, gap)` is broad by
 construction — still worth a fifth of full strength at two thirds of the reach —
@@ -445,65 +463,6 @@ cloud, in `npm run lint`, and fails if the near surface stops being sharp, the
 far surface stops being soft, the gap between them closes, or any part of the
 cloud reaches the clamp where the aperture stops meaning anything.
 
-## Ink
-
-The constraint that shaped everything else: **the particles are drawn with
-additive blending, so on a white page they add to white and disappear.** The
-dark stage existed to give the choreography somewhere to happen.
-
-The way out is not to change the blending. Thirty thousand unsorted tetrahedra
-alpha-blended in three dimensions are order-dependent and look wrong from every
-angle, and the accumulation is the correct measurement anyway: it is not really
-a light, it is a count of how much particle is at each pixel. What changes is
-what that count is read as, and that happens in one place, `FINAL_FRAGMENT`.
-
-`u_inkiness` is nought on the stage and one on paper, and it follows the same
-path `u_contentDim` does: `timeline.ts` to `types.ts` to `engine.ts` to
-`PostChain.render()` to the shader. In the shader both readings are built from
-the same `mass`, and mixed:
-
-- **Light**, unchanged: the tone-mapped colour, sRGB encoded, with `presence`
-  for alpha. At `u_inkiness` nought the output is exactly the line the stage was
-  measured on, so the stage cannot regress while the paper is being tuned.
-- **Ink**: coverage is `1 - exp(-mass * u_inkGain)`, saturating rather than
-  linear because that is how ink lays down — the first particles over a pixel
-  darken it a great deal and the hundredth hardly at all. A linear clamp gives a
-  cloud that is either invisible or a flat silhouette with nothing in between,
-  and the folds live in the in between. The pigment runs from a pale icy blue
-  where the cloud is thin to a nearly black indigo where it is thick, which is
-  the opposite direction from light and the right one for ink.
-
-Three things are scaled to nothing as the ink comes up, at the point they are
-uploaded in `post.ts`: **bloom**, because a glow around dark ink is a grey halo
-and because it is baked into the composed target before the final pass can see
-it; the **vignette**, because a black corner over paper is a grey frame; and the
-**grain**, because on paper it is speckle over the reading.
-
-### Two things the ink pass forced
-
-**The ink is premultiplied explicitly.** The light path never had to be: its
-colour is black wherever its alpha is nought, so the physics did the
-multiplication. A dark pigment on a transparent pixel is not, and left
-unmultiplied it paints full strength indigo over the whole page wherever the
-cloud is thin, which is everywhere.
-
-**The canvas changes layer.** On the stage it is behind the page at `z-index:
--10`, which works because the stage sets no background of its own. Every band
-below it carries an opaque background, and an opaque background paints over
-every negative layer beneath it: the first build of the ink pass rendered
-perfectly and showed nothing, because the work section was painted on top of it.
-The engine writes `--brain-layer` and the canvas goes in front of the page once
-past halfway through the hand-over. What keeps it off the words is the lane, not
-the layer.
-
-**The black plate rides the same number.** `.stage-decoration`'s opacity is
-`var(--stage-veil)`, written by the engine from `1 - inkiness`. It used to fade
-on the stage's own `view()` timeline, which is a second schedule: drift between
-the two is a window of dark ink on black, or bright particles on white, and
-neither is recoverable by tuning the other. The view-timeline version is kept as
-the fallback for a page with no engine running, and stands down when the engine
-marks the document.
-
 ## Contrast
 
 `tests/backdrop.spec.ts` hides the page, photographs what is left, and compares
@@ -583,23 +542,58 @@ fonts arrive, left the timeline mapped to positions the page no longer had.
 ### The lane
 
 On the paper half the cloud travels down a lane the layout leaves empty for it,
-`--lane` in `globals.css`, currently 36% of the viewport. `timeline.ts` derives
+`--lane` in `globals.css`, currently 40% of the viewport. `timeline.ts` derives
 where that is from the field of view, the camera's distance and the same
 fraction, so the cloud goes where the gap is at any screen width rather than at
-the one width it was tuned on. `LANE_FRACTION` and `--lane` are one decision
-written in two files.
+the one width it was tuned on.
 
-The bands take their lanes **in pairs**: right for the work and about bands,
-left for the path and the tools, right again for the references and the contact.
-Alternating every band guarantees a collision, because two sections share the
-viewport for most of a scroll through the boundary between them and if their
-lanes differ one of them has its content wherever the cloud is. In pairs, four
-of the five boundaries need no crossing at all.
+**Which side it is on is read off the markup, not worked out twice.** Each band
+declares `band-lane-left` or `band-lane-right`, and `ScrollController.laneAt()`
+reports the lane of the band the reader is in, crossing in the last fifth of a
+section so the cloud is already in place when the next heading reaches the top
+of the screen.
 
-Where the cloud does cross, it is dimmed and shrunk by how far it has come in
-over the column, both from the same `overColumn` term, so the two cannot drift
-apart. Below 1100 pixels the layout has no lane to give, so the cloud is behind
-the reading the whole way and is held down accordingly.
+It was worked out twice, as a stack of ramps in `timeline.ts`, and the two
+disagreed. The ramps were a guess about where each section sits in the progress
+range, and the sections are nothing like equal heights: measured on the home
+page the work section is 10,139 pixels and the path section is 803. At 85% of
+the document the layout had put its content on the right and the cloud was on
+the right with it, over the words. Three separate tunings moved that number by a
+few hundredths each before the cause turned out to be that there were two
+statements of the same fact.
+
+### The words carry their own shade
+
+There is no lane wide enough for the cloud to be both visible and clear of the
+column beside it. The bloom runs five downsample levels past the last particle,
+so on a 1280 pixel screen it reaches across the gap however far out the lane
+puts it: with the cloud parked in its lane and the dimming model reporting it
+clear, the tools eyebrow sat on a background of 0.29.
+
+So the content side of the screen carries a gradient, and because the page is
+black the gradient is black: invisible to a reader, entirely visible to a
+contrast meter. `.lane-shade-left` and `.lane-shade-right` are faded by
+`--lane-side`, which the engine writes from the same lane number that positions
+the cloud.
+
+Like `.stage-shade` before it, this lives **outside `main`**. The contrast suite
+reads what is behind a word by hiding the page and photographing what is left,
+so a shade inside the page is hidden along with it and measures nothing.
+
+### Nothing leaves the frame
+
+`scripts/check-motion.ts` sweeps every quarter step of progress at four aspect
+ratios, projects every shape forward with the explosion applied, and fails if
+anything reaches past the frame. It reports 0.86 of the half width and 0.92 of
+the half height.
+
+That assertion replaced a habit. The explosion multiplies each particle's own
+distance from the centre, so the reach at a given scroll position is not
+something anybody holds in their head: measured, the burst before the contact
+section reached **1.74 times the half width** and the helix went off the bottom
+too. The multiplier came down from `1 + 5 * random()` to `1 + 2.2 * random()`,
+and `targets()` then scales the whole composition uniformly until it fits, which
+keeps its shape and its place in the lane and only changes its size on screen.
 
 ### Two stacking traps
 

@@ -34,11 +34,16 @@ export function Hero() {
       className="stage relative h-[200vh] w-full sm:h-[220vh]"
     >
       <div className="stage-panel-inner sticky top-0 flex h-screen w-full items-center overflow-hidden">
-        <div className="shell relative w-full">
+        {/* Hard left rather than centred in the 1200px measure. The name is the
+            first thing on the site and it was sitting a fifth of the way in
+            from the edge with the cloud pushed off to the far right; anchored
+            to the gutter it has the left half of the screen and the cloud has
+            the right, which is the composition the stage was always for. */}
+        <div className="stage-panel relative w-full">
           {/* The copy. It rises as the stage is scrolled, which is the "text
               moves around the brain" the brief asks for: the cloud holds its
               position on the screen while the words travel past it. */}
-          <div className="stage-copy max-w-[32rem] lg:max-w-[30rem]">
+          <div className="stage-copy max-w-[34rem] lg:max-w-[38rem]">
             <p className="t-label flex items-center gap-2.5 text-pass">
               <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
               Available Summer 2026
@@ -51,7 +56,7 @@ export function Hero() {
                 is behind that empty space: here, the cloud, at a luminance of
                 0.65 against white type. The overlap it was reporting is real
                 where the box is, and there are no letters there. */}
-            <h1 className="t-display mt-6 w-fit text-ink">{person.name}</h1>
+            <h1 className="t-display-lg mt-6 w-fit text-ink">{person.name}</h1>
 
             <p className="t-sub mt-7 max-w-[26ch] text-pretty text-ink-soft">
               I rebuild published numbers from primitives and report the gap.{" "}

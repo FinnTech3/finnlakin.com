@@ -127,6 +127,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* Between the cloud and the words. Outside main on purpose: see the
             note on stage-shade in globals.css. */}
         <div aria-hidden="true" className="stage-shade" />
+        {/* The shade that follows the lane down the page. Two elements rather
+            than one with a flipped gradient, because a gradient cannot be
+            animated through a custom property and two opacities can. */}
+        <div aria-hidden="true" className="lane-shade lane-shade-left" />
+        <div aria-hidden="true" className="lane-shade lane-shade-right" />
 
         {/* First focusable element on the page. Visually hidden until it takes
             focus, so a keyboard user can reach the content without tabbing

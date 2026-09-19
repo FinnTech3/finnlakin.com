@@ -118,10 +118,20 @@ export const DEFAULTS: ParticleBrainConfig = {
 
      Counted rather than judged, by scripts/check-brain-targets.ts: at the
      densest place a pointer can be put, a reach of 0.18 had 47.4% of the cloud
-     inside it, 0.13 had 19.6%, and this has 3.0%. */
-  pointerReach: 0.055,
-  pointerPush: 0.0022,
-  pointerSwirl: 0.0013,
+     inside it, 0.13 had 19.6%, 0.055 had 3.0% and this has about 9%.
+
+     0.055 went too far the other way. It answered the complaint exactly, and a
+     dimple a fingertip wide in a cloud four hundred pixels across is something
+     a reader never finds. What was actually wrong was that the old version
+     moved *most of the brain*, not that it moved a lot of it, so the area stays
+     small and the force inside that area goes up rather than down. The push and
+     the swirl are both roughly doubled, and the shader scales them again by how
+     fast the pointer is moving, which is the lever that was sitting unused: a
+     resting cursor opens its hole at the base amount and a swept one drags a
+     wake three times the size. */
+  pointerReach: 0.085,
+  pointerPush: 0.0052,
+  pointerSwirl: 0.0041,
   mouseSmoothing: 0.1,
   scrollEase: 0.075,
   timelineEase: 0.1,
@@ -172,12 +182,10 @@ export type ParticleTimelineState = {
   /* How far the cloud's brightness is pulled down so that text laid over it
      keeps its contrast ratio. Zero is full strength. */
   contentDim: number;
-  /* Which surface the cloud is being drawn on. Nought is the dark stage, where
-     the particles are a light; one is paper, where the same cloud is read as
-     ink coverage instead. Everything between is the hand-over, and the black
-     plate behind the stage fades on this same number so the two cannot
-     disagree. */
-  inkiness: number;
+  /* Minus one when the cloud is in the left lane, one when it is in the right,
+     and between them while it crosses. The page reads it to shade the side the
+     words are on. */
+  laneSide: number;
 };
 
 export type MouseState = {
@@ -220,6 +228,7 @@ export type ParticleBrain = {
        open it is. Only ever read by the debug overlay and the tests. */
     pointer: [number, number, number];
     pointerActive: number;
+    pointerSpeed: number;
     /* Where the page is, in sections, as the timeline sees it. Exposed so the
        tests can assert the boundaries are the real ones: section n's top at the
        top of the viewport has to read exactly n, and it does not if the

@@ -1,4 +1,7 @@
+import { brainTargets } from "../src/particles/brain-shape";
 import { entryField, perimeterPoint } from "../src/particles/entrance";
+import { SEED } from "../src/particles/targets";
+import { ParticleTimeline } from "../src/particles/timeline";
 import { stepToward } from "../src/particles/scroll";
 import { DEFAULTS, type ParticleTimelineState } from "../src/particles/types";
 
@@ -91,7 +94,8 @@ function state(partial: Partial<ParticleTimelineState>): ParticleTimelineState {
     progress2: 0,
     rotation: { x: 0, y: 0, z: 0 },
     contentDim: 0,
-    inkiness: 0,
+    laneSide: 0,
+
     ...partial,
   };
 }
@@ -252,8 +256,90 @@ for (const delta of [1 / 120, 1 / 60, 1 / 30, 0.25, 0.5]) {
   console.log(`  arrives at ${current.toFixed(4)} of 6 after ten seconds`);
 }
 
+
+/* Every shape stays inside the frame, at every scroll position.
+
+   This is the assertion that replaces a habit. The composition is a stack of
+   clamped ramps and the explosion multiplies each particle's own distance from
+   the centre, so what the cloud actually reaches at a given scroll position is
+   not a thing anybody is holding in their head: measured before the clamp went
+   in, the burst before the contact section reached 1.74 times the half width of
+   the screen and the helix went off the bottom as well. Every earlier attempt
+   to keep it in frame was a number somewhere else being nudged until one screen
+   width looked right, and one screen width is not the set of screens.
+
+   The burst multiplier is regenerated here from the same expression targets.ts
+   uses rather than imported, for the same reason the camera is: if that
+   expression changes, this fails and somebody decides, instead of the cloud
+   quietly growing past the edge again. */
+{
+  const GRID = DEFAULTS.gridSize;
+  const COUNT = GRID * GRID;
+  const built = brainTargets(COUNT, SEED);
+  const random = (() => {
+    let a = SEED >>> 0;
+    return () => {
+      a |= 0;
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  })();
+  /* targets.ts draws several values per particle from one stream, in order, and
+     the explosion multiplier is the first of them. Only that one is kept. */
+  const multiplier = new Float32Array(COUNT);
+  for (let i = 0; i < COUNT; i++) {
+    multiplier[i] = 1 + 2.2 * random();
+    random();
+    random();
+  }
+
+  console.log("Shapes inside the frame");
+  let worstX = 0;
+  let worstY = 0;
+  let worstAt = "";
+  for (const aspect of [0.46, 1.22, 1.6, 2.4]) {
+    const line = new ParticleTimeline(DEFAULTS.factorDesktop, aspect);
+    for (let p = 0; p <= 6.0001; p += 0.25) {
+      const at = line.settle(p);
+      const shape =
+        built.shapes[p < 2.85 ? 0 : p < 3.5 ? 1 : p < 5.2 ? 2 : 3]!;
+      const depth = Math.abs(CAMERA_Z - at.offset.z);
+      for (let i = 0; i < COUNT; i += 7) {
+        const m = 1 + (multiplier[i]! - 1) * at.explode;
+        const s = at.factor * m;
+        let x = (shape[i * 3]! - 0.5) * s;
+        let y = (shape[i * 3 + 1]! - 0.5) * s;
+        let z = (shape[i * 3 + 2]! - 0.5) * s;
+        const { y: ry, z: rz } = at.rotation;
+        const x1 = x * Math.cos(ry) + z * Math.sin(ry);
+        z = -x * Math.sin(ry) + z * Math.cos(ry);
+        x = x1;
+        const x2 = x * Math.cos(rz) - y * Math.sin(rz);
+        y = x * Math.sin(rz) + y * Math.cos(rz);
+        x = x2;
+        const d = Math.max(0.05, depth - z);
+        const hh = d * Math.tan((CAMERA_FOV * Math.PI) / 360);
+        const nx = Math.abs((x + at.offset.x) / (hh * aspect));
+        const ny = Math.abs((y + at.offset.y) / hh);
+        if (nx > worstX || ny > worstY) worstAt = `aspect ${aspect}, progress ${p.toFixed(2)}`;
+        worstX = Math.max(worstX, nx);
+        worstY = Math.max(worstY, ny);
+      }
+    }
+  }
+  console.log(
+    `  worst reach: ${worstX.toFixed(2)} of the half width, ` +
+      `${worstY.toFixed(2)} of the half height (${worstAt})`,
+  );
+  check(worstX <= 1 && worstY <= 1, "no shape leaves the frame at any scroll position",
+    `${worstX.toFixed(2)} across, ${worstY.toFixed(2)} down`);
+}
+
 if (failures > 0) {
-  console.error(`\n${failures} motion check${failures === 1 ? "" : "s"} failed.`);
+  console.error(`\nMotion: ${failures} check${failures === 1 ? "" : "s"} failed.`);
   process.exit(1);
 }
+
 console.log("  all motion checks passed");

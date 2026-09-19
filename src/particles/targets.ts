@@ -204,7 +204,16 @@ export function buildTargetSet(
     param2[i * 4 + 2] = order.toFourth[i]! / denominator;
     param2[i * 4 + 3] = order.explosion[i]! / denominator;
 
-    param3[i * 4] = 1 + 5 * random();
+    /* How far the explosion throws this particle, as a multiple of its own
+       distance from the centre of the cloud.
+
+       It was 1 + 5 * random(), so a particle could be flung six times its own
+       radius out. Measured, that put the cloud's reach at 1.74 times the half
+       width of the screen and 1.66 times the half height: most of a dispersed
+       cloud was off the edge, and what a reader saw was not a brain coming
+       apart but a few shards drifting through an empty frame. At 1 + 2.2 the
+       dispersion is still a dispersion and it stays in the picture. */
+    param3[i * 4] = 1 + 2.2 * random();
     param3[i * 4 + 1] = 2 * random() - 1;
     param3[i * 4 + 2] = (shapes[0]![i * 3]! - 0.5) * 2;
     param3[i * 4 + 3] = 0;

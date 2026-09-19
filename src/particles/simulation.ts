@@ -27,6 +27,8 @@ export type SimulationInputs = {
      around it should be. */
   pointer: [number, number, number];
   pointerActive: number;
+  /* How fast the pointer is moving, nought to one. */
+  pointerSpeed: number;
 };
 
 export class ParticleSimulation {
@@ -105,6 +107,7 @@ export class ParticleSimulation {
       "u_pointerPush",
       "u_pointerSwirl",
       "u_pointerActive",
+      "u_pointerSpeed",
     ]);
     this.positionUniforms = locations(this.gl, this.positionProgram, [
       "t_position",
@@ -316,6 +319,7 @@ export class ParticleSimulation {
     gl.uniform1f(this.velocityUniforms.u_pointerPush ?? null, config.pointerPush);
     gl.uniform1f(this.velocityUniforms.u_pointerSwirl ?? null, config.pointerSwirl);
     gl.uniform1f(this.velocityUniforms.u_pointerActive ?? null, inputs.pointerActive);
+    gl.uniform1f(this.velocityUniforms.u_pointerSpeed ?? null, inputs.pointerSpeed);
     this.fullscreen.draw();
     this.velocities.swap();
 

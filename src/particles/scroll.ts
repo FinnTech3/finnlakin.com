@@ -58,6 +58,7 @@ export function stepToward(
 export class ScrollController {
   private state: ScrollState = { sectionProgress: 0, target: 0 };
   private boundaries: number[] = [];
+  private lanes: number[] = [];
   private ease: number;
   private observer: ResizeObserver | null = null;
   private queued = false;
@@ -131,11 +132,30 @@ export class ScrollController {
     if (typeof document === "undefined") return;
 
     const tops: number[] = [];
+    const lanes: number[] = [];
     for (const id of SECTIONS) {
       const element = document.getElementById(id);
       if (!element) continue;
       tops.push(element.getBoundingClientRect().top + window.scrollY);
+      /* Which side of this band the cloud travels down, read off the markup
+         rather than worked out again here.
+
+         It was worked out again here, as a stack of ramps in timeline.ts, and
+         the two disagreed: measured at 85% of the document the layout had put
+         its content on the right and the cloud was on the right with it, over
+         the words, because the ramps were a guess about where each section sits
+         in the progress range and the sections are not equal heights. Reading
+         the class is the only version of this that cannot drift, because there
+         is then only one statement of it. */
+      lanes.push(
+        element.classList.contains("band-lane-left")
+          ? -1
+          : element.classList.contains("band-lane-right")
+            ? 1
+            : 1,
+      );
     }
+    this.lanes = lanes;
     /* The last boundary, clamped to the furthest the page can actually scroll.
 
        The final section is shorter than a viewport, so its top never reaches the
@@ -183,6 +203,30 @@ export class ScrollController {
       }
     }
     return RANGE;
+  }
+
+  /* Which lane the cloud should be in at a given progress, and how far through
+     a change of sides it is.
+
+     The crossing happens in the last fifth of a section rather than at its
+     boundary, so the cloud is already in the new lane by the time the incoming
+     heading reaches the top of the screen. Straddling the boundary put it
+     halfway across at the exact moment a heading arrived. */
+  laneAt(progress: number): number {
+    const lanes = this.lanes;
+    if (lanes.length < 2) return 1;
+    const step = RANGE / (lanes.length - 1);
+    const at = clamp(progress / step, 0, lanes.length - 1);
+    const index = Math.min(lanes.length - 1, Math.floor(at));
+    const here = lanes[index] ?? 1;
+    const next = lanes[Math.min(lanes.length - 1, index + 1)] ?? here;
+    if (here === next) return here;
+    const through = at - index;
+    const CROSS_FROM = 0.6;
+    const CROSS_TO = 0.95;
+    if (through <= CROSS_FROM) return here;
+    if (through >= CROSS_TO) return next;
+    return here + (next - here) * ((through - CROSS_FROM) / (CROSS_TO - CROSS_FROM));
   }
 
   read() {

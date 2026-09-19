@@ -2,6 +2,8 @@ import Link from "next/link";
 import { IntervalBand } from "@/components/charts";
 import { provenanceLabel, provenanceOrder, provenanceShort } from "@/lib/claims";
 import type { Project } from "@/lib/projects";
+import { ClipPlayer } from "@/components/clip";
+import { clipById, projectClips } from "@/lib/media";
 import { projects } from "@/lib/projects";
 
 /* The four kinds of evidence are defined once, here, rather than restated on
@@ -58,6 +60,7 @@ export function ProjectCard({
   accent?: boolean;
 }) {
   const ordinal = String(index + 1).padStart(2, "0");
+  const clip = clipById.get(projectClips[project.slug] ?? "");
 
   return (
     <article className="@container rounded-[--radius-card] bg-card px-6 py-9 sm:px-9 sm:py-11">
@@ -79,6 +82,24 @@ export function ProjectCard({
 
         <div>
           <p className="measure text-[16px] leading-[1.55] text-ink">{project.body}</p>
+
+          {/* A clip, on the two projects where one says something the numbers
+              cannot. Not on the others: a video beside every result is
+              wallpaper, and the figures built from the real data are the
+              pictures that belong to the rest of them. */}
+          {clip ? (
+            <figure className="mt-8 m-0">
+              <div className="relative aspect-[16/9] w-full overflow-hidden rounded-[--radius-card-sm]">
+                <ClipPlayer clip={clip} />
+              </div>
+              <figcaption className="mt-3 text-[13px] leading-relaxed text-muted">
+                {clip.caption}{" "}
+                <a href={clip.href} className="link-arrow whitespace-nowrap">
+                  {clip.credit}
+                </a>
+              </figcaption>
+            </figure>
+          ) : null}
 
           {project.stats.length > 0 ? (
             <dl className="mt-9 grid grid-cols-2 gap-x-8 gap-y-6 @5xl:grid-cols-4">

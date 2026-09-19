@@ -163,10 +163,6 @@ uniform float u_vignetteDarkness;
 uniform float u_grain;
 uniform float u_exposure;
 uniform float u_contentDim;
-/* Nought on the dark stage, one on paper: which of the two readings of the
-   accumulation buffer this frame wants. See the ink block in main. */
-uniform float u_inkiness;
-uniform float u_inkGain;
 
 float random(vec2 p) {
   return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
@@ -181,20 +177,6 @@ vec3 encode(vec3 linear) {
     step(vec3(0.0031308), linear)
   );
 }
-
-/* The two pigments the cloud is drawn in once the page is paper.
-
-   Display space rather than linear, because they are chosen against what a
-   reader sees rather than computed from a light, which is also why they never
-   go through encode(): they are already on the other side of it.
-
-   Pale where the cloud is thin and deep where it is thick, which is how ink
-   behaves and the opposite of how light does. A sparse drift of particles is a
-   wash; a gyral crown with a hundred particles behind it is a pooled, nearly
-   black indigo. One flat pigment, or the ramp run the other way, throws away
-   the corrugation the shape exists to have. */
-const vec3 INK_PALE = vec3(0.435, 0.517, 0.655);
-const vec3 INK_DEEP = vec3(0.055, 0.086, 0.196);
 
 /* A filmic curve. Values under about one are barely changed; values well over
    it are pulled back towards white rather than clipped at it. */
@@ -214,10 +196,6 @@ void main() {
   vec2 offset = (v_uv - 0.5) * u_vignetteOffset;
   colour = mix(colour, vec3(0.0), clamp(dot(offset, offset) * u_vignetteDarkness, 0.0, 1.0));
 
-  /* How much particle is at this pixel. Both readings below are built from
-     this one number, which is what keeps them describing the same cloud. */
-  float mass = dot(colour, vec3(0.2126, 0.7152, 0.0722));
-
   /* How far the cloud is held down so that text laid over it keeps its contrast
      ratio. Applied here, after the tone map, and not in the vertex shader where
      it started.
@@ -229,8 +207,7 @@ void main() {
      applied per particle still left a relative luminance of 0.09 behind a line
      of body text, where the ceiling is 0.033. Applied to the finished pixel it
      is an honest multiplier: halve it and the measurement halves. */
-  float held = 1.0 - u_contentDim;
-  colour *= held;
+  colour *= 1.0 - u_contentDim;
 
   /* How opaque this pixel is, decided before the grain is added.
 
@@ -249,39 +226,17 @@ void main() {
   float noise = random(gl_FragCoord.xy + fract(u_time) * 100.0) - 0.5;
   colour += noise * u_grain * presence;
 
-  /* The light reading: the cloud as an emitter, over black. The context is
-     premultiplied, which is what additive accumulation already produces, since
-     empty space is black and therefore transparent. */
-  vec3 lightRgb = encode(colour);
+  /* The context is premultiplied, which is what additive accumulation already
+     produces: empty space is black and therefore transparent.
 
-  /* The ink reading.
-
-     The accumulation buffer is not really a light. It is a measure of how much
-     particle is at each pixel, and treating that as emitted light is only
-     correct over black: on paper an additive cloud adds to white and vanishes,
-     which is the constraint the dark stage existed to work around.
-
-     So on paper the same number is read as coverage instead. Saturating rather
-     than linear, because that is how ink lays down: the first particles over a
-     pixel darken it a great deal and the hundredth hardly at all. A linear
-     clamp gives a cloud that is either invisible or a flat silhouette with
-     nothing in between, and the folds live in the in between. */
-  float coverage = (1.0 - exp(-mass * u_inkGain)) * held;
-  vec3 pigment = mix(INK_PALE, INK_DEEP, clamp(mass * 1.45, 0.0, 1.0));
-
-  /* Premultiplied explicitly, which the light reading never had to be: there
-     the colour is black wherever the alpha is nought, so the multiplication was
-     already done by the physics. A dark pigment on a transparent pixel is not,
-     and left unmultiplied it paints full strength indigo over the whole page
-     wherever the cloud is thin, which is everywhere.
-
-     One expression, mixed, rather than two branches. At u_inkiness nought this
-     is exactly the line the dark stage was measured on, so the stage cannot
-     quietly regress while the paper is being tuned. */
-  fragColor = vec4(
-    mix(lightRgb, pigment * coverage, u_inkiness),
-    mix(presence, coverage, u_inkiness)
-  );
+     There was briefly a second reading here, for when the page below the stage
+     was paper: the same accumulation read as ink coverage with a dark pigment,
+     because an additive cloud over white adds to white and vanishes. The site
+     is one dark surface now and the cloud is behind the page rather than over
+     it, so there is nothing for an ink to be laid on. It is in the history if
+     the background ever goes light again.
+  */
+  fragColor = vec4(encode(colour), presence);
 }
 `;
 

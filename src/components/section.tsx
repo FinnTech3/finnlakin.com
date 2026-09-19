@@ -20,9 +20,15 @@ export function Section({
      On the home page the Hero owns the h1 and every Section below it is an
      h2. Without this, /writing and /privacy shipped with no h1 at all. */
   level = 2,
-  /* Which surface the band sits on. The brief alternates paper white and fog
-     to break the canvas up without introducing contrast; a page states the
-     rhythm rather than each section guessing at it. */
+  /* Which surface the band sits on.
+
+     Nothing, or a sheet of white at two percent. The brief alternates paper
+     white and fog; on black the same rhythm is a barely lifted surface against
+     none, and it has to stay barely lifted for a reason beyond taste: the
+     particle cloud is drawn behind the page, so anything opaque here paints
+     over it. That is not a hypothetical. The first build of this put the cloud
+     behind sections with solid backgrounds and it rendered perfectly and showed
+     nothing at all. */
   band = false,
   /* Which side of the band the particle cloud travels down, so the content
      takes the other. Undefined is a centred column at the ordinary measure,
@@ -45,7 +51,7 @@ export function Section({
   const inner = lane ? "band-inner" : "shell";
 
   return (
-    <section id={id} className={`w-full ${band ? "bg-band" : "bg-paper"}${laneClass}`}>
+    <section id={id} className={`w-full ${band ? "bg-band" : ""}${laneClass}`}>
       <div className={`${inner} py-16 sm:py-20`}>
         <p className="t-label">{eyebrow}</p>
         <Heading className="t-h mt-4 max-w-[20ch] text-ink text-balance">{title}</Heading>

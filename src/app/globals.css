@@ -56,110 +56,97 @@
   --slate: #5f636c;
   --smoke: #686c76;
 
-  /* Page surfaces, in the brief's own order: canvas, the quiet nested layer,
-     the alternating band, and the one chromatic surface. */
-  --paper: var(--paper-white);
-  --card: var(--mist-gray);
-  --band: var(--fog-white);
-  --panel: var(--paper-white);
+  /* Page surfaces. The site is one dark surface now, and these are stated as
+     translucent white rather than as opaque greys on purpose: a shader
+     background is coming that will sit behind all of it, and over a shader
+     these read as glass where an opaque grey would read as a hole punched in
+     it. Over the flat black that stands in for it, they are the greys they
+     replace. */
+  --paper: #000000;
+  /* Smoked glass rather than a lift of white, and the difference is load
+     bearing. The particle cloud is drawn behind the page, so a card at four
+     percent white lets it straight through: measured, the provenance label on a
+     card sat on a background of 0.0559 and came out at 3.79:1, because the
+     cloud's bloom was behind the words. At these values a card is its own
+     surface and the cloud shows between the cards and in the lane, which is
+     where it is supposed to be.
 
-  --ink: var(--ink-black);
-  --ink-soft: var(--ink-black);
-  --muted: var(--slate);
-  --faint: var(--smoke);
+     Opaque, not translucent, and the last eight percent is what matters. A card
+     at 0.88 still let enough of the cloud's bloom through to put a grey label
+     at 4.30:1, and it is also the wrong answer for the animated background that
+     is coming: text at 88% over something that is moving shimmers. Opaque, the
+     card is a real surface, which is what the contrast suite's own exclusion
+     assumes and what axe then measures properly on every route. */
+  --card: #0d0d11;
+  --band: rgb(255 255 255 / 0.022);
+  --panel: rgb(8 8 10 / 0.94);
 
-  /* Hairlines, not rules. The brief asks for 1px #ececec and nothing heavier,
-     which is enough to hold a column of figures together on white where on
-     black it needed a lifted alpha. */
-  --rule: var(--hairline);
-  --rule-strong: #d8d8da;
+  --ink: #ffffff;
+  --ink-soft: #c8c8cb;
+  /* Lifted from #9ea0a6. The quietest grey on the site has to clear 4.5:1
+     against a background that is no longer guaranteed to be black: the cloud is
+     behind the page now, and a card only holds most of it down. */
+  --muted: #a9abb1;
+  --faint: #a9abb1;
 
-  /* Links are ink, and the arrow suffix carries the affordance: the brief is
-     explicit that nothing is underlined at rest. Colour cannot do the work
-     here, so the underline appears on hover and focus instead, which is also
-     the only version of this that survives a reader who cannot see the arrow
-     as decoration. */
-  --accent: var(--ink-black);
-  --accent-soft: rgb(23 25 28 / 0.08);
+  /* Hairlines, not rules. The brief asks for 1px #ececec, which is right on
+     paper and invisible on black: a hairline on a dark surface needs a lifted
+     alpha to carry the same weight. */
+  --rule: rgb(255 255 255 / 0.13);
+  --rule-strong: rgb(255 255 255 / 0.28);
 
-  /* The filled pill, which is the system's single action. Ink on paper for
-     the fill and paper on ink for its label. */
-  --action: var(--ink-black);
-  --action-ink: var(--paper-white);
-  --action-soft: rgb(23 25 28 / 0.1);
+  /* Links carry the arrow suffix as their affordance, and the brief is explicit
+     that nothing is underlined at rest; the underline appears on hover and
+     focus, which is the only version of this that survives a reader who cannot
+     read the arrow as a signal.
 
-  /* The editorial accent, and its ink. Never body text, never off a peach
-     surface: both are the brief's instruction and both are right. */
+     Amber rather than the brief's ink, and the measurement is the reason: the
+     violet this replaced drops to 3.5:1 once anything is drawn behind it, where
+     amber holds 9.4:1 against what a reader actually sees. */
+  --accent: #ffb829;
+  --accent-soft: rgb(255 184 41 / 0.16);
+
+  /* The filled pill, which is the system's single action. Inverted from the
+     brief: on paper it is ink on white, and here the same control has to be
+     white on ink or it disappears into the surface it is meant to stand out
+     from. */
+  --action: #ffffff;
+  --action-ink: #17191c;
+  --action-soft: rgb(255 255 255 / 0.14);
+
+  /* The editorial accent and its ink, unchanged. It is a light surface on a
+     dark page, which is what it was on the stage, and it still carries the one
+     callout per page the brief rations it to. */
   --accent-warm: var(--blush-peach);
   --accent-warm-ink: var(--sienna-brown);
 
   /* Verdicts stay their own pair, and this is a considered departure from the
      brief's "no chromatic colour beyond the peach and brown".
 
-     The brief is written for a product page where colour is decoration. Half
-     of this site is reconstructions of published figures, and whether one held
-     is the single thing a reader is here to find out. The brief's own
-     principle is that colour is rationed to functional emphasis, and there is
-     no more functional emphasis on this site than this. Retuned from the pair
-     that was here for pure black: 6.47:1 and 7.56:1 on paper, 5.78 and 6.75 on
-     the mist card, where the old pair measured 1.7 and 2.2 and would have been
-     unreadable. Print still renders both as black and separates them by
-     weight. */
-  --pass: #0d6b53;
-  --flag: #a3201a;
-
-}
-
-/* The dark stage: the one band that stays the site it was, because that is
-   what carries the particle brain and the opening animation. Everything the
-   brief describes happens on paper below it.
-
-   A scope rather than a second theme file. The tokens keep their names, so a
-   component that renders inside the stage and one that renders on paper are
-   the same component, and neither has to know which it is in. */
-.stage {
-  color-scheme: dark;
-
-  --paper: #000000;
-  --card: rgb(255 255 255 / 0.04);
-  --band: #000000;
-  --panel: rgb(8 8 10 / 0.94);
-
-  --ink: #ffffff;
-  --ink-soft: #bdbdbd;
-  --muted: #9a9a9a;
-  --faint: #9a9a9a;
-
-  --rule: rgb(255 255 255 / 0.12);
-  --rule-strong: rgb(255 255 255 / 0.26);
-
-  /* Amber, and the measurement is in the note this replaces: violet text
-     drops to 3.5:1 once the gradient behind the scrim lifts the background,
-     where amber holds 9.4:1 against what a reader actually sees. */
-  --accent: #ffb829;
-  --accent-soft: rgb(255 184 41 / 0.16);
-
-  /* The brief's filled pill, inverted. On paper it is ink on white; on the
-     stage the same control has to be white on ink, or it disappears into the
-     background it is meant to stand out from. The violet that used to be here
-     belonged to the palette this design replaced, and it was the last of it
-     left on the page: the brain and the opening animation keep their icy blue,
-     which is what was asked for, and nothing else is coloured. */
-  --action: #ffffff;
-  --action-ink: #17191c;
-  --action-soft: rgb(255 255 255 / 0.14);
-
-  /* The verdict pair the dark theme was tuned for: 11.0:1 and 8.25:1 on pure
-     black, where the paper pair above measures 1.7 and 2.2 and disappears. */
+     The brief is written for a product page where colour is decoration. Half of
+     this site is reconstructions of published figures, and whether one held is
+     the single thing a reader is here to find out. The brief's own principle is
+     that colour is rationed to functional emphasis, and there is no more
+     functional emphasis on this site than this. This is the pair tuned for
+     black: 11.0:1 and 8.25:1 on it, where the pair chosen for paper measures
+     1.7 and 2.2 here and disappears. Print renders both as black and separates
+     them by weight. */
   --pass: #4fd1a5;
   --flag: #ff7a6b;
 
-  /* No background of its own. The black comes from the fixed plate at the back
-     of the decoration layer, because the particle canvas and the gradient sit
-     at negative z-index and an opaque background here would paint straight
-     over both of them. */
+}
+
+/* The stage keeps its name and loses its colours.
+
+   It used to be a dark scope inside a paper site: the one band that stayed the
+   site it was, so the particle cloud had somewhere it could be seen at all. The
+   whole site is that surface now, so every token it redefined is already the
+   token, and nothing is left here but the declaration that it paints no
+   background of its own. Its layout and its motion are further down; the
+   artifact cards inside it still declare a light scope, which is deliberate,
+   because they are paper fragments floating over the dark. */
+.stage {
   background: transparent;
-  color: var(--ink);
 }
 
 @theme inline {
@@ -224,7 +211,7 @@
      The size is set by the cloud, which is about 370 pixels across at the
      opening factor: a narrower lane has it overlapping the column at every
      scroll position rather than at the crossings only. */
-  --lane: 36vw;
+  --lane: 40vw;
   --spacing-section: 5rem;
 
   --radius-card: 24px;
@@ -251,17 +238,12 @@
   z-index: 40;
 }
 
-body:has(.stage) .site-header {
-  --ink: #ffffff;
-  --ink-soft: #bdbdbd;
-  --muted: #9a9a9a;
-  --faint: #9a9a9a;
-  --accent: #ffffff;
-  --rule: rgb(255 255 255 / 0.12);
-  --rule-strong: rgb(255 255 255 / 0.26);
+/* The header used to lighten its own tokens, because it lay over the dark
+   stage while the rest of the site was paper. There is no rest-of-the-site to
+   differ from now. Removing it also removed a fault it caused: it lightened the
+   text tokens and not the surface ones, so a control that took a background
+   from --card rendered near-white text on a near-white pill at 2.3:1. */
 
-  color: #ffffff;
-}
 
 /* The stage's own layout and motion.
 
@@ -452,7 +434,6 @@ body:has(.stage) .site-header {
      white headline off a bright cloud has nothing to do once the page is paper
      and the cloud is ink: left running it is a black gradient over the first
      paper band. */
-  opacity: var(--stage-veil, 1);
 }
 
 /* A phone has no free half: the words are above the cloud rather than beside
@@ -580,34 +561,22 @@ body:not(:has(.stage)) .stage-shade {
      number, so the black cannot still be there when the cloud has turned to
      ink, or be gone while the cloud is still a light. The fallback of 1 is what
      a page with no engine on it sees before the animation below takes over. */
-  opacity: var(--stage-veil, 1);
 }
 
-/* The particle canvas.
+/* The particle canvas, behind the page.
 
-   The layer is a variable because it changes, and it has to. On the dark stage
-   the cloud belongs behind the page: the stage sets no background of its own,
-   so a canvas at a negative layer shows through it, and text laid over the
-   cloud is text over a thing that is genuinely behind it.
-
-   On the paper half it cannot stay there. Every band below the stage carries an
-   opaque background, white or fog, and an opaque background paints over every
-   negative layer beneath it: the first build of the ink pass rendered perfectly
-   and showed nothing at all, because the work section was painted on top of it.
-   The alternatives were to make the bands transparent, which leaves a contrast
-   checker walking up from a paragraph to a root element that is black on this
-   route and reporting dark text on black, or to draw the cloud over the page.
-
-   So it goes over the page, and the composition is what keeps it off the words:
-   it travels in the margin beside the reading column, and where it does cross,
-   the timeline holds it down in proportion to how far in it has come. Measured
-   by the contrast suite rather than asserted here. */
+   It briefly had a variable layer, because while the site below the stage was
+   paper every band carried an opaque background and painted straight over a
+   negative layer: the cloud rendered perfectly and showed nothing. The site is
+   one dark surface now and the bands paint nothing opaque, so the cloud is
+   behind the page everywhere, which is where it belongs. What keeps it off the
+   words is the lane, not the layer. */
 .brain-host {
   position: fixed;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  z-index: var(--brain-layer, -10);
+  z-index: -10;
 }
 
 /* The black the stage is made of. Fixed and behind everything, including the
@@ -622,12 +591,11 @@ body:not(:has(.stage)) .stage-shade {
   pointer-events: none;
 }
 
-/* Every other route is paper from the top. The gradient, the cloud and the
-   plate belong to the stage, and a page with no stage should not be paying
-   for a canvas it never shows. */
-body:not(:has(.stage)) .stage-decoration {
-  display: none;
-}
+/* Kept on every route. It used to be hidden away from the home page, because
+   the gradient belonged to the stage and every other page was paper; they are
+   all the same surface now, and the gradient is the atmosphere behind all of
+   them. The particle canvas inside it is still mounted on the home page only,
+   which is a separate decision and is in particle-brain-mount.tsx. */
 
 /* The header is laid over the page, so a page without a full-height stage
    under it has to leave room for it rather than starting underneath it. */
@@ -635,26 +603,10 @@ body:not(:has(.stage)) main {
   padding-top: 5.5rem;
 }
 
-/* The fallback, for a page where the engine is not running: no WebGL2, a
-   driver that refused a float target, or the chunk never arriving. The engine
-   marks the document when it takes the veil over, and this stands down.
-
-   It cannot simply be left on underneath, because an animation beats a declared
-   property whatever the property says, so the two cannot both be live. */
-@supports (animation-timeline: view()) {
-  html:not([data-veil="engine"]) .stage-decoration,
-  html:not([data-veil="engine"]) .stage-shade {
-    animation: stage-decoration linear both;
-    animation-timeline: --stage;
-    animation-range: contain 90% contain 100%;
-  }
-}
-
-@keyframes stage-decoration {
-  to {
-    opacity: 0;
-  }
-}
+/* The decoration layer used to fade out as the stage ended, because the page
+   below it was paper and a dark gradient over white is a stain. There is no
+   paper to hand over to, so it stays, and both the @supports block that drove
+   the fade and its keyframes are gone with it. */
 
 /* Testimonials, on a surface of their own.
 
@@ -735,6 +687,87 @@ body:not(:has(.stage)) main {
   }
 }
 
+/* The shade the words carry, and the reason it exists is worth reading.
+
+   The particle cloud is drawn behind the page and its bloom runs five
+   downsample levels past the last particle. On a 1280 pixel screen there is no
+   lane wide enough for it to be both visible and clear of the column beside it:
+   measured, the tools eyebrow sat on a background of 0.29 with the cloud parked
+   in its lane and the dimming model reporting it clear, and widening the lane,
+   shrinking the cloud and widening the model each moved that by a few
+   hundredths.
+
+   So the content side of the screen gets a gradient, and because the page is
+   black the gradient is black: a reader sees nothing at all and the cloud is
+   held down exactly where the words are. This is the same construction the
+   stage already used for the hero, generalised to follow the lane.
+
+   --lane-side is written by the engine from the same number that positions the
+   cloud, which is what stops the two disagreeing about which side is which. Its
+   default of nought is the no-engine case, where there is no cloud to shade
+   against and both sides stay clear.
+
+   Outside main, and that is not an implementation detail: the contrast suite
+   reads what is behind a word by hiding the page and photographing what is
+   left, so a shade that lives inside the page is hidden along with it and
+   measures nothing. At -6 it is in front of the cloud at -10 and behind
+   everything that carries words. */
+.lane-shade {
+  position: fixed;
+  inset: 0;
+  z-index: -6;
+  pointer-events: none;
+}
+
+.lane-shade-left {
+  opacity: clamp(0, calc(var(--lane-side, 0) * 1), 1);
+  background: linear-gradient(
+    to right,
+    rgb(0 0 0 / 0.95) 0%,
+    rgb(0 0 0 / 0.9) 46%,
+    rgb(0 0 0 / 0.55) 58%,
+    rgb(0 0 0 / 0) 68%
+  );
+}
+
+.lane-shade-right {
+  opacity: clamp(0, calc(var(--lane-side, 0) * -1), 1);
+  background: linear-gradient(
+    to left,
+    rgb(0 0 0 / 0.95) 0%,
+    rgb(0 0 0 / 0.9) 46%,
+    rgb(0 0 0 / 0.55) 58%,
+    rgb(0 0 0 / 0) 68%
+  );
+}
+
+/* No cloud on any other route, so nothing to shade against. */
+body:not(:has(.stage)) .lane-shade {
+  display: none;
+}
+
+@media (max-width: 1099px) {
+  .lane-shade {
+    display: none;
+  }
+}
+
+/* The gradient that holds a caption off a moving picture. Stronger at the
+   bottom, where the words are, and gone by halfway up so the clip is not
+   dimmed for the sake of two lines. */
+.clip-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    rgb(0 0 0 / 0.92) 0%,
+    rgb(0 0 0 / 0.72) 22%,
+    rgb(0 0 0 / 0.25) 46%,
+    rgb(0 0 0 / 0) 68%
+  );
+}
+
 /* The one elevation in the system. The brief gives it exactly, and is equally
    explicit that content cards never get it: only the product fragments that
    float over the page earn a shadow, and only at a tenth of an opacity. */
@@ -746,26 +779,9 @@ body:not(:has(.stage)) main {
 }
 
 html {
-  background: var(--paper-white);
-}
-
-/* On a page whose top is the stage, the document's canvas is black.
-
-   The stage's black used to come only from a fixed plate behind everything,
-   which is fine to look at and wrong to measure: the header lies over the
-   stage with no background of its own, so walking up the tree from a
-   navigation link found body (transparent) and then html (paper white), and
-   the accessibility gate reported the nav at 2.8:1 against a white background
-   that is not on the screen. The root element's background paints before any
-   negative z-index layer, so putting the black here puts it underneath the
-   gradient and the cloud exactly as the plate did, and puts it somewhere a
-   contrast checker can find it.
-
-   Every paper region below states its own surface, so nothing else inherits
-   this. */
-html:has(.stage) {
   background: #000000;
 }
+
 
 /* Transparent on purpose: the backdrop is fixed behind it and this is what
    lets the gradient through. html above carries the opaque black, so a
@@ -871,6 +887,25 @@ body {
 
      Every one of these clamps down. The brief is written for a desktop spread
      and its 90px display is 25% of a phone's width per character. */
+  /* One step above the display size, for the name and nothing else. The
+     brief's display size is set against a centred column; anchored to the
+     gutter with the whole left half of the screen to itself, the same size
+     reads small. */
+  .t-display-lg {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-size: clamp(3.25rem, 11vw, 7.75rem);
+    line-height: 0.92;
+    letter-spacing: -0.03em;
+  }
+
+  /* The hero's own container: hard against the left gutter rather than centred
+     in the measure, so the name starts where the page starts and the cloud has
+     the right of the screen rather than a sliver of it. */
+  .stage-panel {
+    padding-inline: clamp(1.25rem, 5vw, 7rem);
+  }
+
   .t-display {
     font-family: var(--font-serif);
     font-size: clamp(2.75rem, 8vw, var(--text-display));

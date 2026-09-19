@@ -42,7 +42,7 @@ export const INITIAL_YAW = -0.1 * Math.PI;
    the camera to the cloud's plane times the tangent of half the field of view,
    times the aspect. The lane's centre then sits (1 - lane) of that out from the
    middle and the content's inner edge at (1 - 2 * lane). */
-const LANE_FRACTION = 0.36;
+const LANE_FRACTION = 0.4;
 
 function halfViewport(aspect: number) {
   return Math.abs(CAMERA_POSITION[2]) * Math.tan((CAMERA_FOV * Math.PI) / 360) * aspect;
@@ -52,17 +52,42 @@ function halfViewport(aspect: number) {
    same world units as the offset: factor times this is the cloud's radius. */
 const CLOUD_RADIUS = 0.34;
 
+/* How much further than its own radius the explosion throws the cloud, at full
+   strength. param3.r in targets.ts is 1 + 2.2 * random(), so no particle is
+   thrown more than 3.2 times its own distance from the centre; this is a little
+   over that, because the particle that draws the largest multiple is not always
+   the one that started furthest out and the two compound. Measured against the
+   generated cloud by scripts/check-motion.ts, which fails if the reach here
+   stops covering the real one. */
+const EXPLODE_SPREAD = 4.4;
+
+/* How much of the half frame the composition is allowed to fill. Not one: a
+   shape whose outermost particle sits exactly on the edge reads as clipped,
+   and the bloom carries five downsample levels past the particles. */
+const FRAME_FILL = 0.94;
+
+/* How far past its own particles the cloud is still bright, in world units.
+
+   The bloom runs five downsample levels, so the glow reaches a long way past
+   the last speck, and a model of the cloud's width that stops at its particles
+   is wrong by exactly that much. Measured by the contrast suite rather than
+   reasoned about: with the cloud's centre 4.09 units out and its particles
+   ending at 4.22, the tools eyebrow at the edge of the column beside it sat on
+   a background of 0.2897, which is the cloud at nearly full strength. The
+   dimming had computed that it was clear. */
+const BLOOM_REACH = 1.6;
+
 /* How far the cloud is held down while it is over the column. Set by the
    contrast suite rather than by eye: it walks every run of text on the page and
    reads the pixels actually behind it. */
-const PAPER_DIM = 0.96;
+const COLUMN_DIM = 0.94;
 
 /* And on a screen too narrow to have a lane, where the cloud has nowhere to be
    but behind the words. A faint moving presence rather than a picture, which is
    the same answer the old full page layout came to for the same reason. */
-const NARROW_PAPER_DIM = 0.88;
+const NARROW_DIM = 0.86;
 
-function targets(progress: number, baseFactor: number, aspect: number) {
+function targets(progress: number, baseFactor: number, aspect: number, laneSide: number) {
   const p = progress;
 
   /* The reference's numbers are written for a wide screen, where the cloud has
@@ -76,163 +101,73 @@ function targets(progress: number, baseFactor: number, aspect: number) {
      timeline is unchanged. */
   const narrow = aspect < 1.1;
   const spread = Math.min(1, aspect / 1.6);
-  /* A little further right than the reference's three.
+  /* Where the cloud opens, and it is the lane rather than a number of its own.
 
-     The copy sits in the left of the stage and the cloud in the right, and at
-     three they overlapped: the contrast suite reads the brightest pixel behind
-     each run of text, and the cloud's glow reached back far enough to put the
-     eyebrow on a background of 0.49 in relative luminance.
+     It was 3.1, tuned when the hero's copy was centred in a 1200 pixel measure
+     and the cloud had whatever was left of the right hand side. The copy is
+     anchored to the left gutter now, so the cloud has the whole right of the
+     screen, and starting it where the lane is means the hand-over out of the
+     hero is a change of height rather than a slide across.
 
-     Four and a fifth fixed the measurement and broke the picture, which is what
-     looking at it rather than at the number is for: it put the cloud under the
-     artifact card with half of it off the right edge, and the page lost its
-     brain to gain a ratio. What actually buys the contrast is the shade behind
-     the copy column, so this only has to clear the column rather than outrun
-     the glow. */
-  const openX = narrow ? 0 : 3.1;
-  /* Opposite directions on the two shapes of screen, and both of them are the
-     same rule: the cloud goes where the text is not.
+     It also fixed a contrast failure, which is how it was found: at 3.1 the
+     cloud's bloom reached back far enough to put the provenance label on a
+     background of 0.0563 and 4.30:1, and the dimming that would have covered
+     that would have taken the opening composition down with it. Moving the
+     thing that is too close is better than dimming it. */
+  const openX = narrow ? 0 : (1 - LANE_FRACTION) * halfViewport(aspect) * 0.92;
 
-     A phone has no free half, so it goes below the text, and the hero reserves
-     the room below the call to action so the reconstruction table is not in the
-     same band. At minus two point four its top edge landed on the last line of
-     the course paragraph and across the button.
-
-     A wide screen has a free half, but it does not have a free bottom. The
-     hero's text column is a fixed number of characters wide, so the wider the
-     window the fewer lines it wraps to and the higher the table rides up to
-     meet the cloud: tuned at an aspect of 1.6 the cloud sat clear of it, and at
-     1.95, which is an ordinary monitor, it sat across the caption and the first
-     three rows. Raised by two point seven it sits beside the headline instead,
-     about a third of the way down the viewport, clear of the navigation above
-     it and the table below. It ramps back to the resting offset by the end of
-     the first section either way. */
-  /* Held for the whole stage rather than ramped away over the first section:
-     the composition that was tuned for the opening is the composition for all
-     of it now, because the panel it sits in never moves.
-
-     The narrow value was low enough to put the cloud off the bottom of a phone
-     altogether, which is a thing no screenshot of a desktop will ever show and
-     which the engine reports as running normally: the frames were identical
-     because there was nothing in them. It sits in the lower half of the screen
-     now, under the words and above the fold. */
   const openY = narrow ? -1.3 : 2.1;
-
-  /* Which surface the cloud is being drawn on.
-
-     Nought is the dark stage, where the particles are a light accumulated over
-     black. One is paper, where the same accumulation is read as ink coverage
-     instead. The ramp is the hand-over, and it sits in the last quarter of the
-     hero, so the black plate has gone by the time the first paper band arrives.
-
-     This is the number that let the stage stop being the whole timeline. The
-     cloud used to have to be gone before the paper started, because additive
-     blending on white adds to white and disappears; it does not have to be gone
-     now, so the stage is an opening rather than a container and the cloud
-     carries on down the page beside the writing.
-
-     Computed here, before the composition, because the composition depends on
-     it: the stage and the paper want the cloud in different places. */
-  const inkiness = mapClamped(p, 0.72, 0.95, 0, 1);
 
   /* Whether the page is wide enough to have given the cloud a lane.
 
-     The bands below the stage push their content to one side and leave the
-     other for the cloud, and they stop doing it below 1100 pixels, where there
-     is no width to give away. The two have to agree: a cloud travelling down a
-     lane that the layout has collapsed is a cloud travelling down the middle of
-     the reading. An aspect of 1.22 is 1100 by 900, which is that breakpoint. */
+     The bands push their content to one side and leave the other for the cloud,
+     and they stop doing it below 1100 pixels, where there is no width to give
+     away. The two have to agree: a cloud travelling down a lane the layout has
+     collapsed is a cloud travelling down the middle of the reading. An aspect
+     of 1.22 is 1100 by 900, which is that breakpoint. */
   const wide = aspect >= 1.22;
 
-  /* Where the cloud sits.
-
-     This went round a full circle and the record is worth keeping. It began as
-     excursions of four to six units, choreographed for a page that scrolled
-     past the cloud. The sticky stage made those wrong: the cloud held one place
-     on the screen for the whole timeline, so an excursion of four units carried
-     it off the edge and left a reader looking at an empty black rectangle for a
-     screen and a half. They were cut to a few tenths.
-
-     Now there are two compositions and the ink mixes between them. On the stage
-     the cloud sits beside the copy and drifts. On paper it sits in the lane and
-     changes sides at the band boundaries, so it is beside the work, across
-     during the about band, back for the path, across again, and gathering
-     towards the middle for the contact section, where the column is short.
-
-     The lane's centre is not a number here at all. It comes out of the field of
-     view, the camera's distance and the share of the screen the bands leave
-     empty, so it tracks the layout at every width instead of being right at the
-     one the tuning was done on. */
   const half = halfViewport(aspect);
   const laneX = (1 - LANE_FRACTION) * half;
 
-  const stageX =
-    openX +
-    mapClamped(p, 0, 1, 0, -0.55 * spread) +
-    mapClamped(p, 1.2, 1.5, 0, 0.55 * spread);
+  /* Which lane the cloud is in, handed in rather than worked out.
 
-  /* The crossings finish just before each boundary rather than straddling it.
-
-     Straddled, the cloud was halfway across the screen at the exact moment a
-     section's heading arrived at the top of the viewport, which is the one place
-     on the page where it is guaranteed to be over something: measured, it sat
-     on "Where I have studied and worked" at 42% of full strength. Finished
-     early, the cloud is already in the new lane when the heading appears, and
-     the crossing itself happens over the tail of the section before, which is
-     that section's bottom padding. */
-  /* Two crossings on the paper half, not five.
-
-     The sections are laid out in pairs, right, right, left, left, right, right,
-     and the reason is in page.tsx: two adjacent sections with opposite lanes
-     collide by construction, because they share the viewport for most of a
-     scroll through the boundary between them and one of them therefore has its
-     content wherever the cloud is. In pairs, four of the five boundaries need no
-     crossing at all.
-
-     Each crossing finishes just before the boundary, so the cloud is in the new
-     lane by the time the incoming heading reaches the top of the screen. The
-     lanes in page.tsx and these two windows are one decision written in two
-     files; if one changes the other has to. */
-  const laneSide =
-    1 - mapClamped(p, 2.6, 2.95, 0, 2) + mapClamped(p, 4.6, 4.95, 0, 2);
-  const paperX = wide ? laneX * laneSide : 0;
-
-  const x = stageX + (paperX - stageX) * inkiness;
+     It used to be a stack of ramps here, one per band boundary, and it was a
+     guess about where each section sits in the progress range. The sections are
+     not equal heights, so the guess was wrong: measured at 85% of the document,
+     the layout had put its content on the right and the cloud was on the right
+     with it. scroll.ts reads the lane off the band's own class now, so there is
+     one statement of which side each band uses and the cloud and the layout
+     cannot disagree about it. */
+  const x = wide
+    ? openX + mapClamped(p, 0.55, 1, 0, laneX - openX) + (laneSide - 1) * laneX
+    : openX + mapClamped(p, 0, 1, 0, -0.55 * spread);
 
   /* Vertical drift, and it is small on purpose. The canvas is fixed, so this is
      movement within the viewport rather than down the page: the page supplies
      the travel, and a cloud that also rides up and down the screen reads as two
      motions fighting rather than as one.
 
-     The one large step is the hand-over. The opening composition sits high on
-     the stage, beside the headline and clear of the artifact cards below it; on
-     paper there are no artifact cards and the cloud drops back to the middle of
-     the screen, which is where the lane is. */
+     The one large step is the hand-over out of the hero, where the opening
+     composition sits high beside the headline and the lane sits at the middle
+     of the screen. */
   const y =
     openY +
-    mapClamped(p, 0.7, 1.1, 0, -1.9) +
+    mapClamped(p, 0.55, 1, 0, -1.9) +
     mapClamped(p, 2.7, 3, 0, 0.4) -
     mapClamped(p, 3.3, 3.5, 0, 0.4) +
     mapClamped(p, 5.7, 6, 0, 0.6);
 
-  /* How far apart the cloud is thrown, and it is a quarter of itself on paper.
-
-     The explosion was choreographed against the stage, where nothing is behind
-     the cloud and a reader watching it come apart is watching the only thing on
-     the screen. On paper it is over a page of writing, and at full strength it
-     is not a brain coming apart, it is a spray of ink across two paragraphs:
-     the first build of this put a fully dispersed cloud over the whole of the
-     deflated-sharpe card. Held down, the same ramps read as the cloud
-     breathing, which is what a thing travelling beside the reading should do.
-
-     Scaled rather than removed, because it is still what the morphs are hung
-     off: the cloud has to loosen before it can become something else. */
   const burst =
     mapClamped(p, 1.1, 2.2, 0, 1) -
     mapClamped(p, 2.8, 3, 0, 1) +
     mapClamped(p, 4.5, 5, 0, 1) -
     mapClamped(p, 5.7, 6, 0, 1);
-  const explode = burst * (1 - 0.74 * inkiness);
+  /* Held to two thirds of what the stage plays. The burst was choreographed
+     against a screen with nothing else on it; down the page it is behind a
+     column of writing, and a fully dispersed cloud there is not a brain coming
+     apart, it is a haze across two paragraphs. */
+  const explode = burst * (1 - 0.34 * mapClamped(p, 0.8, 1.2, 0, 1));
 
   /* How large the cloud is drawn, and it now falls as the cloud comes apart.
 
@@ -331,7 +266,8 @@ function targets(progress: number, baseFactor: number, aspect: number) {
      in at which the two begin to overlap. Derived from the layout and from the
      factor rather than being a number of its own, so it cannot go stale when
      either of them changes. */
-  const columnClear = (1 - 2 * LANE_FRACTION) * half + CLOUD_RADIUS * baseSize;
+  const columnClear =
+    (1 - 2 * LANE_FRACTION) * half + CLOUD_RADIUS * baseSize + BLOOM_REACH;
   /* Raised to a power below one, so it bites as soon as the cloud starts to
      come in rather than only once it is on top of the words. Linear, the cloud
      was still at 42% of full strength with its middle over a heading, which is
@@ -341,36 +277,59 @@ function targets(progress: number, baseFactor: number, aspect: number) {
     0.55,
   );
   const contentDim = Math.max(
-    narrow ? mapClamped(p, 0.05, 0.3, 0, 0.72) : mapClamped(p, 0, 0.5, 0.1, 0.2),
-    /* On paper, and only there. A page with no lane, which is every screen
-       under 1100 pixels, has the cloud behind the reading at every scroll
-       position, so it is held down the whole way rather than at the crossings
-       only. */
-    inkiness * (wide ? overColumn * PAPER_DIM : NARROW_PAPER_DIM),
+    narrow ? mapClamped(p, 0.05, 0.3, 0, 0.72) : 0.08,
+    /* On a screen with no lane, which is everything under 1100 pixels, the
+       cloud is behind the reading at every scroll position rather than at the
+       crossings only, so it is held down the whole way. */
+    wide ? overColumn * COLUMN_DIM : NARROW_DIM,
   );
 
-  /* And it shrinks as it crosses, as well as going faint.
+  /* And it shrinks as it crosses, as well as going faint. Tied to the same
+     overColumn that does the dimming, so the two cannot drift apart. */
+  /* Smaller once the hero is behind, and that is a composition decision as much
+     as a contrast one. The opening shows the cloud at full size because it is
+     the subject; down the page it is travelling beside the writing and it is a
+     companion. It also has to fit: measured on a 1280 pixel screen the cloud is
+     about 310 pixels across at the opening factor, and a lane of four tenths of
+     the viewport is 512, so at full size its bloom crossed into the column
+     however far out the lane put it. */
+  const crossed =
+    (baseSize - overColumn * 1.2) * (1 - 0.18 * mapClamped(p, 0.75, 1.15, 0, 1));
 
-     There is no scroll position at which a crossing is over nothing. A section
-     one and a half viewports tall has its heading on screen from about six
-     tenths of a boundary away, and the band before it is still on screen until
-     the boundary itself, so the two overlap and the cloud has to pass through
-     one of them. Dimming alone leaves a faint thing the width of a column
-     sliding over a serif heading, which reads as a smear; dimming and shrinking
-     together make it a small faint thing passing behind the words, which is
-     what it is meant to be. Tied to the same overColumn that does the dimming,
-     so the two cannot drift apart. */
-  const factor = baseSize - overColumn * 1.5 * inkiness;
+  /* Then the whole composition is pulled in until it fits the frame.
+
+     This is a guarantee rather than a tuning. The choreography is a stack of
+     ramps and the explosion multiplies each particle's distance from the centre,
+     so the reach at any given scroll position is not something anybody is
+     holding in their head: measured, the cloud was reaching 1.74 times the half
+     width of the screen during the burst before the contact section, and the
+     helix went off the bottom as well. Every previous attempt to keep it in
+     frame was a number somewhere else being nudged until one screen width
+     looked right.
+
+     Scaling the offset and the size together is a uniform zoom out, so the
+     composition keeps its shape and its place in the lane; only its size on the
+     screen changes, and only when it would otherwise be clipped. */
+  const burstReach = 1 + explode * EXPLODE_SPREAD;
+  const radius = CLOUD_RADIUS * crossed * burstReach;
+  const roomX = half * FRAME_FILL;
+  const roomY = (half / aspect) * FRAME_FILL;
+  const overflow = Math.max(
+    (Math.abs(x) + radius) / Math.max(0.001, roomX),
+    (Math.abs(BASE.y + y) + radius) / Math.max(0.001, roomY),
+  );
+  const fit = overflow > 1 ? 1 / overflow : 1;
+  const factor = crossed * fit;
 
   return {
-    offset: { x: BASE.x + x, y: BASE.y + y, z: BASE.z },
+    offset: { x: (BASE.x + x) * fit, y: (BASE.y + y) * fit, z: BASE.z },
     explode: Math.max(0, Math.min(1, explode)),
     factor,
     progress: progressTarget,
     progress2,
     rotation: { x: 0, y: INITIAL_YAW + rotationY, z: rotationZ },
     contentDim,
-    inkiness,
+    laneSide: wide ? laneSide : 0,
   } satisfies ParticleTimelineState;
 }
 
@@ -388,7 +347,7 @@ export class ParticleTimeline {
     this.aspect = aspect;
     /* Started at the resting values rather than at zero, so the first frame is
        the opening composition rather than a cloud easing in from the origin. */
-    this.state = targets(0, baseFactor, aspect);
+    this.state = targets(0, baseFactor, aspect, 1);
   }
 
   setBaseFactor(value: number) {
@@ -403,8 +362,8 @@ export class ParticleTimeline {
     return this.state;
   }
 
-  update(sectionProgress: number, ease: number, deltaSeconds: number) {
-    const to = targets(sectionProgress, this.baseFactor, this.aspect);
+  update(sectionProgress: number, ease: number, deltaSeconds: number, laneSide = 1) {
+    const to = targets(sectionProgress, this.baseFactor, this.aspect, laneSide);
     const from = this.state;
     const step = easeForFrame(ease, deltaSeconds);
 
@@ -424,7 +383,7 @@ export class ParticleTimeline {
         z: approach(from.rotation.z, to.rotation.z, step),
       },
       contentDim: approach(from.contentDim, to.contentDim, step),
-      inkiness: approach(from.inkiness, to.inkiness, step),
+      laneSide: approach(from.laneSide, to.laneSide, step),
     };
     return this.state;
   }
@@ -444,15 +403,15 @@ export class ParticleTimeline {
       progress2: 0,
       rotation: { x: 0, y: yaw, z: 0 },
       contentDim: 0,
-      inkiness: 0,
+      laneSide: this.state.laneSide,
     };
     return this.state;
   }
 
   /* Used by the reduced motion path and by the tests, which need the settled
      answer for a scroll position without waiting for it to ease there. */
-  settle(sectionProgress: number) {
-    this.state = targets(sectionProgress, this.baseFactor, this.aspect);
+  settle(sectionProgress: number, laneSide = 1) {
+    this.state = targets(sectionProgress, this.baseFactor, this.aspect, laneSide);
     return this.state;
   }
 }

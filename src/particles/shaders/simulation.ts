@@ -45,6 +45,7 @@ uniform float u_pointerReach;
 uniform float u_pointerPush;
 uniform float u_pointerSwirl;
 uniform float u_pointerActive;
+uniform float u_pointerSpeed;
 
 ${COMMON}
 
@@ -147,7 +148,25 @@ void main() {
   vec3 axis = normalize(vec3(param1.r, 1.0, param3.g));
   vec3 sideways = cross(direction, axis);
 
-  vec3 flee = (direction * u_pointerPush + sideways * u_pointerSwirl) * reach;
+  /* How hard, scaled by how fast the pointer is moving.
+
+     The engine has always smoothed and clamped a pointer velocity and then
+     handed it to nothing: MouseState.delta was computed every frame and read by
+     no one. Wiring it in is what makes this feel like an interaction rather than
+     a static dent that follows the cursor around. A pointer resting in the cloud
+     still opens its hole, at the base amount; one swept through it drags a wake
+     three times the size, and the wake decays with the velocity rather than
+     with a timer.
+
+     The swirl takes more of the speed than the push does, which is the part
+     that reads as a wake rather than as a shove: a fast pass makes the
+     particles stream around and past the cursor, where more radial force would
+     just blow a bigger hole. */
+  float speed = clamp(u_pointerSpeed, 0.0, 1.0);
+  vec3 flee =
+    (direction * u_pointerPush * (1.0 + speed * 2.0) +
+     sideways * u_pointerSwirl * (1.0 + speed * 3.4)) *
+    reach;
 
   velocity = (velocity + acceleration + flee) * u_friction;
   fragColor = vec4(velocity, 1.0);
