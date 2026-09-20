@@ -513,8 +513,10 @@ it is the fraction of the way between them.
 
 This went round a circle. It was the sections; then, while the cloud could only
 be drawn on black, the whole timeline was compressed into the stage's own travel
-so it could be seen at all; and with the ink pass it is the sections again. The
-change back was a deletion.
+so it could be seen at all; and it is the sections again, because the cloud has
+the length of the page to travel down. The ink pass bought that back first, on a
+white page; taking the page black keeps it for a different reason. The change
+back was a deletion both times.
 
 Two things are different from the first version:
 
@@ -541,11 +543,11 @@ fonts arrive, left the timeline mapped to positions the page no longer had.
 
 ### The lane
 
-On the paper half the cloud travels down a lane the layout leaves empty for it,
-`--lane` in `globals.css`, currently 40% of the viewport. `timeline.ts` derives
-where that is from the field of view, the camera's distance and the same
-fraction, so the cloud goes where the gap is at any screen width rather than at
-the one width it was tuned on.
+The cloud travels down a lane the layout leaves empty for it, `--lane` in
+`globals.css`, currently 40% of the viewport. `timeline.ts` derives where that is
+from the field of view, the camera's distance and the same fraction, so the cloud
+goes where the gap is at any screen width rather than at the one width it was
+tuned on.
 
 **Which side it is on is read off the markup, not worked out twice.** Each band
 declares `band-lane-left` or `band-lane-right`, and `ScrollController.laneAt()`
@@ -629,7 +631,8 @@ Everything in `DEFAULTS` in `src/particles/types.ts`:
 | Spring, friction | `spring`, `friction` |
 | Pointer parting | `pointerReach`, `pointerPush`, `pointerSwirl`, `mouseSmoothing` |
 | Entrance | `entryWindow`, `SHOW_SECONDS` in `engine.ts`, the constants in `entrance.ts` |
-| Scroll sensitivity | `scrollEase`, `MAX_SECTIONS_PER_SECOND` and `STAGE_TIMELINE_END` in `scroll.ts` |
+| Scroll sensitivity | `scrollEase`, and `MAX_SECTIONS_PER_SECOND` in `scroll.ts` |
+| What progress is measured against | `SECTIONS` and `RANGE` in `scroll.ts` |
 | Stage length | the height on the section in `hero.tsx`, and the ranges in `globals.css` |
 | Morph speed | `morphDelayDesktop`, `morphDelayMobile`, `secondaryMorphDelay` |
 | Explosion | `explosionDelay`, and the multiplier in `targets.ts` |
