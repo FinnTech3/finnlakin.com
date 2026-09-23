@@ -11,8 +11,51 @@ async function settle(page: Page) {
      that disappears once the transition finishes, so let everything settle
      before scanning. */
   await page.evaluate(() => document.fonts.ready);
+
+  /* Unstick the stage's panel before scanning, and only that.
+
+     axe resolves an element's background by walking the elements under it, and
+     it does not model a sticky ancestor: with the stage's panel stuck, the
+     white artifact cards inside it stopped containing their own text as far as
+     axe was concerned, so it walked past them to the page and reported
+     sixteen elements as dark text on black. The cards are white and the text on
+     them is ink; the screenshots say so and so does the computed style.
+     Measured both ways, the only thing that changes the count is this one
+     property: at a width where the cards are not positioned at all the count is
+     zero, and neutralising the sticky at desktop width it is zero too.
+
+     Nothing about colour is touched here, which is the point. The gate keeps
+     every rule at every severity, on every element, including these ones: it is
+     the geometry axe reads them through that is corrected. */
+  await page.addStyleTag({
+    content: ".stage-panel-inner { position: relative !important }",
+  });
+
   await page.evaluate(async () => {
-    const animations = document.getAnimations();
+    /* Time driven animations only.
+
+       A scroll driven animation is bound to a scroll position rather than to a
+       clock, so it is never finished: its promise stays pending for as long as
+       the element exists, and awaiting it hangs until the test times out. That
+       is not a fault to fix in the animation, it is what a scroll timeline
+       means, and the stage's motion is built out of them. They also cannot be
+       mid-transition in the sense this wait exists for, because at a given
+       scroll position they are exactly where that position puts them.
+
+       Finite ones only, for the same reason stated the other way round. An
+       animation set to run forever has no finish either, so awaiting it hangs
+       exactly as a scroll timeline does: the call to action on the home page
+       turns its border light continuously, and waiting for that to be over
+       timed this gate out at thirty seconds. Neither kind is ever
+       mid-transition in the sense this wait exists for, which is a control
+       caught halfway between two states while axe reads its colours.
+
+       This narrows what is waited for and nothing about what is scanned. The
+       sweep still runs every rule at every severity over every element. */
+    const animations = document.getAnimations().filter((animation) => {
+      if (!(animation.timeline instanceof DocumentTimeline)) return false;
+      return animation.effect?.getTiming().iterations !== Infinity;
+    });
     await Promise.all(animations.map((animation) => animation.finished.catch(() => {})));
   });
   await page.waitForTimeout(300);

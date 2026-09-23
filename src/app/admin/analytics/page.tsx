@@ -34,7 +34,7 @@ function BarList({ rows, unit }: { rows: Row[]; unit?: string }) {
         <li key={row.label} className="flex flex-col gap-1">
           <div className="flex items-baseline justify-between gap-4">
             <span className="truncate text-sm">{row.label}</span>
-            <span className="shrink-0 font-mono text-sm tabular-nums text-muted">
+            <span className="tnum shrink-0 text-[15px] text-muted">
               {row.count.toLocaleString("en-GB")}
               {unit ? ` ${unit}` : ""}
             </span>
@@ -53,8 +53,8 @@ function BarList({ rows, unit }: { rows: Row[]; unit?: string }) {
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="border border-rule bg-panel p-5">
-      <h2 className="mb-4 font-mono text-[11px] uppercase tracking-[0.13em] text-muted">
+    <section className="border-t border-rule pt-6">
+      <h2 className="t-label mb-5 text-ink">
         {title}
       </h2>
       {children}
@@ -66,7 +66,7 @@ function SignIn() {
   return (
     <div className="mx-auto w-full max-w-sm px-5 py-24">
       <form method="post" action="/api/admin/session" className="flex flex-col gap-4">
-        <label htmlFor="password" className="font-mono text-[11px] uppercase tracking-[0.13em] text-muted">
+        <label htmlFor="password" className="t-label">
           Password
         </label>
         <input
@@ -75,11 +75,11 @@ function SignIn() {
           type="password"
           autoComplete="current-password"
           required
-          className="border border-rule bg-panel px-3 py-2.5 text-[15px] outline-none focus:border-accent"
+          className="border border-rule bg-black px-4 py-3 text-[16px] outline-none focus:border-action"
         />
         <button
           type="submit"
-          className="border border-accent px-3 py-2.5 font-mono text-xs text-accent hover:bg-accent-soft"
+          className="t-label inline-flex min-h-11 items-center justify-center rounded-full bg-action px-6 text-action-ink hover:opacity-90"
         >
           Sign in
         </button>
@@ -90,15 +90,15 @@ function SignIn() {
 
 function Dashboard({ data, days }: { data: Dashboard; days: number }) {
   return (
-    <div className="mx-auto w-full max-w-5xl px-5 py-12 sm:px-8">
+    <div className="shell w-full py-14">
       <header className="flex flex-wrap items-baseline justify-between gap-4 border-b border-rule pb-6">
-        <h1 className="font-serif text-3xl tracking-[-0.02em]">Analytics</h1>
-        <nav className="flex gap-3 font-mono text-xs">
+        <h1 className="t-h text-ink">Analytics</h1>
+        <nav className="t-label flex gap-4">
           {[7, 30, 90].map((option) => (
             <a
               key={option}
               href={`/admin/analytics?days=${option}`}
-              className={option === days ? "text-accent underline" : "text-muted hover:text-accent"}
+              className={option === days ? "text-ink underline" : "text-muted hover:text-ink"}
             >
               {option}d
             </a>
@@ -108,28 +108,28 @@ function Dashboard({ data, days }: { data: Dashboard; days: number }) {
 
       <dl className="mt-8 grid grid-cols-2 gap-6 sm:grid-cols-4">
         <div className="flex flex-col gap-1">
-          <dt className="font-mono text-[11px] uppercase tracking-[0.13em] text-muted">Views</dt>
-          <dd className="font-mono text-3xl tabular-nums">
+          <dt className="t-label">Views</dt>
+          <dd className="tnum text-[2rem] tracking-[-0.03em]">
             {data.totals.views.toLocaleString("en-GB")}
           </dd>
         </div>
         <div className="flex flex-col gap-1">
-          <dt className="font-mono text-[11px] uppercase tracking-[0.13em] text-muted">
+          <dt className="t-label">
             Visitors
           </dt>
-          <dd className="font-mono text-3xl tabular-nums">
+          <dd className="tnum text-[2rem] tracking-[-0.03em]">
             {data.totals.visitors.toLocaleString("en-GB")}
           </dd>
         </div>
         <div className="flex flex-col gap-1">
-          <dt className="font-mono text-[11px] uppercase tracking-[0.13em] text-muted">Window</dt>
-          <dd className="font-mono text-3xl tabular-nums">{days}d</dd>
+          <dt className="t-label">Window</dt>
+          <dd className="tnum text-[2rem] tracking-[-0.03em]">{days}d</dd>
         </div>
         <div className="flex flex-col gap-1">
-          <dt className="font-mono text-[11px] uppercase tracking-[0.13em] text-muted">
+          <dt className="t-label">
             Retention
           </dt>
-          <dd className="font-mono text-3xl tabular-nums">{RETENTION_DAYS}d</dd>
+          <dd className="tnum text-[2rem] tracking-[-0.03em]">{RETENTION_DAYS}d</dd>
         </div>
       </dl>
 
@@ -166,10 +166,10 @@ function Dashboard({ data, days }: { data: Dashboard; days: number }) {
 
       <form method="post" action="/api/admin/session" className="mt-8 flex items-baseline gap-4">
         <input type="hidden" name="action" value="sign-out" />
-        <button type="submit" className="font-mono text-xs text-accent underline">
+        <button type="submit" className="t-label text-accent underline">
           Sign out
         </button>
-        <span className="font-mono text-xs text-muted">
+        <span className="t-label text-muted">
           Sessions expire on their own after twelve hours.
         </span>
       </form>
@@ -223,8 +223,8 @@ export default async function AnalyticsPage({
     data = await loadDashboard(days);
   } catch {
     return (
-      <div className="mx-auto w-full max-w-5xl px-5 py-12 sm:px-8">
-        <h1 className="font-serif text-3xl tracking-[-0.02em]">Analytics</h1>
+      <div className="shell w-full py-14">
+        <h1 className="t-h text-ink">Analytics</h1>
         <p className="mt-4 max-w-[60ch] text-sm text-muted">
           The database is not reachable. Collection keeps returning 204 to
           visitors regardless, so nothing on the public site is affected.

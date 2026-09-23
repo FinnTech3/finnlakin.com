@@ -1,99 +1,211 @@
 import { reconstructions } from "@/lib/reconstructions";
+import { ShinyButton } from "@/components/shiny-button";
 import { person } from "@/lib/site";
 
+/* The stage: the opening, and where the cloud's choreography starts.
+
+   Its inner panel is sticky, so a reader scrolls about a screen of travel while
+   the panel stays pinned and the copy rises past it. The cloud runs the first
+   part of its choreography in the right of the screen, in a column the copy
+   does not enter.
+
+   Everything on this side of the screen is in the flow of that column, cards
+   included. They used to be absolutely positioned over on the cloud's side and
+   animated on keyframes of their own, which is the reference site's trick, and
+   it produced exactly the thing it looks like: white cards sitting on top of
+   the brain. Nothing goes over the cloud now and the cloud goes over nothing,
+   and that is a property of the layout rather than two animations that happen
+   to clear each other at both ends.
+
+   It is two screens: one of travel with the panel pinned, and a second carrying
+   the panel back off the top. */
 export function Hero() {
+  /* Counted rather than written down. A heading that says three held beside a
+     table that shows two is the exact failure this site exists to argue
+     against, and the way that happens is somebody editing one and not the
+     other. */
+  const held = reconstructions.filter((row) => row.tone !== "flag").length;
+
   return (
-    <section className="border-b border-rule">
-      <div className="mx-auto w-full max-w-5xl px-5 py-16 sm:px-8 sm:py-24">
-        <p className="inline-flex items-center gap-2 rounded-xs border border-pass px-2.5 py-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-pass">
-          <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
-          Available Summer 2026
-        </p>
+    <section
+      id="hero"
+      data-stage=""
+      /* Two screens: one of travel with the panel pinned, and the second
+         carrying the panel back off the top as the black fades. A phone gets
+         slightly less, because a phone scrolls a viewport in a flick. */
+      className="stage relative h-[200vh] w-full sm:h-[220vh]"
+    >
+      <div className="stage-panel-inner sticky top-0 flex h-screen w-full items-center overflow-hidden">
+        {/* Hard left rather than centred in the 1200px measure. The name is the
+            first thing on the site and it was sitting a fifth of the way in
+            from the edge with the cloud pushed off to the far right; anchored
+            to the gutter it has the left half of the screen and the cloud has
+            the right, which is the composition the stage was always for. */}
+        <div className="stage-panel relative w-full">
+          {/* The copy. It rises as the stage is scrolled, which is the "text
+              moves around the brain" the brief asks for: the cloud holds its
+              position on the screen while the words travel past it. */}
+          <div className="stage-copy max-w-[34rem] lg:max-w-[38rem]">
+            <p className="t-label flex items-center gap-2.5 text-pass">
+              <span
+                aria-hidden="true"
+                className="size-1.5 rounded-full bg-current"
+              />
+              Available Summer 2026
+            </p>
 
-        <h1 className="mt-7 font-serif text-[clamp(2.5rem,9vw,4.5rem)] leading-[1.02] tracking-[-0.03em]">
-          {person.name}
-        </h1>
+            {/* Shrink to fit, so the heading's box is the width of its letters
+                rather than the width of the column. The contrast suite measures
+                the brightest pixel inside a run of text's box, and a block level
+                heading whose box runs on past the last letter measures whatever
+                is behind that empty space: here, the cloud, at a luminance of
+                0.65 against white type. The overlap it was reporting is real
+                where the box is, and there are no letters there. */}
+            <h1 className="t-display-lg mt-6 w-fit text-ink">{person.name}</h1>
 
-        <p className="mt-4 max-w-[56ch] text-[15px] leading-relaxed text-muted">
-          {person.course}, {person.university}. Exchange year at {person.exchange}.
-          Class of {person.graduation}.
-        </p>
+            <p className="t-sub mt-7 max-w-[26ch] text-pretty text-ink-soft">
+              I rebuild published numbers from primitives and report the gap.{" "}
+              <em className="font-serif text-ink italic">
+                Sometimes the gap is the finding.
+              </em>
+            </p>
 
-        <p className="mt-8 max-w-[42ch] text-pretty font-serif text-[clamp(1.25rem,3.4vw,1.75rem)] leading-[1.35]">
-          I rebuild published numbers from primitives and report the gap.{" "}
-          <em className="italic">Sometimes the gap is the finding.</em>
-        </p>
+            {/* Both controls on the component Finn supplied.
 
-        <table className="mt-12 w-full border-collapse text-left">
-          <caption className="pb-3 text-left font-mono text-[10.5px] uppercase tracking-[0.11em] text-muted">
-            Four reconstructions, against the published series
-          </caption>
-          <thead>
-            <tr className="border-b border-rule-strong">
-              <th
-                scope="col"
-                className="pb-2.5 pr-4 font-mono text-[10.5px] font-medium uppercase tracking-[0.11em] text-muted"
-              >
-                Quantity
-              </th>
-              <th
-                scope="col"
-                className="hidden pb-2.5 pr-4 font-mono text-[10.5px] font-medium uppercase tracking-[0.11em] text-muted sm:table-cell"
-              >
-                Reference
-              </th>
-              <th
-                scope="col"
-                className="pb-2.5 text-right font-mono text-[10.5px] font-medium uppercase tracking-[0.11em] text-muted"
-              >
-                Deviation
-              </th>
-            </tr>
-          </thead>
-          <tbody className="settle-rows">
-            {reconstructions.map((row) => (
-              <tr key={row.quantity} className="border-b border-rule last:border-b-0">
-                <td
-                  className={`py-3.5 pr-4 align-top ${
-                    row.tone === "flag" ? "border-l-2 border-flag pl-3" : ""
-                  }`}
-                >
-                  <span className="text-sm font-medium">{row.quantity}</span>
-                  <span className="mt-0.5 block text-xs text-muted">{row.detail}</span>
-                  <span className="mt-1 block text-xs text-muted sm:hidden">
-                    Against {row.reference}
-                  </span>
-                </td>
-                <td className="hidden py-3.5 pr-4 align-top text-sm sm:table-cell">
-                  {row.reference}
-                </td>
-                <td className="py-3.5 text-right align-top">
-                  <span
-                    className={`font-mono text-sm tabular-nums ${
-                      row.tone === "flag" ? "font-medium text-flag" : ""
-                    }`}
-                  >
-                    {row.deviation}
-                  </span>
-                  <span
-                    className={`mt-0.5 block font-mono text-[10.5px] ${
-                      row.tone === "flag" ? "text-flag" : "text-pass"
-                    }`}
-                  >
-                    {row.verdict}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                It replaces the brief's matched pair, one filled pill and one
+                ghost, and that pair was carrying the hierarchy: contact was the
+                primary action and the work was the secondary one. Two identical
+                animated controls say the two are equally weighted. That is worth
+                knowing rather than quietly fixing, because the instruction was
+                to use it on both, and a muted second variant is a small change
+                if the flattening turns out to be wrong. */}
+            <div className="mt-9 flex flex-wrap items-center gap-3">
+              <ShinyButton href="#contact">Get in touch</ShinyButton>
+              <ShinyButton href="#work">See the work</ShinyButton>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        <p className="mt-6 max-w-[64ch] border-t border-rule pt-5 text-[13px] leading-relaxed text-muted">
-          The yield curve reproduces to less than half a basis point. The premium
-          drawn out of that same curve reproduces to fourteen, and moving the
-          estimation start date from 1961 to 2000 moves the ten-year premium by
-          eighty-one. The fit is pinned down. The decomposition is not.
-        </p>
+      {/* The second screen of the stage.
+
+          Everything here used to be in the first one, and the first impression
+          of a page is formed on how busy it is: shown 119 real sites at
+          exposures down to 17 milliseconds, people rated the visually complex
+          ones worse at every exposure, which is less than a frame and long
+          before anything has been read. ATTENTION.md has the study.
+
+          So the opening carries four things and stops. The evidence arrives on
+          the way down, where a reader is already committed, and it has a
+          heading of its own because headings are what the eye lands on when it
+          scans rather than reads. */}
+      <div className="stage-panel relative w-full pb-24">
+        <div className="max-w-[34rem] lg:max-w-[38rem]">
+          <h2 className="t-h3 text-ink">Four rebuilt. {held} held.</h2>
+          <p className="t-caption mt-8 max-w-[44ch] text-muted">
+            {person.course}, {person.university}. Exchange year at{" "}
+            {person.exchange}. Class of {person.graduation}.
+          </p>
+
+          {/* The artifacts, in the flow of the copy column rather than placed
+                on top of the cloud.
+
+                They were absolutely positioned in the cloud's half, low and to
+                the right, and travelled on keyframes of their own. That is the
+                reference site's trick and it was the wrong one here, for the
+                reason Finn gave: a white card laid over the brain is something
+                going over the brain. Nothing goes over it now and it goes over
+                nothing, which is a rule about the whole page and not a
+                placement that happens to clear at the two ends of an animation.
+
+                In the flow they also cannot land on the call to action, which
+                is a fault this stage has now shipped twice from cards placed by
+                eye. There is no eye involved any more. */}
+          <div className="mt-10 grid gap-4 sm:grid-cols-[1.35fr_1fr]">
+            {/* Artifact one: the four reconstructions. This is the claim the
+              whole site is evidence for, so it is the artifact that gets the
+              room, and it is a table rather than a picture of one. */}
+            <figure className="stage-artifact stage-artifact-table shadow-artifact">
+              <figcaption className="t-label px-1 pb-3">
+                Four reconstructions, against the published series
+              </figcaption>
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-rule">
+                    <th
+                      scope="col"
+                      className="t-caption pr-3 pb-2 font-normal text-muted"
+                    >
+                      Quantity
+                    </th>
+                    <th
+                      scope="col"
+                      className="t-caption pb-2 text-right font-normal text-muted"
+                    >
+                      Deviation
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="settle-rows">
+                  {reconstructions.map((row) => (
+                    <tr
+                      key={row.quantity}
+                      className="border-b border-rule last:border-b-0"
+                    >
+                      <td className="py-2.5 pr-3 align-top">
+                        <span className="block text-[15px] text-ink">
+                          {row.quantity}
+                        </span>
+                        <span className="mt-0.5 block text-[13px] text-muted">
+                          {row.reference}
+                        </span>
+                      </td>
+                      <td className="py-2.5 text-right align-top">
+                        <span
+                          className={`tnum text-[15px] ${
+                            row.tone === "flag"
+                              ? "font-medium text-flag"
+                              : "text-ink"
+                          }`}
+                        >
+                          {row.deviation}
+                        </span>
+                        <span
+                          className={`mt-0.5 block text-[12px] ${
+                            row.tone === "flag" ? "text-flag" : "text-pass"
+                          }`}
+                        >
+                          {row.verdict}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </figure>
+
+            {/* Artifact two: the one row of the table above that did not
+                  hold, pulled out on its own.
+
+                  It used to travel at a different rate from the table, on a
+                  keyframe of its own, which is the reference site's trick for
+                  making a scroll feel like depth. Both are in the flow now, and
+                  that trick is what put a white card on top of the brain. */}
+            <figure className="stage-artifact stage-artifact-stat shadow-artifact">
+              <figcaption className="t-label pb-2">
+                Term premium, ten year
+              </figcaption>
+              <p className="tnum text-[28px] leading-none text-ink">14 bp</p>
+              <p className="mt-2 text-[13px] leading-snug text-muted">
+                against 0.45 bp on the curve it is drawn from, from the same
+                model, the same data and the same estimation window.
+              </p>
+              <p className="mt-3 text-[13px] font-medium text-flag">
+                31× the fitted error
+              </p>
+            </figure>
+          </div>
+        </div>
       </div>
     </section>
   );
