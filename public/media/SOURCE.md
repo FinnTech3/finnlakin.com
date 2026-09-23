@@ -33,6 +33,39 @@ looked at before the file was committed:
 
 Poster frames are `<id>.jpg`, one frame from the master at 1920 wide.
 
+## The eight added for the project cards
+
+These sit beside a project on the home page, where a clip renders about seven
+hundred pixels wide. They are 1080p, which is the right rendition at that size,
+and they have no 4K file here because at that size 4K is payload nobody can see.
+
+| File | Mixkit ID | What it is | Beside |
+|---|---|---|---|
+| `50748-1080.mp4` | 50748 | Screens of scrolling logs and configuration text | marked-to-model |
+| `44818-1080.mp4` | 44818 | Black ink unfurling in clear water | term-premium |
+| `4974-1080.mp4` | 4974 | Monochrome geometric composition, turning | deflated-sharpe |
+| `18263-1080.mp4` | 18263 | Coins counted from one hand into another | honest-backtest |
+| `18261-1080.mp4` | 18261 | Engraved line work on a banknote, extreme close-up | whose-inflation |
+| `50998-1080.mp4` | 50998 | A roundabout from directly overhead at night | trade-mirror |
+| `4352-1080.mp4` | 4352 | A street of European apartment blocks, daylight | rent-or-buy |
+| `41375-1080.mp4` | 41375 | A city from high above at dusk | finance-analysis |
+
+Each page is `https://mixkit.co/free-stock-video/<slug>-<id>/`.
+
+**Two more were rejected on the rules above**, making four in total across this
+folder. A night traffic time lapse had legible signage on a building in shot,
+which is the same fault as the Google sign. A pair of hands typing on a laptop
+broke no rule at all and was rejected for being the most skippable image on the
+internet: washed out daylight, no subject, and the exact category of picture the
+eyetracking literature says a reader's peripheral vision discards before the eye
+ever lands on it.
+
+**Two of these are honestly atmosphere rather than evidence.** Ink in water
+beside a term premium reconstruction is a mood. `4352` is also the one bright
+daylight frame among the eight, on a page that is otherwise black. Both are
+recorded here rather than presented as if they were obvious choices, and both
+are placeholders for a screen recording of the project actually running.
+
 ## Resolutions, and what is and is not 4K here
 
 Mixkit's page offers 360p and 720p. The 4K renditions exist at

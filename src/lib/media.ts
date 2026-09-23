@@ -88,14 +88,143 @@ export const clips: Clip[] = [
     href: mixkit("flying-over-a-relaxing-creek-full-of-rock-on-the-51585"),
     origin: "stock",
   },
+  {
+    id: "surface",
+    src: "/media/50748-1080.mp4",
+    poster: "/media/50748.jpg",
+    description:
+      "Several screens filled with scrolling logs and configuration text, green and amber on deep blue, updating faster than they can be read.",
+    caption:
+      "A published surface is this: thousands of numbers arriving faster than anybody checks them. The whole project is one long look at what is in there.",
+    credit: "Mixkit, free licence",
+    href: mixkit(
+      "computer-screens-display-green-text-and-matrix-like-scrolling-50748",
+    ),
+    origin: "stock",
+  },
+  {
+    id: "curve",
+    src: "/media/44818-1080.mp4",
+    poster: "/media/44818.jpg",
+    description:
+      "Black ink released into clear water, unfurling into a branching plume against a white field.",
+    caption:
+      "A curve is fitted to what is observed. What is derived from it inherits every assumption that went in, and spreads.",
+    credit: "Mixkit, free licence",
+    href: mixkit("abstract-video-of-a-liquid-with-dark-ink-flowing-44818"),
+    origin: "stock",
+  },
+  {
+    id: "search",
+    src: "/media/4974-1080.mp4",
+    poster: "/media/4974.jpg",
+    description:
+      "A monochrome composition of hard-edged geometric shapes turning against each other, arrows and facets in grey and white.",
+    caption:
+      "796 rules, searched. Somewhere in a space this shape there is always one that looks like skill.",
+    credit: "Mixkit, free licence",
+    href: mixkit("monochromatic-visual-compositions-4974"),
+    origin: "stock",
+  },
+  {
+    id: "charges",
+    src: "/media/18263-1080.mp4",
+    poster: "/media/18263.jpg",
+    description:
+      "Coins tipped from one open hand into another, counted out one at a time in close-up.",
+    caption:
+      "Costs are paid like this, a little at a time, which is why a backtest that ignores them can turn a loss into a plausible return.",
+    credit: "Mixkit, free licence",
+    href: mixkit("hands-of-a-man-counting-coins-close-up-view-18263"),
+    origin: "stock",
+  },
+  {
+    id: "banknote",
+    src: "/media/18261-1080.mp4",
+    poster: "/media/18261.jpg",
+    description:
+      "An extreme close-up of engraved line work on a banknote, the detail resolving into individual cuts.",
+    caption:
+      "One index number stands for every price everybody pays. Close enough in, it stops being one number.",
+    credit: "Mixkit, free licence",
+    href: mixkit("fast-sequence-of-detailed-photos-of-banknote-parts-18261"),
+    origin: "stock",
+  },
+  {
+    id: "mirror",
+    src: "/media/50998-1080.mp4",
+    poster: "/media/50998.jpg",
+    description:
+      "A roundabout filmed from directly overhead at night, headlights circling it in a continuous ring of light.",
+    caption:
+      "Following somebody else's route exactly still costs you the traffic. That gap is the whole question here.",
+    credit: "Mixkit, free licence",
+    href: mixkit("top-view-of-the-traffic-around-a-roundabout-at-night-50998"),
+    origin: "stock",
+  },
+  {
+    id: "housing",
+    src: "/media/4352-1080.mp4",
+    poster: "/media/4352.jpg",
+    description:
+      "An elevated view along a street of European apartment blocks in daylight, balconies and mansard roofs running into the distance.",
+    caption:
+      "The decision this models is not financial for most people. The arithmetic still has an answer, and it moves a long way on assumptions nobody states.",
+    credit: "Mixkit, free licence",
+    href: mixkit("european-style-buildings-4352"),
+    origin: "stock",
+  },
+  {
+    id: "dusk",
+    src: "/media/41375-1080.mp4",
+    poster: "/media/41375.jpg",
+    description:
+      "A city seen from high above at dusk, the last band of red light along the horizon and the grid beginning to come on below.",
+    caption:
+      "Most of what a market does is not visible from here either. The tool exists to pull one part of it into view.",
+    credit: "Mixkit, free licence",
+    href: mixkit("tour-high-above-a-city-at-dusk-41375"),
+    origin: "stock",
+  },
 ];
 
 export const clipById = new Map(clips.map((clip) => [clip.id, clip]));
 
-/* Which clip sits beside which project, where one earns its place. Most
-   projects have none: a decorative video beside a result is noise, and the
-   figures built from the real numbers are the pictures that belong to them. */
+/* What /reel shows, and in what order.
+
+   Four, not twelve. Every clip in this file used to appear there, which was
+   fine when there were four of them and would make the reel a scroll through
+   the entire media folder now that there are twelve. These are the ones that
+   carry a 4K rendition and are worth the width of a screen; the rest exist to
+   sit beside a project at a size where 4K would be payload nobody can see. */
+export const reelClips = [
+  "interchange",
+  "throughput",
+  "city",
+  "creek",
+] as const;
+
+/* Which clip sits beside which project.
+
+   All ten have one, on Finn's instruction, and the reasoning against it is
+   recorded in ATTENTION.md rather than quietly acted on: readers are documented
+   to skip imagery that reads as decorative, and about half of these are
+   atmosphere rather than evidence. A screen recording of the thing actually
+   running would beat any of them, and each one here is a placeholder for that.
+
+   Every poster frame was looked at before its file was committed. Two otherwise
+   usable clips were rejected: a night traffic time lapse with legible signage on
+   a building, and hands typing on a laptop, which breaks no rule and is the
+   most skippable image on the internet. */
 export const projectClips: Record<string, string> = {
+  "marked-to-model": "surface",
   nanobook: "interchange",
+  "term-premium": "curve",
+  "deflated-sharpe": "search",
+  "honest-backtest": "charges",
   orderbook: "throughput",
+  "whose-inflation": "banknote",
+  "trade-mirror": "mirror",
+  "rent-or-buy": "housing",
+  "finance-analysis": "dusk",
 };

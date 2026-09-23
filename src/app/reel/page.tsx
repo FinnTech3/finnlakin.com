@@ -1,6 +1,6 @@
 import { ClipPlayer } from "@/components/clip";
 import { buildMetadata } from "@/lib/metadata";
-import { clips } from "@/lib/media";
+import { clipById, reelClips } from "@/lib/media";
 
 export const metadata = buildMetadata({
   path: "/reel",
@@ -19,7 +19,14 @@ export const metadata = buildMetadata({
 
    No lane here and no particle cloud: the engine is mounted on the home page
    only. A full-bleed clip is the whole width by definition, so there is nothing
-   for a lane to be beside. */
+   for a lane to be beside.
+
+   A named list rather than every clip in the manifest. This mapped over the
+   whole file, which was right when the file held four clips and would make the
+   reel a scroll through the media folder now that it holds twelve: the other
+   eight exist to sit beside a project at about seven hundred pixels, and they
+   have no 4K rendition because at that size it would be payload nobody can
+   see. */
 export default function ReelPage() {
   return (
     <div className="flex w-full flex-col">
@@ -35,39 +42,45 @@ export default function ReelPage() {
         </p>
       </header>
 
-      {clips.map((clip, index) => (
-        <section key={clip.id} className="relative w-full">
-          <figure className="relative m-0 h-[70svh] w-full overflow-hidden sm:h-[88svh]">
-            <ClipPlayer clip={clip} full />
+      {reelClips.map((id, index) => {
+        const clip = clipById.get(id);
+        if (!clip) return null;
+        return (
+          <section key={clip.id} className="relative w-full">
+            <figure className="relative m-0 h-[70svh] w-full overflow-hidden sm:h-[88svh]">
+              <ClipPlayer clip={clip} full />
 
-            {/* The scrim is not decoration. A caption in white over a bright
+              {/* The scrim is not decoration. A caption in white over a bright
                 frame of a clip is a caption whose contrast changes every frame,
                 and the only honest way to hold it is to put a known surface
                 between the two. */}
-            <div aria-hidden="true" className="clip-scrim" />
+              <div aria-hidden="true" className="clip-scrim" />
 
-            <figcaption className="band-inner absolute inset-x-0 bottom-0 pb-10 sm:pb-14">
-              <p className="t-label">{String(index + 1).padStart(2, "0")}</p>
-              <p className="measure mt-3 text-[19px] leading-snug text-ink text-pretty sm:text-[22px]">
-                {clip.caption}
-              </p>
-              <p className="mt-4 text-[13px] text-muted">
-                {clip.credit} ·{" "}
-                <a href={clip.href} className="link-arrow">
-                  source
-                </a>
-              </p>
-            </figcaption>
-          </figure>
-        </section>
-      ))}
+              <figcaption className="band-inner absolute inset-x-0 bottom-0 pb-10 sm:pb-14">
+                <p className="t-label">{String(index + 1).padStart(2, "0")}</p>
+                <p className="measure mt-3 text-[19px] leading-snug text-ink text-pretty sm:text-[22px]">
+                  {clip.caption}
+                </p>
+                <p className="mt-4 text-[13px] text-muted">
+                  {clip.credit} ·{" "}
+                  <a href={clip.href} className="link-arrow">
+                    source
+                  </a>
+                </p>
+              </figcaption>
+            </figure>
+          </section>
+        );
+      })}
 
       <div className="band-inner py-16 sm:py-20">
         <p className="measure text-[15px] leading-relaxed text-muted">
           Licences and the reason each clip was chosen are recorded in
           <code className="mx-1.5 text-ink">public/media/SOURCE.md</code>,
-          including the two that were rejected: one was a wall of third-party
-          logos and the other had a company sign on the building.
+          including the four that were rejected: a wall of third-party logos, a
+          company sign on a building, legible signage in a night time lapse, and
+          a pair of hands typing on a laptop, which breaks no rule and is the
+          most skippable image on the internet.
         </p>
       </div>
     </div>

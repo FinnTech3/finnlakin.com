@@ -110,10 +110,13 @@ export function ProjectCard({
         <div>
           <p className="measure text-[16px] leading-[1.55] text-ink">{project.body}</p>
 
-          {/* A clip, on the two projects where one says something the numbers
-              cannot. Not on the others: a video beside every result is
-              wallpaper, and the figures built from the real data are the
-              pictures that belong to the rest of them. */}
+          {/* A clip, on every project, which is what Finn asked for.
+
+              The case against is in ATTENTION.md rather than acted on quietly:
+              readers are documented to skip imagery that reads as decorative,
+              and about half of these are atmosphere rather than evidence. Each
+              one is a placeholder for a screen recording of the thing actually
+              running, which would beat all of them. */}
           {clip ? (
             <figure className="mt-8 m-0">
               <div className="relative aspect-[16/9] w-full overflow-hidden rounded-[--radius-card-sm]">
