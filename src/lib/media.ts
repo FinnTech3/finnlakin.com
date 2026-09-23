@@ -12,8 +12,17 @@
    change. */
 export type Clip = {
   id: string;
-  /* Relative to /public. */
+  /* Relative to /public. The rendition a clip is given beside a project, where
+     it renders about seven hundred pixels wide and 4K would be payload nobody
+     can see. */
   src: string;
+  /* The rendition /reel is given, where the clip is the full width of the
+     screen and the resolution is the point.
+
+     Absent on a clip whose source has no 4K rendition at all, in which case
+     `src` is the ceiling rather than an upscale of it: a 1080 frame stretched
+     to 3840 is not 4K, it is a larger file with the same detail in it. */
+  srcFull?: string;
   poster: string;
   /* What is actually in the frame, in a sentence. Doubles as the accessible
      description, so it describes rather than titles. */
@@ -30,7 +39,8 @@ const mixkit = (id: string) => `https://mixkit.co/free-stock-video/${id}/`;
 export const clips: Clip[] = [
   {
     id: "interchange",
-    src: "/media/11-720.mp4",
+    src: "/media/11-1080.mp4",
+    srcFull: "/media/11-2160.mp4",
     poster: "/media/11.jpg",
     description:
       "A motorway interchange filmed from directly above at night, traffic drawing continuous lines of white and red light through the junction.",
@@ -42,7 +52,7 @@ export const clips: Clip[] = [
   },
   {
     id: "throughput",
-    src: "/media/4067-720.mp4",
+    src: "/media/4067-1080.mp4",
     poster: "/media/4067.jpg",
     description:
       "A long exposure of a sunken motorway at dusk, headlights and tail lights drawn out into unbroken streaks running to the horizon.",
@@ -54,7 +64,8 @@ export const clips: Clip[] = [
   },
   {
     id: "city",
-    src: "/media/42343-360.mp4",
+    src: "/media/42343-1080.mp4",
+    srcFull: "/media/42343-2160.mp4",
     poster: "/media/42343.jpg",
     description:
       "A slow aerial drift over a city at night, office towers lit from inside and a line of blue light running up one of them.",
@@ -66,7 +77,8 @@ export const clips: Clip[] = [
   },
   {
     id: "creek",
-    src: "/media/51585-360.mp4",
+    src: "/media/51585-1080.mp4",
+    srcFull: "/media/51585-2160.mp4",
     poster: "/media/51585.jpg",
     description:
       "A camera moving slowly up a shallow creek in daylight, water running over a bed of rock between wooded banks.",

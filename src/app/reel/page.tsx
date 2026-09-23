@@ -38,7 +38,7 @@ export default function ReelPage() {
       {clips.map((clip, index) => (
         <section key={clip.id} className="relative w-full">
           <figure className="relative m-0 h-[70svh] w-full overflow-hidden sm:h-[88svh]">
-            <ClipPlayer clip={clip} />
+            <ClipPlayer clip={clip} full />
 
             {/* The scrim is not decoration. A caption in white over a bright
                 frame of a clip is a caption whose contrast changes every frame,
@@ -47,9 +47,7 @@ export default function ReelPage() {
             <div aria-hidden="true" className="clip-scrim" />
 
             <figcaption className="band-inner absolute inset-x-0 bottom-0 pb-10 sm:pb-14">
-              <p className="t-label">
-                {String(index + 1).padStart(2, "0")}
-              </p>
+              <p className="t-label">{String(index + 1).padStart(2, "0")}</p>
               <p className="measure mt-3 text-[19px] leading-snug text-ink text-pretty sm:text-[22px]">
                 {clip.caption}
               </p>

@@ -18,7 +18,22 @@ import type { Clip } from "@/lib/media";
    No controls and no audio, because these are not media to be operated. They
    are the visual equivalent of a pull quote, and a play button on one invites a
    reader to look for a soundtrack that is not there. */
-export function ClipPlayer({ clip, className }: { clip: Clip; className?: string }) {
+export function ClipPlayer({
+  clip,
+  className,
+  /* Ask for the 4K rendition, where the clip is the width of the screen and the
+     resolution is the point. Off by default, because beside a project a clip
+     renders about seven hundred pixels wide and 4K there is thirty megabytes
+     nobody can see.
+
+     It falls back to `src` rather than failing when a clip has no 4K rendition:
+     one of the four does not, and its 1080 file is its ceiling. */
+  full = false,
+}: {
+  clip: Clip;
+  className?: string;
+  full?: boolean;
+}) {
   const ref = useRef<HTMLVideoElement | null>(null);
   const [motion, setMotion] = useState(true);
 
@@ -58,7 +73,7 @@ export function ClipPlayer({ clip, className }: { clip: Clip; className?: string
       ref={ref}
       className={className ?? "block h-full w-full object-cover"}
       poster={clip.poster}
-      src={motion ? clip.src : undefined}
+      src={motion ? (full && clip.srcFull) || clip.src : undefined}
       preload="none"
       muted
       loop
