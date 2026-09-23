@@ -285,7 +285,6 @@
   --pass: #0d6b53;
   --flag: #a3201a;
 
-  position: absolute;
   border-radius: var(--radius-artifact);
   background: var(--paper-white);
   color: var(--ink-black);
@@ -295,49 +294,6 @@
 /* Out of the flow on a wide screen, where there is room beside the copy, and
    back into it on a narrow one, where there is not. A phone gets the stage's
    words and the cloud, and meets the numbers as ordinary blocks underneath. */
-/* Both cards low and to the right, under the cloud rather than over it.
-
-   The fault they had was not which side they were on, it was how far they
-   travelled: the table's keyframe carried it up forty six viewport heights'
-   worth of translation, straight through the band the cloud holds, and two
-   things clear of each other at both ends of an animation can still collide in
-   the middle of it. The travel is a third of that now and they stay below.
-
-   They were tried on the left, with the copy, and that was worse for a reason
-   worth writing down. The copy column is centred in a viewport tall panel and
-   runs to about seven hundred pixels; a card three hundred tall anchored near
-   the bottom of the same column lands on the call to action. Playwright caught
-   it as a click the table intercepted, which is the second time a card placed
-   by eye on this stage has quietly made a button unpressable. */
-.stage-artifact-table {
-  right: 0;
-  bottom: 5%;
-  width: 20rem;
-}
-
-.stage-artifact-stat {
-  right: 21.5rem;
-  bottom: 13%;
-  width: 14rem;
-}
-
-@media (max-width: 1023px) {
-  .stage-artifact {
-    position: static;
-    width: auto;
-    max-width: 24rem;
-    transform: none;
-  }
-
-  .stage-artifact-stat {
-    display: none;
-  }
-
-  .stage-artifact-table {
-    margin-top: 2rem;
-  }
-}
-
 /* A phone has no room beside the cloud, so the stage puts the words at the top
    and leaves the lower half of the screen for it.
 
@@ -373,84 +329,7 @@
       will-change: transform, opacity;
     }
 
-    /* The two artifacts scrub at different rates and in opposite directions,
-       which is the reference's one real trick: a single scroll that moves two
-       things by different amounts reads as depth, where moving them together
-       reads as a page scrolling.
-
-       Only where the artifacts are positioned. Their keyframes carry the
-       offsets that place them, so the table's own -58% is what centres it
-       against the panel; below this breakpoint the cards drop into the flow
-       and that same -58% is 216 pixels of its own height dragged upward, which
-       put the table on top of the call to action and made the button
-       unclickable on a phone. A transform written for one layout is not a
-       decoration that degrades in another, it is part of the layout. */
-    @media (min-width: 1024px) {
-      .stage-artifact-table {
-        animation: stage-artifact-table linear both;
-        animation-timeline: --stage;
-        animation-range: contain 22% contain 96%;
-        will-change: transform, opacity;
-      }
-
-      .stage-artifact-stat {
-        animation: stage-artifact-stat linear both;
-        animation-timeline: --stage;
-        animation-range: contain 40% contain 100%;
-        will-change: transform, opacity;
-      }
-    }
   }
-}
-
-/* The copy's own shade: a gradient between the cloud and the words.
-
-   It exists because contrast cannot be bought any other way here. The cloud's
-   bloom spreads five downsample levels past the particles, far enough left that
-   the fifteen pixel grey line under the headline needs its background below
-   0.183 in relative luminance, which even white type would not clear. The
-   alternatives were to dim the whole cloud to near nothing, which is what the
-   old layout did and why it ran at a hundredth of full strength, or to stop
-   putting words on the stage at all.
-
-   Outside main, and that is not an implementation detail. The contrast suite
-   measures what is behind a word by hiding the page and photographing what is
-   left, which is the only honest way to read it, so a shade that lives inside
-   the page is hidden along with the page and measures nothing. Sitting here it
-   is measured exactly as a reader sees it. At z-index -5 it is in front of the
-   cloud at -10 and behind everything that carries words. */
-.stage-shade {
-  position: fixed;
-  inset: 0;
-  z-index: -5;
-  pointer-events: none;
-  background: linear-gradient(
-    to right,
-    rgb(0 0 0 / 0.95) 40%,
-    rgb(0 0 0 / 0.78) 52%,
-    rgb(0 0 0 / 0) 64%
-  );
-  /* Goes with the plate, on the same number. A shade whose job is to hold a
-     white headline off a bright cloud has nothing to do once the page is paper
-     and the cloud is ink: left running it is a black gradient over the first
-     paper band. */
-}
-
-/* A phone has no free half: the words are above the cloud rather than beside
-   it, so the shade covers the band they sit in and lets it go below. */
-@media (max-width: 1023px) {
-  .stage-shade {
-    background: linear-gradient(
-      to bottom,
-      rgb(0 0 0 / 0.93) 56%,
-      rgb(0 0 0 / 0.62) 70%,
-      rgb(0 0 0 / 0) 84%
-    );
-  }
-}
-
-body:not(:has(.stage)) .stage-shade {
-  display: none;
 }
 
 @keyframes stage-copy {
@@ -475,51 +354,6 @@ body:not(:has(.stage)) .stage-shade {
    transform is a percentage of the element, which was correct while the cards
    were positioned against the middle of the panel and became nonsense the
    moment they were anchored to its bottom. */
-/* Rises in as the copy above it rises out, holds while it can be read, and
-   leaves with the stage. The travel is a third of what it was, because the
-   stage is a third of the height it was: these numbers are viewport heights,
-   so a shorter stage covering the same translation simply moves faster. */
-@keyframes stage-artifact-table {
-  0% {
-    transform: translate3d(0, 24vh, 0);
-    opacity: 0;
-  }
-  26% {
-    transform: none;
-    opacity: 1;
-  }
-  74% {
-    transform: translate3d(0, -6vh, 0);
-    opacity: 1;
-  }
-  100% {
-    transform: translate3d(-2vw, -16vh, 0);
-    opacity: 0;
-  }
-}
-
-/* And the stat card comes up the other way, at a different rate, which is the
-   whole of the effect: two things moved different distances by one scroll read
-   as depth, where two things moved together read as a page scrolling. */
-@keyframes stage-artifact-stat {
-  0% {
-    transform: translate3d(-3vw, 20vh, 0);
-    opacity: 0;
-  }
-  30% {
-    transform: none;
-    opacity: 1;
-  }
-  76% {
-    transform: translate3d(0, -9vh, 0);
-    opacity: 1;
-  }
-  100% {
-    transform: translate3d(2vw, -20vh, 0);
-    opacity: 0;
-  }
-}
-
 /* The fixed decoration layer: the gradient, its scrim and the particle canvas.
    All three belong to the stage, so they are pinned behind it and dissolve as
    it ends. Without this the cloud would carry on over the paper below, adding
@@ -698,71 +532,6 @@ body:not(:has(.stage)) main {
     color: var(--quote-surface);
     font-size: 0.875rem;
     letter-spacing: 0.02em;
-  }
-}
-
-/* The shade the words carry, and the reason it exists is worth reading.
-
-   The particle cloud is drawn behind the page and its bloom runs five
-   downsample levels past the last particle. On a 1280 pixel screen there is no
-   lane wide enough for it to be both visible and clear of the column beside it:
-   measured, the tools eyebrow sat on a background of 0.29 with the cloud parked
-   in its lane and the dimming model reporting it clear, and widening the lane,
-   shrinking the cloud and widening the model each moved that by a few
-   hundredths.
-
-   So the content side of the screen gets a gradient, and because the page is
-   black the gradient is black: a reader sees nothing at all and the cloud is
-   held down exactly where the words are. This is the same construction the
-   stage already used for the hero, generalised to follow the lane.
-
-   --lane-side is written by the engine from the same number that positions the
-   cloud, which is what stops the two disagreeing about which side is which. Its
-   default of nought is the no-engine case, where there is no cloud to shade
-   against and both sides stay clear.
-
-   Outside main, and that is not an implementation detail: the contrast suite
-   reads what is behind a word by hiding the page and photographing what is
-   left, so a shade that lives inside the page is hidden along with it and
-   measures nothing. At -6 it is in front of the cloud at -10 and behind
-   everything that carries words. */
-.lane-shade {
-  position: fixed;
-  inset: 0;
-  z-index: -6;
-  pointer-events: none;
-}
-
-.lane-shade-left {
-  opacity: clamp(0, calc(var(--lane-side, 0) * 1), 1);
-  background: linear-gradient(
-    to right,
-    rgb(0 0 0 / 0.95) 0%,
-    rgb(0 0 0 / 0.9) 46%,
-    rgb(0 0 0 / 0.55) 58%,
-    rgb(0 0 0 / 0) 68%
-  );
-}
-
-.lane-shade-right {
-  opacity: clamp(0, calc(var(--lane-side, 0) * -1), 1);
-  background: linear-gradient(
-    to left,
-    rgb(0 0 0 / 0.95) 0%,
-    rgb(0 0 0 / 0.9) 46%,
-    rgb(0 0 0 / 0.55) 58%,
-    rgb(0 0 0 / 0) 68%
-  );
-}
-
-/* No cloud on any other route, so nothing to shade against. */
-body:not(:has(.stage)) .lane-shade {
-  display: none;
-}
-
-@media (max-width: 1099px) {
-  .lane-shade {
-    display: none;
   }
 }
 
@@ -1417,5 +1186,224 @@ html[data-intro="ending"] [data-brain] {
 
   a {
     text-decoration: underline;
+  }
+}
+
+/* The animated call to action, from the component Finn supplied.
+
+   Four things changed on the way in, and each is a fault the original would
+   have shipped into this codebase rather than a matter of taste.
+
+   It arrived as styled-jsx. Every other control on this site is a class in this
+   file, and styled-jsx would put a <style> element inside the hero carrying
+   rules that never change, plus a runtime, to style two links.
+
+   It arrived with `@import url(...)` for Inter from Google Fonts. This site
+   already loads Inter through next/font, subset and self hosted, specifically
+   so that no reader's address is handed to a third party to render a
+   paragraph. That import would have been a second copy of a font already
+   present, fetched from someone else, blocking the render. The button inherits
+   the page's sans instead.
+
+   Its highlight was the CSS keyword `blue` with `#8484ff` behind it. Those are
+   nobody's colours. The two here are lifted from the particle cloud's own ramp
+   in palette.ts, so the light running round the border is the light the brain
+   beside it is made of.
+
+   And it animated unconditionally. Anyone who has asked their system for less
+   motion now gets the border and the label and none of the movement. */
+@property --shiny-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@property --shiny-offset {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@property --shiny-percent {
+  syntax: "<percentage>";
+  initial-value: 5%;
+  inherits: false;
+}
+
+@property --shiny-shine {
+  syntax: "<color>";
+  initial-value: #ffffff;
+  inherits: false;
+}
+
+@layer components {
+  .shiny-cta {
+    --shiny-bg: #000000;
+    --shiny-bg-subtle: #14161b;
+    --shiny-highlight: #2f6bdc;
+    --shiny-highlight-subtle: #6ea3f2;
+    --shiny-duration: 3s;
+    --shiny-shadow: 2px;
+    --shiny-transition: 800ms cubic-bezier(0.25, 1, 0.5, 1);
+
+    isolation: isolate;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: pointer;
+    outline-offset: 4px;
+    /* min-height rather than padding alone, so the control is a real touch
+       target at every font size the page might be rendered at. */
+    min-height: 2.75rem;
+    padding: 1rem 2.25rem;
+    font-size: 1.0625rem;
+    line-height: 1.2;
+    font-weight: 500;
+    border: 1px solid transparent;
+    border-radius: 360px;
+    color: var(--ink);
+    text-decoration: none;
+    /* The border is the gradient. The fill is painted into the padding box and
+       the conic sweep into the border box, so the ring of light is the border
+       itself rather than a second element behind one. */
+    background:
+      linear-gradient(var(--shiny-bg), var(--shiny-bg)) padding-box,
+      conic-gradient(
+          from calc(var(--shiny-angle) - var(--shiny-offset)),
+          transparent,
+          var(--shiny-highlight) var(--shiny-percent),
+          var(--shiny-shine) calc(var(--shiny-percent) * 2),
+          var(--shiny-highlight) calc(var(--shiny-percent) * 3),
+          transparent calc(var(--shiny-percent) * 4)
+        )
+        border-box;
+    box-shadow: inset 0 0 0 1px var(--shiny-bg-subtle);
+    transition: var(--shiny-transition);
+    transition-property: --shiny-offset, --shiny-percent, --shiny-shine;
+  }
+
+  .shiny-cta::before,
+  .shiny-cta::after,
+  .shiny-cta > span::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset-inline-start: 50%;
+    inset-block-start: 50%;
+    translate: -50% -50%;
+    z-index: -1;
+  }
+
+  .shiny-cta:active {
+    translate: 0 1px;
+  }
+
+  /* The dot field, masked to a sweeping arc. */
+  .shiny-cta::before {
+    --size: calc(100% - var(--shiny-shadow) * 3);
+    --position: 2px;
+    --space: calc(var(--position) * 2);
+    width: var(--size);
+    height: var(--size);
+    background: radial-gradient(
+        circle at var(--position) var(--position),
+        #ffffff calc(var(--position) / 4),
+        transparent 0
+      )
+      padding-box;
+    background-size: var(--space) var(--space);
+    background-repeat: space;
+    mask-image: conic-gradient(
+      from calc(var(--shiny-angle) + 45deg),
+      black,
+      transparent 10% 90%,
+      black
+    );
+    border-radius: inherit;
+    opacity: 0.4;
+    z-index: -1;
+  }
+
+  /* The shimmer that turns inside it. */
+  .shiny-cta::after {
+    width: 100%;
+    aspect-ratio: 1;
+    background: linear-gradient(-50deg, transparent, var(--shiny-highlight), transparent);
+    mask-image: radial-gradient(circle at bottom, transparent 40%, black);
+    opacity: 0.6;
+  }
+
+  .shiny-cta > span {
+    position: relative;
+    z-index: 1;
+  }
+
+  .shiny-cta > span::before {
+    --size: calc(100% + 1rem);
+    width: var(--size);
+    height: var(--size);
+    box-shadow: inset 0 -1ex 2rem 4px var(--shiny-highlight);
+    opacity: 0;
+    transition: opacity var(--shiny-transition);
+  }
+
+  .shiny-cta,
+  .shiny-cta::before {
+    animation: shiny-angle var(--shiny-duration) linear infinite;
+  }
+
+  .shiny-cta::after {
+    animation: shiny-turn var(--shiny-duration) linear infinite;
+  }
+
+  .shiny-cta:is(:hover, :focus-visible) {
+    --shiny-percent: 20%;
+    --shiny-offset: 95deg;
+    --shiny-shine: var(--shiny-highlight-subtle);
+  }
+
+  .shiny-cta:is(:hover, :focus-visible) > span::before {
+    opacity: 1;
+    animation: calc(var(--shiny-duration) * 1.5) shiny-breathe linear infinite;
+  }
+
+  /* Asked for less motion, given less motion: the border keeps its colour and
+     nothing on the control moves. */
+  @media (prefers-reduced-motion: reduce) {
+    .shiny-cta,
+    .shiny-cta::before,
+    .shiny-cta::after,
+    .shiny-cta > span::before {
+      animation: none;
+    }
+
+    .shiny-cta::before,
+    .shiny-cta::after {
+      display: none;
+    }
+  }
+}
+
+@keyframes shiny-angle {
+  to {
+    --shiny-angle: 360deg;
+  }
+}
+
+@keyframes shiny-turn {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@keyframes shiny-breathe {
+  from,
+  to {
+    scale: 1;
+  }
+  50% {
+    scale: 1.2;
   }
 }

@@ -21,7 +21,13 @@ import { buildTargetSet, SEED } from "./targets";
 import { brainTargets } from "./brain-shape";
 import { introFactor, rescale, wordShape } from "./words";
 import { mapClamped } from "./pack";
-import { DEFAULTS, type ParticleBrain, type ParticleBrainConfig, type QualityLevel } from "./types";
+import {
+  DEFAULTS,
+  type CloudMask,
+  type ParticleBrain,
+  type ParticleBrainConfig,
+  type QualityLevel,
+} from "./types";
 import { ParticleTimeline } from "./timeline";
 
 /* The engine. Everything above it is a part; this is what makes them a system.
@@ -132,6 +138,28 @@ export type EngineOptions = {
   intro?: boolean;
   onIntroEnd?: () => void;
 };
+
+
+/* The mask, as a clip path, for the tier that has no final pass to run it in.
+
+   Percentages rather than pixels, so it needs no resize handler, and the same
+   numbers the shader gets rather than a second set: the fallback and the full
+   path cut the cloud in the same place or the fallback is not a fallback.
+
+   CSS insets count from the top and the mask's y counts from the bottom, which
+   is the one conversion here and the one thing to get wrong. */
+function clipFor(mask: CloudMask): string {
+  const pc = (value: number) => `${(Math.min(1, Math.max(0, value)) * 100).toFixed(2)}%`;
+  if (mask.off) return "none";
+  if (mask.gapHalf > 0) {
+    return `inset(${pc(1 - (mask.gapCentre + mask.gapHalf))} 0 ${pc(
+      mask.gapCentre - mask.gapHalf,
+    )} 0)`;
+  }
+  if (mask.side > 0) return `inset(0 0 0 ${pc(mask.edge)})`;
+  if (mask.side < 0) return `inset(0 ${pc(1 - mask.edge)} 0 0)`;
+  return "none";
+}
 
 export function createParticleBrain(options: EngineOptions): ParticleBrain | null {
   const { canvas } = options;
@@ -261,7 +289,6 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   let lastPointer: [number, number, number] = [0.5, 0.5, 0.5];
   let lastPointerActive = 0;
   let postUsable = Boolean(post);
-  let lastSide = "";
   let introActive = runIntro;
   let introMs = 0;
   /* When the first frame ran. The opening reveal and the animation's phases are
@@ -487,39 +514,21 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     );
 
     if (chain) {
-      chain.render(tier.post, config, seconds, state.contentDim);
+      chain.render(tier.post, config, seconds, state.mask);
     } else {
-      /* No post chain means no final pass, so the one place the dimming lives
-         is not running. The canvas element carries it instead: a single style
-         property, set only when it changes, which the compositor applies for
-         free. Contrast is not something to leave to a fallback path. */
-      const opacity = (1 - state.contentDim).toFixed(3);
-      if (canvas.style.opacity !== opacity) canvas.style.opacity = opacity;
+      /* No post chain means no final pass, so the mask that keeps the cloud off
+         the words is not running. The canvas element carries the same cut
+         instead, as a clip path: one style property, set only when it changes,
+         which the compositor applies for free.
+
+         Keeping text clear of the cloud is not something to leave to a fallback
+         path. The low tier is what a weak machine gets, and a weak machine is
+         exactly the one whose reader can least afford a paragraph printed over
+         a light source. */
+      const clip = clipFor(state.mask);
+      if (canvas.style.clipPath !== clip) canvas.style.clipPath = clip;
     }
 
-    /* Which side the words are on, for the shade that protects them.
-
-       The cloud is drawn behind the page and its bloom runs five downsample
-       levels past the last particle, so on a 1280 pixel screen there is no lane
-       wide enough for it to be both visible and clear of a column: measured,
-       the tools eyebrow sat on a background of 0.29 with the cloud parked in
-       its lane and the dimming reporting it clear. Widening the lane, shrinking
-       the cloud and widening the model of its reach each moved that by a few
-       hundredths.
-
-       So the words carry their own shade, which is what the stage already did
-       for the hero, and on a black page a black gradient is invisible to a
-       reader and entirely visible to a contrast meter. It is driven from the
-       same lane number that positions the cloud, so the two cannot disagree
-       about which side needs it.
-
-       Rounded to a hundredth and written only on change: setting a custom
-       property on the root element invalidates style for the document. */
-    const side = state.laneSide.toFixed(2);
-    if (side !== lastSide) {
-      lastSide = side;
-      document.documentElement.style.setProperty("--lane-side", side);
-    }
 
     lastFrameMs = performance.now() - started;
 
@@ -549,10 +558,6 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     resize,
     frame,
     dispose() {
-      if (lastSide !== "") {
-        document.documentElement.style.removeProperty("--lane-side");
-        lastSide = "";
-      }
       scroll.unwatch();
       simulation.dispose();
       renderer.dispose();

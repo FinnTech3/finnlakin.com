@@ -55,7 +55,9 @@ export const metadata: Metadata = {
     title: siteTitle,
     description: siteDescription,
     url: siteUrl,
-    images: [{ url: ogImageUrl("/"), width: 1200, height: 630, alt: siteTitle }],
+    images: [
+      { url: ogImageUrl("/"), width: 1200, height: 630, alt: siteTitle },
+    ],
   },
   twitter: {
     card: "summary_large_image",
@@ -123,15 +125,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             its colours run at full strength, and below everything that carries
             words. It mounts itself only on the home page. */}
         <ParticleBrainMount />
-
-        {/* Between the cloud and the words. Outside main on purpose: see the
-            note on stage-shade in globals.css. */}
-        <div aria-hidden="true" className="stage-shade" />
-        {/* The shade that follows the lane down the page. Two elements rather
-            than one with a flipped gradient, because a gradient cannot be
-            animated through a custom property and two opacities can. */}
-        <div aria-hidden="true" className="lane-shade lane-shade-left" />
-        <div aria-hidden="true" className="lane-shade lane-shade-right" />
 
         {/* First focusable element on the page. Visually hidden until it takes
             focus, so a keyboard user can reach the content without tabbing

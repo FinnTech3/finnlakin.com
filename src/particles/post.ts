@@ -7,7 +7,7 @@ import {
   BRIGHT_FRAGMENT,
   FINAL_FRAGMENT,
 } from "./shaders/post";
-import type { ParticleBrainConfig, PostLevel } from "./types";
+import type { CloudMask, ParticleBrainConfig, PostLevel } from "./types";
 
 /* The chain of framebuffers the particles are drawn into and finished in.
 
@@ -131,7 +131,12 @@ export class PostChain {
       "u_vignetteDarkness",
       "u_grain",
       "u_exposure",
-      "u_contentDim",
+      "u_maskEdge",
+      "u_maskSide",
+      "u_maskFeather",
+      "u_gapCentre",
+      "u_gapHalf",
+      "u_maskOff",
     ]);
   }
 
@@ -237,7 +242,12 @@ export class PostChain {
 
   /* Everything after the particles have been drawn into the scene target. */
   /* Everything after the particles have been drawn into the scene target. */
-  render(level: PostLevel, config: ParticleBrainConfig, seconds: number, contentDim: number) {
+  render(
+    level: PostLevel,
+    config: ParticleBrainConfig,
+    seconds: number,
+    mask: CloudMask,
+  ) {
     const gl = this.gl;
     if (!this.scene || !this.composed || !this.defocused) return;
 
@@ -315,7 +325,12 @@ export class PostChain {
         level === "full" ? config.grainStrength : config.grainStrength * 0.6,
       );
       gl.uniform1f(this.finalUniforms.u_exposure ?? null, EXPOSURE);
-      gl.uniform1f(this.finalUniforms.u_contentDim ?? null, contentDim);
+      gl.uniform1f(this.finalUniforms.u_maskEdge ?? null, mask.edge);
+      gl.uniform1f(this.finalUniforms.u_maskSide ?? null, mask.side);
+      gl.uniform1f(this.finalUniforms.u_maskFeather ?? null, mask.feather);
+      gl.uniform1f(this.finalUniforms.u_gapCentre ?? null, mask.gapCentre);
+      gl.uniform1f(this.finalUniforms.u_gapHalf ?? null, mask.gapHalf);
+      gl.uniform1f(this.finalUniforms.u_maskOff ?? null, mask.off ? 1 : 0);
     });
   }
 

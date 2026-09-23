@@ -61,7 +61,7 @@ export default function MarkedToModel() {
         items={[
           { value: "11,593", label: "violations in the mark surface", tone: "flag" },
           { value: "88", label: "snapshots, BTC and ETH" },
-          { value: "235", label: "at or above one full tick", tone: "flag" },
+          { value: "235", label: "at or above one full tick" },
           { value: "0", label: "in the venue's own bid and ask", tone: "pass" },
         ]}
       />

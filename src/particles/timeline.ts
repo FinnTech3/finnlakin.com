@@ -1,6 +1,6 @@
 import { clamp, easeForFrame, mapClamped } from "./pack";
 import { CAMERA_FOV, CAMERA_POSITION } from "./renderer";
-import type { ParticleTimelineState } from "./types";
+import type { CloudMask, LaneState, ParticleTimelineState } from "./types";
 
 /* Scroll position in, everything the renderer needs out.
 
@@ -77,17 +77,40 @@ const FRAME_FILL = 0.94;
    dimming had computed that it was clear. */
 const BLOOM_REACH = 1.6;
 
-/* How far the cloud is held down while it is over the column. Set by the
-   contrast suite rather than by eye: it walks every run of text on the page and
-   reads the pixels actually behind it. */
-const COLUMN_DIM = 0.94;
+/* Half the viewport measured up and down rather than across, which is what the
+   seam between two sections has to be converted into. */
+function halfViewportHeight() {
+  return Math.abs(CAMERA_POSITION[2]) * Math.tan((CAMERA_FOV * Math.PI) / 360);
+}
 
-/* And on a screen too narrow to have a lane, where the cloud has nowhere to be
-   but behind the words. A faint moving presence rather than a picture, which is
-   the same answer the old full page layout came to for the same reason. */
-const NARROW_DIM = 0.86;
+/* How small the cloud draws itself in while it changes columns.
 
-function targets(progress: number, baseFactor: number, aspect: number, laneSide: number) {
+   This is the whole reason a crossing is possible at all. The cloud at reading
+   size is wider than the gap between two sections, so at full size there is no
+   route across the page that is not through a paragraph. Contracted it fits the
+   seam, and it reads as the thing gathering itself up to move rather than as a
+   picture sliding sideways behind the text. */
+const CROSS_CONTRACT = 0.55;
+
+/* A hard ceiling on the strip the crossing opens, as a fraction of the screen.
+
+   The cloud's own contracted size decides the strip, so this only bites if a
+   retuning makes the cloud large enough to want more room than the layout's
+   section padding actually leaves. It is a guard against that, not a setting:
+   if it ever binds, the contraction is wrong rather than this number. */
+const GAP_HALF_MAX = 0.2;
+
+/* The softening at the column boundary, measured *into* the cloud's own column.
+   One sided on purpose: a ramp that ran the other way would be a feather made
+   of light lying across the first characters of every line. */
+const MASK_FEATHER = 0.045;
+
+/* The default for the callers that have no page to read a lane off: the tests,
+   the reduced motion path, and the first frame before the sections are
+   measured. The right column, settled, not crossing. */
+const SETTLED_RIGHT: LaneState = { from: 1, to: 1, amount: 0, gapUv: 0.5 };
+
+function targets(progress: number, baseFactor: number, aspect: number, lane: LaneState) {
   const p = progress;
 
   /* The reference's numbers are written for a wide screen, where the cloud has
@@ -139,8 +162,17 @@ function targets(progress: number, baseFactor: number, aspect: number, laneSide:
      with it. scroll.ts reads the lane off the band's own class now, so there is
      one statement of which side each band uses and the cloud and the layout
      cannot disagree about it. */
+  /* How far through a change of columns, eased, and how high that lifts the
+     cloud onto the seam. `ride` is nought at both ends of a crossing and one in
+     the middle of it, so everything it drives returns to where it was. */
+  const amount = clamp(lane.amount, 0, 1);
+  const eased =
+    amount < 0.5 ? 2 * amount * amount : 1 - Math.pow(-2 * amount + 2, 2) / 2;
+  const ride = Math.pow(Math.sin(Math.PI * amount), 0.7);
+  const sweep = lane.from + (lane.to - lane.from) * eased;
+
   const x = wide
-    ? openX + mapClamped(p, 0.55, 1, 0, laneX - openX) + (laneSide - 1) * laneX
+    ? openX + mapClamped(p, 0.55, 1, 0, laneX - openX) + (sweep - 1) * laneX
     : openX + mapClamped(p, 0, 1, 0, -0.55 * spread);
 
   /* Vertical drift, and it is small on purpose. The canvas is fixed, so this is
@@ -230,71 +262,41 @@ function targets(progress: number, baseFactor: number, aspect: number, laneSide:
      is much shorter on a phone: the hero's own table is under the cloud's band
      within a couple of hundred pixels, where on a wide screen the cloud is
      still in the half the text does not use. */
-  /* How far the cloud is turned down once text is over it.
+  /* Nothing is dimmed any more, and that is the change.
 
-     This was a ramp to 0.988 finishing within the first third of a section,
-     which is to say the cloud spent the entire page at roughly a hundredth of
-     its brightness. That was the right answer for the layout it was written
-     for, where the cloud travelled down the page behind two thousand words of
-     body copy and a paragraph over it at full strength measured 0.87 in
-     relative luminance against the 0.033 the quietest grey needs.
+     Three separate things used to hold the cloud down so that text laid over it
+     kept its contrast ratio: a ramp against the scroll, a ramp against the
+     cloud's own distance from the column, and a black gradient painted over the
+     reading in CSS. All three worked, in that the measurement passed. All three
+     had the same cost, and it is the fault that was reported: the brain lost
+     brightness on whichever side the words were, so it visibly went dim every
+     time it changed columns.
 
-     The stage has no text over the cloud. The copy sits in the left half and
-     the cloud in the right; the two artifacts on top of it are opaque white
-     cards, which a cloud behind cannot affect at all. So the ramp comes almost
-     all the way off, and what is left is for the narrow layout, where the copy
-     is above the cloud rather than beside it and a tall phone can still put a
-     line of the standfirst across the top of it.
+     The light is cut now rather than turned down. The final pass masks the
+     composited cloud to the column the layout leaves empty for it, so it never
+     reaches a word and there is nothing left to protect against. Both columns
+     run at the same brightness because neither is being compensated for, and
+     the bloom is inside the cut rather than outside it, which is the part no
+     amount of dimming could do.
 
-     Measured, not assumed: the contrast suite walks every run of text on the
-     page and reads the pixels actually behind it. */
-  /* How far the cloud is turned down so that text laid over it keeps its
-     contrast ratio.
+     What the timeline still owes the mask is where to cut. That is the rest of
+     this function. */
+  const halfH = halfViewportHeight();
 
-     On the stage this is a ramp against the scroll, and it is nearly nothing on
-     a wide screen: the copy sits in the left half and the cloud in the right,
-     and the words carry their own shade. See stage-copy in globals.css.
-
-     On paper it is a ramp against the cloud's own position instead, which is
-     the part worth reading twice. The cloud is over the column exactly when its
-     offset is near nought, so the protection is computed from the composition
-     rather than from a second set of ramps lined up against it by hand. Two
-     independent ramps drift the moment either is retuned, and the failure is
-     silent: the cloud simply starts crossing the text at full strength one
-     tuning session later. */
-  /* Where the reading starts, plus the cloud's own radius: the point on the way
-     in at which the two begin to overlap. Derived from the layout and from the
-     factor rather than being a number of its own, so it cannot go stale when
-     either of them changes. */
-  const columnClear =
-    (1 - 2 * LANE_FRACTION) * half + CLOUD_RADIUS * baseSize + BLOOM_REACH;
-  /* Raised to a power below one, so it bites as soon as the cloud starts to
-     come in rather than only once it is on top of the words. Linear, the cloud
-     was still at 42% of full strength with its middle over a heading, which is
-     the arithmetic working exactly as written and the number being wrong. */
-  const overColumn = Math.pow(
-    1 - clamp(Math.abs(BASE.x + x) / Math.max(0.1, columnClear), 0, 1),
-    0.55,
-  );
-  const contentDim = Math.max(
-    narrow ? mapClamped(p, 0.05, 0.3, 0, 0.72) : 0.08,
-    /* On a screen with no lane, which is everything under 1100 pixels, the
-       cloud is behind the reading at every scroll position rather than at the
-       crossings only, so it is held down the whole way. */
-    wide ? overColumn * COLUMN_DIM : NARROW_DIM,
-  );
-
-  /* And it shrinks as it crosses, as well as going faint. Tied to the same
-     overColumn that does the dimming, so the two cannot drift apart. */
   /* Smaller once the hero is behind, and that is a composition decision as much
-     as a contrast one. The opening shows the cloud at full size because it is
-     the subject; down the page it is travelling beside the writing and it is a
-     companion. It also has to fit: measured on a 1280 pixel screen the cloud is
-     about 310 pixels across at the opening factor, and a lane of four tenths of
-     the viewport is 512, so at full size its bloom crossed into the column
-     however far out the lane put it. */
-  const crossed =
-    (baseSize - overColumn * 1.2) * (1 - 0.18 * mapClamped(p, 0.75, 1.15, 0, 1));
+     as anything: the opening shows the cloud at full size because it is the
+     subject, and down the page it is travelling beside the writing and is a
+     companion to it. */
+  const settled = baseSize * (1 - 0.18 * mapClamped(p, 0.75, 1.15, 0, 1));
+
+  /* And smaller again while it is changing columns.
+
+     The cloud at reading size is wider than the space between two sections, so
+     at full size there is no route across this page that is not through a
+     paragraph. Drawing itself in is what makes the seam passable, and it is
+     also the better picture: the thing gathers itself up, crosses, and opens
+     out again, rather than sliding sideways behind the words. */
+  const crossed = settled * (1 - CROSS_CONTRACT * ride);
 
   /* Then the whole composition is pulled in until it fits the frame.
 
@@ -310,26 +312,59 @@ function targets(progress: number, baseFactor: number, aspect: number, laneSide:
      Scaling the offset and the size together is a uniform zoom out, so the
      composition keeps its shape and its place in the lane; only its size on the
      screen changes, and only when it would otherwise be clipped. */
+  /* The cloud leaves its column to cross, which means going to where the seam
+     between the two sections currently is on the screen. `ride` returns to
+     nought at both ends, so the cloud is back at its own drift height by the
+     time it is in either column. */
+  const gapWorldY = (lane.gapUv - 0.5) * 2 * halfH;
+  const ridden = wide ? y * (1 - ride) + (gapWorldY - BASE.y) * ride : y;
+
   const burstReach = 1 + explode * EXPLODE_SPREAD;
   const radius = CLOUD_RADIUS * crossed * burstReach;
   const roomX = half * FRAME_FILL;
   const roomY = (half / aspect) * FRAME_FILL;
   const overflow = Math.max(
     (Math.abs(x) + radius) / Math.max(0.001, roomX),
-    (Math.abs(BASE.y + y) + radius) / Math.max(0.001, roomY),
+    (Math.abs(BASE.y + ridden) + radius) / Math.max(0.001, roomY),
   );
   const fit = overflow > 1 ? 1 / overflow : 1;
   const factor = crossed * fit;
 
+  /* Where the final pass is allowed to draw what all of the above produced.
+
+     The column is snapped rather than blended. A lane number halfway between
+     two columns describes a boundary in the middle of the screen, which is
+     exactly where the reading is; the cloud is never there, because when it is
+     between columns it is on the seam and the strip is what is carrying it. The
+     snap happens at the midpoint of the crossing, by which time the cloud is
+     well inside the strip and the column term is not holding anything. */
+  const side = amount < 0.5 ? lane.from : lane.to;
+
+  /* The strip is the size of the thing going through it, not a number picked to
+     look right: the contracted cloud plus the distance its bloom carries. Sized
+     any smaller and the crossing is clipped; any larger and it is a window onto
+     the paragraphs above and below the seam. */
+  const crossingReach = CLOUD_RADIUS * factor * burstReach + BLOOM_REACH;
+
+  const mask: CloudMask = {
+    edge: 0.5 + side * (0.5 - LANE_FRACTION),
+    side: wide ? side : 0,
+    feather: MASK_FEATHER,
+    gapCentre: lane.gapUv,
+    gapHalf: wide && ride > 0.001
+      ? Math.min(GAP_HALF_MAX, crossingReach / (2 * halfH))
+      : 0,
+    off: !wide,
+  };
+
   return {
-    offset: { x: (BASE.x + x) * fit, y: (BASE.y + y) * fit, z: BASE.z },
+    offset: { x: (BASE.x + x) * fit, y: (BASE.y + ridden) * fit, z: BASE.z },
     explode: Math.max(0, Math.min(1, explode)),
     factor,
     progress: progressTarget,
     progress2,
     rotation: { x: 0, y: INITIAL_YAW + rotationY, z: rotationZ },
-    contentDim,
-    laneSide: wide ? laneSide : 0,
+    mask,
   } satisfies ParticleTimelineState;
 }
 
@@ -347,7 +382,7 @@ export class ParticleTimeline {
     this.aspect = aspect;
     /* Started at the resting values rather than at zero, so the first frame is
        the opening composition rather than a cloud easing in from the origin. */
-    this.state = targets(0, baseFactor, aspect, 1);
+    this.state = targets(0, baseFactor, aspect, SETTLED_RIGHT);
   }
 
   setBaseFactor(value: number) {
@@ -362,8 +397,13 @@ export class ParticleTimeline {
     return this.state;
   }
 
-  update(sectionProgress: number, ease: number, deltaSeconds: number, laneSide = 1) {
-    const to = targets(sectionProgress, this.baseFactor, this.aspect, laneSide);
+  update(
+    sectionProgress: number,
+    ease: number,
+    deltaSeconds: number,
+    lane: LaneState = SETTLED_RIGHT,
+  ) {
+    const to = targets(sectionProgress, this.baseFactor, this.aspect, lane);
     const from = this.state;
     const step = easeForFrame(ease, deltaSeconds);
 
@@ -382,8 +422,15 @@ export class ParticleTimeline {
         y: approach(from.rotation.y, to.rotation.y, step),
         z: approach(from.rotation.z, to.rotation.z, step),
       },
-      contentDim: approach(from.contentDim, to.contentDim, step),
-      laneSide: approach(from.laneSide, to.laneSide, step),
+      /* Taken whole rather than eased towards, unlike everything above it.
+
+         The mask is a statement about where the page's words are, and the page
+         does not ease into having words somewhere. Easing the boundary would
+         put it briefly between two columns, which is the middle of the screen,
+         which is the reading. The one discontinuity in it, the snap from one
+         column to the other, happens while the cloud is inside the seam strip
+         and is therefore invisible. */
+      mask: to.mask,
     };
     return this.state;
   }
@@ -402,16 +449,28 @@ export class ParticleTimeline {
       explode: 0,
       progress2: 0,
       rotation: { x: 0, y: yaw, z: 0 },
-      contentDim: 0,
-      laneSide: this.state.laneSide,
+      /* And no keep-out while the opening runs.
+
+         The entrance flies in from all four edges of the frame and converges,
+         so a column mask deletes three quarters of it: measured, the whole
+         frame at three tenths of a second fell from the 0.0015 the test
+         requires to 0.00125, which is the animation being cut rather than the
+         animation being dim.
+
+         It is also the right answer rather than a concession to a test. The
+         mask exists to keep the cloud off the reading, and during the opening
+         there is no reading: the copy has not settled, nothing is being
+         scrolled, and the entrance is the subject of the screen rather than
+         something beside it. The keep-out starts when the page does. */
+      mask: { ...this.state.mask, off: true },
     };
     return this.state;
   }
 
   /* Used by the reduced motion path and by the tests, which need the settled
      answer for a scroll position without waiting for it to ease there. */
-  settle(sectionProgress: number, laneSide = 1) {
-    this.state = targets(sectionProgress, this.baseFactor, this.aspect, laneSide);
+  settle(sectionProgress: number, lane: LaneState = SETTLED_RIGHT) {
+    this.state = targets(sectionProgress, this.baseFactor, this.aspect, lane);
     return this.state;
   }
 }

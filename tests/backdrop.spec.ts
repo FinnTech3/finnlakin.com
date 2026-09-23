@@ -186,6 +186,25 @@ test.describe("the opening animation", () => {
    moving for a reader who asked it not to, and it can quietly swallow the
    clicks, selections and keystrokes meant for the page underneath it. */
 test.describe("the particle engine", () => {
+  /* Twice the default budget for this group, and it is the machine rather than
+     the tests.
+
+     There is no GPU here or on a CI runner, so every frame of a thirty two
+     thousand particle cloud is rasterised in software, and the desktop project
+     draws far more of it than the phone one does. Measured in one run: the
+     click and selection test took 30.1 seconds on desktop against 17.4 on
+     phone, and the movement test 31.4 against 19.6. Both assert several things
+     in sequence after `settled()`, which reloads, waits on the fonts and can
+     poll for twenty seconds before its own fixed wait.
+
+     They were passing on a margin of a few seconds, which is not a margin: they
+     went over as soon as the run shared the machine with other workers, and
+     they did it in a different place each time, which is how a suite teaches
+     people to ignore it. Nothing here is skipped and no assertion is relaxed.
+     The only thing that changes is how long a slow machine is allowed to take
+     to finish arriving at the same answer. */
+  test.describe.configure({ timeout: 60_000 });
+
   /* Counts the pixels the engine has actually painted, by decoding a
      screenshot of its canvas.
 
@@ -395,22 +414,44 @@ test.describe("the particle engine", () => {
     await page.goto("/?brainQuality=low");
     await settled(page);
 
-    const frames = () =>
+    /* How many animation frames anything on the page asks for in a window.
+
+       Reading the canvas cannot answer the question this test is asking. The
+       context is created without preserveDrawingBuffer, which is the right
+       choice for a page and means the browser may clear the buffer once it has
+       composited it: two screenshots of a canvas nobody redrew are not required
+       to match, and they do not.
+
+       That was always true here. The measurement counted pixels over a
+       threshold, and a nearly black frame counted the same whether it had been
+       cleared or not, so this passed for a reason unconnected to what it was
+       checking. It only began failing when the cloud came up to full brightness
+       and about 170,000 pixels landed near that threshold, at which point 46 of
+       them crossed it between two reads of a canvas that had not been redrawn.
+
+       Frames asked for is the honest question. It is stricter than comparing
+       pixels, and it covers the gradient backdrop as well as the cloud. */
+    const framesRequested = (ms: number) =>
       page.evaluate(
-        () =>
+        (windowMs: number) =>
           new Promise<number>((resolve) => {
-            let count = 0;
-            const start = performance.now();
-            const tick = () => {
-              count += 1;
-              if (performance.now() - start < 400) requestAnimationFrame(tick);
-              else resolve(count);
+            let asked = 0;
+            const real = window.requestAnimationFrame.bind(window);
+            window.requestAnimationFrame = (callback: FrameRequestCallback) => {
+              asked += 1;
+              return real(callback);
             };
-            requestAnimationFrame(tick);
+            setTimeout(() => {
+              window.requestAnimationFrame = real;
+              resolve(asked);
+            }, windowMs);
           }),
+        ms,
       );
 
-    expect(await frames(), "no frames while visible").toBeGreaterThan(0);
+    /* Measured before as well as after, so that a counter which never fires at
+       all cannot pass the assertion below by doing nothing. */
+    expect(await framesRequested(400), "not drawing while visible").toBeGreaterThan(0);
 
     await page.evaluate(() => {
       Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
@@ -419,10 +460,7 @@ test.describe("the particle engine", () => {
     });
     await page.waitForTimeout(300);
 
-    const before = await painted(page);
-    await page.waitForTimeout(900);
-    /* Nothing new drawn, so the count cannot have changed. */
-    expect(await painted(page), "still drawing in a hidden tab").toBe(before);
+    expect(await framesRequested(900), "still drawing in a hidden tab").toBe(0);
   });
 
   test("holds still for a reader who asked for less motion", async ({ browser }) => {

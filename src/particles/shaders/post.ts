@@ -162,7 +162,19 @@ uniform float u_vignetteOffset;
 uniform float u_vignetteDarkness;
 uniform float u_grain;
 uniform float u_exposure;
-uniform float u_contentDim;
+/* The keep-out. The cloud is drawn everywhere the page's words are not, and
+   these say where that is, in the same screen space the page is laid out in.
+
+   u_maskSide is +1 when the cloud's column is the right of the screen and -1
+   when it is the left; u_maskEdge is where that column starts. u_gapCentre and
+   u_gapHalf are the strip between two sections, which is the only horizontal
+   road across the page that has no text on it. */
+uniform float u_maskEdge;
+uniform float u_maskSide;
+uniform float u_maskFeather;
+uniform float u_gapCentre;
+uniform float u_gapHalf;
+uniform float u_maskOff;
 
 float random(vec2 p) {
   return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
@@ -196,18 +208,47 @@ void main() {
   vec2 offset = (v_uv - 0.5) * u_vignetteOffset;
   colour = mix(colour, vec3(0.0), clamp(dot(offset, offset) * u_vignetteDarkness, 0.0, 1.0));
 
-  /* How far the cloud is held down so that text laid over it keeps its contrast
-     ratio. Applied here, after the tone map, and not in the vertex shader where
-     it started.
+  /* Cut the cloud to the room it is allowed, and do it here, after the bloom
+     has already been composited in.
 
-     That is not a tidying up. Dimming a particle's colour before accumulation
-     and tone mapping buys almost nothing in the dense middle: the tone map is
-     there precisely to compress large values towards one, so cutting the input
-     by a hundredfold moves the output by very little. Measured, a dim of 0.993
-     applied per particle still left a relative luminance of 0.09 behind a line
-     of body text, where the ceiling is 0.033. Applied to the finished pixel it
-     is an honest multiplier: halve it and the measurement halves. */
-  colour *= 1.0 - u_contentDim;
+     This replaces a gradient that was painted over the reading column in CSS.
+     That gradient worked, in the sense that the contrast measurement passed,
+     and it was the wrong instrument: it dimmed the cloud on whichever side the
+     words were, so the brain visibly lost half its brightness every time it
+     changed lanes. The complaint was that it goes dim on the left. It did.
+
+     A mask is the honest version of the same requirement. The light does not
+     cross into the column, so the column needs no shade, so both sides of the
+     page run the cloud at the same brightness. The bloom is inside this cut
+     rather than outside it, which is the part a shade could never do: the
+     bloom runs five downsample levels past the last particle, and before this
+     it reached across any lane wide enough to put a paragraph in.
+
+     The ramp is one sided. It runs from the boundary *into* the cloud's own
+     column, never out of it, so a feather that softens the edge cannot also
+     leak light onto a word. */
+  float keep = u_maskSide == 0.0
+    ? 0.0
+    : smoothstep(0.0, u_maskFeather, (v_uv.x - u_maskEdge) * u_maskSide);
+
+  /* And the road across. While the cloud is changing sides it is not in either
+     column, it is in the gap between two sections, which is the one band of the
+     page with no text in it. The strip is nought height when it is not
+     crossing, so this term contributes nothing the rest of the time. */
+  if (u_gapHalf > 0.0) {
+    float toEdge = abs(v_uv.y - u_gapCentre);
+    keep = max(keep, 1.0 - smoothstep(u_gapHalf * 0.6, u_gapHalf, toEdge));
+  }
+
+  /* And the escape, for every case with no column to keep out of: a phone
+     before the cloud has anywhere to be, a reduced motion frame, the routes
+     that mount the canvas without the page that shapes it. One uniform rather
+     than a sentinel inside another, because a mask that silently means "all of
+     it" when a number happens to be nought is the kind of thing that ships
+     inverted. */
+  keep = max(keep, u_maskOff);
+
+  colour *= keep;
 
   /* How opaque this pixel is, decided before the grain is added.
 

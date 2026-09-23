@@ -40,10 +40,22 @@ async function settle(page: Page) {
        is not a fault to fix in the animation, it is what a scroll timeline
        means, and the stage's motion is built out of them. They also cannot be
        mid-transition in the sense this wait exists for, because at a given
-       scroll position they are exactly where that position puts them. */
-    const animations = document
-      .getAnimations()
-      .filter((animation) => animation.timeline instanceof DocumentTimeline);
+       scroll position they are exactly where that position puts them.
+
+       Finite ones only, for the same reason stated the other way round. An
+       animation set to run forever has no finish either, so awaiting it hangs
+       exactly as a scroll timeline does: the call to action on the home page
+       turns its border light continuously, and waiting for that to be over
+       timed this gate out at thirty seconds. Neither kind is ever
+       mid-transition in the sense this wait exists for, which is a control
+       caught halfway between two states while axe reads its colours.
+
+       This narrows what is waited for and nothing about what is scanned. The
+       sweep still runs every rule at every severity over every element. */
+    const animations = document.getAnimations().filter((animation) => {
+      if (!(animation.timeline instanceof DocumentTimeline)) return false;
+      return animation.effect?.getTiming().iterations !== Infinity;
+    });
     await Promise.all(animations.map((animation) => animation.finished.catch(() => {})));
   });
   await page.waitForTimeout(300);

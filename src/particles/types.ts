@@ -167,6 +167,44 @@ export const DEFAULTS: ParticleBrainConfig = {
    interpolated towards its target rather than set from scroll directly, which
    is what makes scrolling backwards reverse the animation instead of jumping
    it. */
+/* Which column the cloud is in, and how far through a change of columns.
+
+   `from` and `to` are the same value whenever it is settled, with `amount` at
+   nought; during a crossing they are the two columns and `amount` runs nought
+   to one. `gapUv` is where the seam between the two sections is on screen,
+   which is the road the crossing travels along. */
+export type LaneState = {
+  from: number;
+  to: number;
+  amount: number;
+  gapUv: number;
+};
+
+/* The room the cloud is allowed, as the final pass needs it: everything is in
+   uv, so it survives a resize and a device pixel ratio without being restated.
+
+   This exists because the alternative was a gradient painted over the reading
+   column, which held the contrast measurement down by dimming the cloud on
+   whichever side the words were. Cutting the light is the same requirement
+   without that cost, and it is the only version that also contains the bloom. */
+export type CloudMask = {
+  /* uv x of the boundary between the cloud's column and the page's. */
+  edge: number;
+  /* +1 when the cloud's column is the right of the screen, -1 the left, and 0
+     where there is no column to keep out of, such as a phone. */
+  side: number;
+  /* uv width of the ramp at that boundary, measured into the cloud's own
+     column so that softening the edge can never light a word. */
+  feather: number;
+  /* The gap between two sections: the one horizontal road across the page with
+     no text on it, which is where the cloud changes sides. */
+  gapCentre: number;
+  /* uv half height of that strip. Nought means it is not crossing. */
+  gapHalf: number;
+  /* Draw the cloud everywhere, for the cases with no column to keep out of. */
+  off: boolean;
+};
+
 export type ParticleTimelineState = {
   /* Where the whole cloud sits in world space. */
   offset: { x: number; y: number; z: number };
@@ -181,11 +219,11 @@ export type ParticleTimelineState = {
   rotation: { x: number; y: number; z: number };
   /* How far the cloud's brightness is pulled down so that text laid over it
      keeps its contrast ratio. Zero is full strength. */
-  contentDim: number;
+  /* Where the cloud is allowed to be drawn, in the page's own screen space. */
+  mask: CloudMask;
   /* Minus one when the cloud is in the left lane, one when it is in the right,
      and between them while it crosses. The page reads it to shade the side the
      words are on. */
-  laneSide: number;
 };
 
 export type MouseState = {

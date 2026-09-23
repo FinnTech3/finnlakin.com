@@ -1,5 +1,5 @@
 import { clamp, easeForFrame } from "./pack";
-import type { ScrollState } from "./types";
+import type { LaneState, ScrollState } from "./types";
 
 /* Scroll position, as a number from nought to six.
 
@@ -34,6 +34,16 @@ const SECTIONS = ["hero", "work", "about", "path", "skills", "endorsements", "co
 const RANGE = 6;
 
 const MAX_SECTIONS_PER_SECOND = 4;
+
+/* How far through a section the change of sides happens.
+
+   It ran 0.60 to 0.95, which put the crossing hard against the boundary and
+   left the cloud still moving as the next heading arrived. Brought forward, the
+   cloud is settled in its new column well before the incoming section fills the
+   screen, and the seam it crosses on is nearer the middle of the viewport where
+   there is most room either side of it. */
+const CROSS_FROM = 0.38;
+const CROSS_TO = 0.72;
 
 /* One eased, capped step of the timeline towards where the page is.
 
@@ -212,21 +222,52 @@ export class ScrollController {
      boundary, so the cloud is already in the new lane by the time the incoming
      heading reaches the top of the screen. Straddling the boundary put it
      halfway across at the exact moment a heading arrived. */
-  laneAt(progress: number): number {
+  laneAt(progress: number): LaneState {
     const lanes = this.lanes;
-    if (lanes.length < 2) return 1;
+    const idle = (side: number): LaneState => ({
+      from: side,
+      to: side,
+      amount: 0,
+      gapUv: 0.5,
+    });
+    if (lanes.length < 2) return idle(1);
+
     const step = RANGE / (lanes.length - 1);
     const at = clamp(progress / step, 0, lanes.length - 1);
     const index = Math.min(lanes.length - 1, Math.floor(at));
     const here = lanes[index] ?? 1;
     const next = lanes[Math.min(lanes.length - 1, index + 1)] ?? here;
-    if (here === next) return here;
+    if (here === next) return idle(here);
+
     const through = at - index;
-    const CROSS_FROM = 0.6;
-    const CROSS_TO = 0.95;
-    if (through <= CROSS_FROM) return here;
-    if (through >= CROSS_TO) return next;
-    return here + (next - here) * ((through - CROSS_FROM) / (CROSS_TO - CROSS_FROM));
+    if (through <= CROSS_FROM) return idle(here);
+    if (through >= CROSS_TO) return idle(next);
+
+    return {
+      from: here,
+      to: next,
+      amount: (through - CROSS_FROM) / (CROSS_TO - CROSS_FROM),
+      gapUv: this.gapUv(index + 1),
+    };
+  }
+
+  /* Where the seam between two sections currently is, as a fraction up the
+     screen, with nought at the bottom because that is the space the final pass
+     samples in.
+
+     This is the only horizontal road across the page. Everywhere else at a
+     given scroll position there is a paragraph, so a cloud that changes sides
+     anywhere else changes sides through somebody's sentence, which is the
+     whole complaint. The seam is the band of vertical padding between one
+     section and the next, it moves up the screen as the page scrolls, and the
+     crossing rides it. */
+  private gapUv(boundary: number): number {
+    const tops = this.boundaries;
+    const top = tops[boundary];
+    if (top === undefined || typeof window === "undefined") return 0.5;
+    const height = Math.max(1, window.innerHeight);
+    const css = top - window.scrollY;
+    return clamp(1 - css / height, 0, 1);
   }
 
   read() {

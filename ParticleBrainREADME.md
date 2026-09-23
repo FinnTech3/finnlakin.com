@@ -80,7 +80,7 @@ targets. It never calculates where a particle is.
 | `src/components/particle-brain.tsx` | The canvas, the frame loop and five listeners. |
 | `src/components/particle-brain-mount.tsx` | Loads it, on the home page only. |
 | `src/components/hero.tsx` | The stage: its height, its sticky panel and the two artifacts. |
-| `src/app/globals.css` | The stage's shade, its scroll driven motion and the decoration layer's stacking. |
+| `src/app/globals.css` | The lane the layout leaves empty, the stage's scroll driven motion and the decoration layer's stacking. |
 
 ## The simulation
 
@@ -469,33 +469,54 @@ cloud reaches the clamp where the aperture stops meaning anything.
 the brightest background pixel inside each run of text's own box against that
 text's own colour, at eight points down the document.
 
-The dimming that exists is applied **after** the tone map, in the final pass,
-and not per particle in the vertex shader. The tone map exists to compress large
-values towards one, so cutting a particle's colour by a hundredfold barely moves
-the finished pixel: a dim of 0.993 applied per particle still measured a
-relative luminance of 0.09 behind body text.
+**Nothing is dimmed.** There were three dimmers and a gradient painted over the
+reading column, all doing one job: holding the cloud down so text laid over it
+kept its contrast ratio. They worked, and they all had the same cost, which is
+the fault that was reported. The brain lost brightness on whichever side the
+words were, so it visibly went dim every time it changed columns.
 
-**Almost none of it is needed now, and that is what the stage bought.** The old
-layout ran the cloud down a page of seven sections behind two thousand words, so
-it spent the whole page at about a hundredth of full strength. On the stage
-nothing is over the cloud: the copy is in the left half, the cloud in the right,
-and the two artifact cards on top of it are opaque. The desktop ramp is 0.10 to
-0.20.
+`COLUMN_DIM`, `NARROW_DIM`, `contentDim`, `u_contentDim`, `.stage-shade`,
+`.lane-shade-*` and `--lane-side` are all deleted. What replaces them is a cut.
 
-What buys the contrast instead is `.stage-shade`, a gradient between the cloud
-and the copy column. Three things about it are not obvious:
+**The final pass masks the composited cloud to its own column.** `u_maskEdge`
+and `u_maskSide` say where that column is, in the same screen space the page is
+laid out in, and the multiply happens after the bloom has been composited in.
+Three things follow that dimming could not buy:
 
-- Separation alone cannot do it. Moving the cloud right took the headline's
-  background from 0.49 to 0.38 and stopped, because the bloom carries five
-  downsample levels past the particles themselves.
-- Dimming alone cannot do it either. Enough dim to clear the ninety pixel
-  headline moved the failure to the fifteen pixel grey line beneath it, which
-  needs its background under 0.183 in relative luminance — a bar that even white
-  type would not clear.
-- The shade lives **outside `main`**, in the layout rather than in the page. The
-  measurement above works by hiding the page, which is the only honest way to
-  read what is behind a word, so a shade inside the page is hidden with it and
-  measures nothing.
+- **The bloom is inside the cut.** It runs five downsample levels past the last
+  particle, which is why separation alone never worked: moving the cloud right
+  took the headline's background from 0.49 to 0.38 and stopped. A mask does not
+  care how far the light carries, because the light is removed.
+- **Both columns are the same brightness**, because neither is being
+  compensated for.
+- **The ramp is one sided**, running from the boundary into the cloud's own
+  column and never out of it, so softening the edge cannot light a word.
+
+Dimming could not have done this at any setting. Enough dim to clear the ninety
+pixel headline moved the failure to the fifteen pixel grey line beneath it,
+which needs its background under 0.183 in relative luminance, a bar that even
+white type would not clear.
+
+**Crossing is the interesting case.** To change columns the cloud has to get
+past the reading, and at full size there is no route across this page that is
+not through a paragraph. So it contracts by `CROSS_CONTRACT`, travels along the
+seam between two sections, which is the one horizontal band with no text in it,
+and opens out on the other side. `u_gapCentre` and `u_gapHalf` open a strip for
+exactly that, sized to the contracted cloud plus its bloom rather than to a
+number picked by eye, and nought height the rest of the time.
+
+**The opening is exempt.** `hold()` sets the mask off, because the entrance
+flies in from all four edges and a column mask deletes three quarters of it:
+measured, the whole frame at three tenths of a second fell from the 0.0015 the
+test requires to 0.00125. It is also the right answer rather than a concession
+to a test. The mask exists to keep the cloud off the reading, and during the
+opening there is no reading.
+
+**The low tier has no final pass**, so it carries the same cut as a CSS clip
+path on the canvas element, from the same numbers. Keeping text clear of the
+cloud is not something to leave to a fallback: the low tier is what a weak
+machine gets, and a weak machine is exactly the one whose reader can least
+afford a paragraph printed over a light source.
 
 Two things the suite does not measure here, deliberately. Text on its own opaque
 surface is excluded, because the cloud behind a card or a pill reaches the
@@ -564,23 +585,37 @@ the right with it, over the words. Three separate tunings moved that number by a
 few hundredths each before the cause turned out to be that there were two
 statements of the same fact.
 
-### The words carry their own shade
+### Changing columns
 
-There is no lane wide enough for the cloud to be both visible and clear of the
-column beside it. The bloom runs five downsample levels past the last particle,
-so on a 1280 pixel screen it reaches across the gap however far out the lane
-puts it: with the cloud parked in its lane and the dimming model reporting it
-clear, the tools eyebrow sat on a background of 0.29.
+Which side the cloud is on is read off the markup: each band declares
+`band-lane-left` or `band-lane-right` and `ScrollController.laneAt()` reports
+the lane of the band the reader is in, together with how far through a change
+of columns it is and where the seam between the two sections currently sits on
+screen.
 
-So the content side of the screen carries a gradient, and because the page is
-black the gradient is black: invisible to a reader, entirely visible to a
-contrast meter. `.lane-shade-left` and `.lane-shade-right` are faded by
-`--lane-side`, which the engine writes from the same lane number that positions
-the cloud.
+The crossing happens between 0.38 and 0.72 of the way through a section. It ran
+0.60 to 0.95, which put it hard against the boundary and left the cloud still
+moving as the next heading arrived; brought forward, it is settled well before
+the incoming section fills the screen, and the seam it rides is nearer the
+middle of the viewport where there is most room either side of it.
 
-Like `.stage-shade` before it, this lives **outside `main`**. The contrast suite
-reads what is behind a word by hiding the page and photographing what is left,
-so a shade inside the page is hidden along with it and measures nothing.
+**It contracts to cross**, and that is load bearing rather than decorative. The
+cloud at reading size is wider than the space between two sections, so at full
+size there is no route across the page that is not through a paragraph. Drawing
+itself in is what makes the seam passable. It is also the better picture: the
+thing gathers itself up, crosses, and opens out again, rather than sliding
+sideways behind the words.
+
+The column term in the mask is **snapped** rather than blended. A lane number
+halfway between two columns describes a boundary in the middle of the screen,
+which is where the reading is. The cloud is never there: when it is between
+columns it is on the seam, and the strip is what is carrying it. The snap
+happens at the midpoint of the crossing, by which time the cloud is well inside
+that strip.
+
+There was a section here called "the words carry their own shade", describing a
+black gradient painted over the reading column. It is gone. See **Contrast**
+above for what replaced it and why.
 
 ### Nothing leaves the frame
 
@@ -641,6 +676,9 @@ Everything in `DEFAULTS` in `src/particles/types.ts`:
 | Grain | `grainStrength` |
 | Vignette | `vignetteOffset`, `vignetteDarkness` |
 | Section timings | the `mapClamped` stacks in `timeline.ts` |
+| How far the cloud draws in to cross | `CROSS_CONTRACT` in `timeline.ts` |
+| Where in a section it crosses | `CROSS_FROM`, `CROSS_TO` in `scroll.ts` |
+| The mask's edge softening, and the ceiling on the seam strip | `MASK_FEATHER`, `GAP_HALF_MAX` in `timeline.ts` |
 | Fold pattern | `FOLD_FREQUENCY`, `FOLD_BANDS`, `FOLD_STRETCH`, `FOLD_DEPTH` in `brain-anatomy.ts` |
 | Cortex density | `SKIN`, `INTERIOR_SHARE`, `STRAY_SHARE`, `SULCUS_THINNING` in `brain-shape.ts` |
 | How much relief colours | `RELIEF_SHARE` in `targets.ts` |
