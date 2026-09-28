@@ -305,15 +305,76 @@
    The top padding is for the header, which is laid over the page rather than
    above it. Centred in a full height panel the copy cleared it by accident; at
    the top of the panel the headline was drawn straight through the navigation,
-   which is the sort of fault that only shows up at one width. */
-@media (max-width: 1023px) {
+   which is the sort of fault that only shows up at one width.
+
+   The breakpoint is 1100 pixels, the same as the bands' lane and the engine's
+   keep-out, and it has to be. It was 1024 here while the bands collapsed at
+   1100 and the engine went by aspect ratio, so between the two the stage
+   pinned its copy beside a column the rest of the page no longer had.
+
+   The copy sits at the top and the slot under it takes the rest of the
+   screen, which is the cloud's space: see hero.tsx. */
+@media (max-width: 1099px) {
   .stage-panel-inner {
     position: static;
     height: auto;
     min-height: 100vh;
-    align-items: flex-start;
+    flex-direction: column;
+    align-items: stretch;
     padding-top: 6.5rem;
     padding-bottom: 4rem;
+  }
+
+  .stage-panel-inner > .stage-panel {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+  }
+}
+
+/* The cloud's space on a screen with no column to give it. Laid out only below
+   the breakpoint; above it the cloud has the lane.
+
+   A height of its own rather than whatever the first screen has left. Measured
+   on a 727 pixel Pixel 5, the header and the copy take the first 560 pixels,
+   and on a 664 pixel iPhone the first 584 would have left eighty: a slot that
+   had to fit inside the first screen was no slot at all on most phones. So it
+   sits under the controls at a size worth drawing a brain in, the canvas is
+   made to reach its bottom, and on a short phone the brain is partly below the
+   fold at first and all of it a short scroll later: never cut, and never under
+   the words. */
+.brain-slot {
+  display: none;
+}
+
+@media (max-width: 1099px) {
+  .brain-slot {
+    display: block;
+    flex: none;
+    height: clamp(14rem, 38svh, 20rem);
+    margin-top: 1.5rem;
+  }
+}
+
+/* Below 640 pixels the header stacks, name and search on one row and the
+   navigation under them, and a stacked header is taller than any fixed amount
+   of room the page could keep for it. Measured on a Pixel 5 it ended at 164
+   pixels with the page's first line at 104, and at 152 on every other route.
+   So on a phone it is in the flow and the page starts after it, whatever its
+   height turns out to be. */
+@media (max-width: 639px) {
+  .site-header {
+    position: relative;
+    padding-block: 1rem;
+    row-gap: 0.5rem;
+  }
+
+  body:not(:has(.stage)) main {
+    padding-top: 0;
+  }
+
+  .stage-panel-inner {
+    padding-top: 1.25rem;
   }
 }
 
@@ -403,6 +464,21 @@
   overflow: hidden;
   pointer-events: none;
   z-index: -10;
+}
+
+/* Below the breakpoint the canvas covers the first screen of the page rather
+   than the window, and scrolls with it. The cloud is drawn only inside the
+   slot under the hero's controls, and a canvas fixed to the window would have
+   to chase that slot from script a frame behind the compositor. During the
+   opening animation the page is held at the top, so the first screen is the
+   whole window and the entrance is unchanged. */
+@media (max-width: 1099px) {
+  .brain-host {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 100vh;
+    height: 100lvh;
+  }
 }
 
 /* The black the stage is made of. Fixed and behind everything, including the
@@ -1253,6 +1329,15 @@ html[data-intro="ending"] [data-brain] {
     font-size: 1.0625rem;
     line-height: 1.2;
     font-weight: 500;
+
+    /* Two to a row on a phone. At the desktop padding the pair measured 175
+       and 185 pixels, which is more than the 353 a Pixel 5 has between its
+       gutters, so they stacked, and the second row was sixty five pixels the
+       phone's first screen needed for the brain. */
+    @media (max-width: 639px) {
+      padding: 0.875rem 1.5rem;
+      font-size: 1rem;
+    }
     border: 1px solid transparent;
     border-radius: 360px;
     color: var(--ink);

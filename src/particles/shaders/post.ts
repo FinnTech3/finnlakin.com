@@ -174,6 +174,7 @@ uniform float u_maskSide;
 uniform float u_maskFeather;
 uniform float u_gapCentre;
 uniform float u_gapHalf;
+uniform float u_gapSoft;
 uniform float u_maskOff;
 
 float random(vec2 p) {
@@ -234,10 +235,13 @@ void main() {
   /* And the road across. While the cloud is changing sides it is not in either
      column, it is in the gap between two sections, which is the one band of the
      page with no text in it. The strip is nought height when it is not
-     crossing, so this term contributes nothing the rest of the time. */
+     crossing, so this term contributes nothing the rest of the time.
+
+     On a screen too narrow for a column the same strip is the cloud's whole
+     space: the empty slot under the hero's controls, with no column at all. */
   if (u_gapHalf > 0.0) {
     float toEdge = abs(v_uv.y - u_gapCentre);
-    keep = max(keep, 1.0 - smoothstep(u_gapHalf * 0.6, u_gapHalf, toEdge));
+    keep = max(keep, 1.0 - smoothstep(u_gapHalf * (1.0 - u_gapSoft), u_gapHalf, toEdge));
   }
 
   /* And the escape, for every case with no column to keep out of: a phone

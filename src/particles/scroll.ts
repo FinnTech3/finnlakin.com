@@ -1,5 +1,5 @@
 import { clamp, easeForFrame } from "./pack";
-import type { LaneState, ScrollState } from "./types";
+import type { LaneState, PageLayout, ScrollState } from "./types";
 
 /* Scroll position, as a number from nought to six.
 
@@ -35,6 +35,13 @@ const RANGE = 6;
 
 const MAX_SECTIONS_PER_SECOND = 4;
 
+/* The width at which the bands keep a lane beside their content, and so the
+   width at which the cloud has a column. The same number is in globals.css,
+   twice, and tests/backdrop.spec.ts asserts all three agree either side of it:
+   they were three different breakpoints, and between them the cloud was cut to
+   a lane the page had already collapsed. */
+const LANE_QUERY = "(min-width: 1100px)";
+
 /* How far through a section the change of sides happens.
 
    It ran 0.60 to 0.95, which put the crossing hard against the boundary and
@@ -69,6 +76,7 @@ export class ScrollController {
   private state: ScrollState = { sectionProgress: 0, target: 0 };
   private boundaries: number[] = [];
   private lanes: number[] = [];
+  private page: PageLayout = { wide: true, slot: null };
   private ease: number;
   private observer: ResizeObserver | null = null;
   private queued = false;
@@ -80,6 +88,13 @@ export class ScrollController {
 
   get value(): ScrollState {
     return this.state;
+  }
+
+  /* Whether the page has given the cloud a lane, and where the phone's slot
+     is. Read in measure(), with everything else that asks the layout a
+     question, and never in the frame loop. */
+  get layout(): PageLayout {
+    return this.page;
   }
 
   /* Measures now, and again whenever the page can have moved underneath.
@@ -189,6 +204,38 @@ export class ScrollController {
     }
 
     this.boundaries = tops;
+    this.page = this.measureLayout();
+  }
+
+  private measureLayout(): PageLayout {
+    const wide =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia(LANE_QUERY).matches
+        : window.innerWidth >= 1100;
+    if (wide) return { wide, slot: null };
+
+    /* The slot against the canvas it is drawn in, both read at the same
+       instant, so their difference is layout and not scroll. Clipped to the
+       canvas, which covers the first screen: a slot that runs on below it has
+       only the part inside to be drawn in. */
+    const slot = document.querySelector<HTMLElement>("[data-brain-slot]");
+    const host = document.querySelector<HTMLElement>("[data-brain]");
+    if (!slot || !host) return { wide, slot: null };
+    const room = slot.getBoundingClientRect();
+    const canvas = host.getBoundingClientRect();
+    if (canvas.height <= 0 || room.height <= 0) return { wide, slot: null };
+    const top = Math.max(room.top, canvas.top) - canvas.top;
+    const bottom = Math.min(room.bottom, canvas.bottom) - canvas.top;
+    const px = bottom - top;
+    if (px <= 0) return { wide, slot: null };
+    return {
+      wide,
+      slot: {
+        centre: 1 - (top + bottom) / 2 / canvas.height,
+        half: px / 2 / canvas.height,
+        px,
+      },
+    };
   }
 
   private progressFor(scrollY: number) {

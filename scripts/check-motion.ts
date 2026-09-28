@@ -3,7 +3,7 @@ import { entryField, perimeterPoint } from "../src/particles/entrance";
 import { SEED } from "../src/particles/targets";
 import { ParticleTimeline } from "../src/particles/timeline";
 import { stepToward } from "../src/particles/scroll";
-import { DEFAULTS, type ParticleTimelineState } from "../src/particles/types";
+import { DEFAULTS, type PageLayout, type ParticleTimelineState } from "../src/particles/types";
 
 /* Validates the two rules of the engine's motion that a browser cannot check.
 
@@ -93,7 +93,7 @@ function state(partial: Partial<ParticleTimelineState>): ParticleTimelineState {
     progress: 0,
     progress2: 0,
     rotation: { x: 0, y: 0, z: 0 },
-    mask: { edge: 0.6, side: 0, feather: 0.045, gapCentre: 0.5, gapHalf: 0, off: 1 },
+    mask: { edge: 0.6, side: 0, feather: 0.045, gapCentre: 0.5, gapHalf: 0, gapSoft: 0.4, off: 1 },
 
     ...partial,
   };
@@ -294,12 +294,27 @@ for (const delta of [1 / 120, 1 / 60, 1 / 30, 0.25, 0.5]) {
     random();
   }
 
+  /* Below the breakpoint the cloud lives in the slot under the hero's
+     controls, so the phone case is swept against a slot rather than a lane: a
+     Pixel 5's, 363 pixels high from 488 down its 851 pixel first screen, and
+     the smallest slot the timeline will draw in at all. */
+  const phoneSlots: [string, PageLayout][] = [
+    ["a Pixel 5's slot", { wide: false, slot: { centre: 0.2133, half: 0.2133, px: 363 } }],
+    ["the smallest slot drawn in", { wide: false, slot: { centre: 0.2, half: 0.1058, px: 180 } }],
+  ];
+
   console.log("Shapes inside the frame");
   let worstX = 0;
   let worstY = 0;
   let worstAt = "";
+  let worstSlot = 0;
+  let worstSlotAt = "";
   for (const aspect of [0.46, 1.22, 1.6, 2.4]) {
+    for (const [name, layout] of aspect < 1.22
+      ? phoneSlots
+      : ([["a lane", { wide: true, slot: null }]] as [string, PageLayout][])) {
     const line = new ParticleTimeline(DEFAULTS.factorDesktop, aspect);
+    line.setLayout(layout);
     for (let p = 0; p <= 6.0001; p += 0.25) {
       const at = line.settle(p);
       const shape =
@@ -325,7 +340,20 @@ for (const delta of [1 / 120, 1 / 60, 1 / 30, 0.25, 0.5]) {
         if (nx > worstX || ny > worstY) worstAt = `aspect ${aspect}, progress ${p.toFixed(2)}`;
         worstX = Math.max(worstX, nx);
         worstY = Math.max(worstY, ny);
+
+        /* And on a phone, inside the slot: how far from the slot's centre
+           each particle lands, as a share of the half height the final pass
+           draws at full strength. Over one is a particle in the softened edge
+           or past it, which is where the controls and the heading are. */
+        if (layout.slot) {
+          const uv = 0.5 + (y + at.offset.y) / (2 * hh);
+          const core = layout.slot.half * (1 - at.mask.gapSoft);
+          const share = Math.abs(uv - layout.slot.centre) / core;
+          if (share > worstSlot) worstSlotAt = `${name}, progress ${p.toFixed(2)}`;
+          worstSlot = Math.max(worstSlot, share);
+        }
       }
+    }
     }
   }
   console.log(
@@ -334,6 +362,11 @@ for (const delta of [1 / 120, 1 / 60, 1 / 30, 0.25, 0.5]) {
   );
   check(worstX <= 1 && worstY <= 1, "no shape leaves the frame at any scroll position",
     `${worstX.toFixed(2)} across, ${worstY.toFixed(2)} down`);
+  console.log(
+    `  worst reach in a phone's slot: ${worstSlot.toFixed(2)} of its core (${worstSlotAt})`,
+  );
+  check(worstSlot <= 1, "no particle leaves a phone's slot at any scroll position",
+    `${worstSlot.toFixed(2)} of the core`);
 }
 
 if (failures > 0) {

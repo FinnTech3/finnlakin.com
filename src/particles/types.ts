@@ -173,6 +173,20 @@ export const DEFAULTS: ParticleBrainConfig = {
    nought; during a crossing they are the two columns and `amount` runs nought
    to one. `gapUv` is where the seam between the two sections is on screen,
    which is the road the crossing travels along. */
+/* What the page's layout has decided about where the cloud may be, read off
+   the page rather than worked out from the window.
+
+   `wide` is whether the bands keep a lane beside their content, which they do
+   from 1100 pixels: the same breakpoint as the stylesheet, read through
+   matchMedia so the two cannot disagree. Below it the cloud has no column, and
+   `slot` is the empty space under the hero's controls it lives in instead, in
+   uv of the canvas: centre and half height up from the bottom, and its height
+   in pixels. Null when there is no slot on screen or no room in it. */
+export type PageLayout = {
+  wide: boolean;
+  slot: { centre: number; half: number; px: number } | null;
+};
+
 export type LaneState = {
   from: number;
   to: number;
@@ -201,6 +215,10 @@ export type CloudMask = {
   gapCentre: number;
   /* uv half height of that strip. Nought means it is not crossing. */
   gapHalf: number;
+  /* How much of the strip's half height its edge is softened over. A crossing
+     softens over most of it; the phone's slot, which is the cloud's whole
+     space rather than a road through somebody else's, over a small part. */
+  gapSoft: number;
   /* How much of the cloud outside its own space is still drawn, from nought,
      cut, to one, everything. One while the opening animation owns the screen,
      where there is no reading to keep out of. When it hands over this eases
@@ -282,6 +300,9 @@ export type ParticleBrain = {
        top of the viewport has to read exactly n, and it does not if the
        measurement was taken before the fonts moved everything. */
     scroll: number;
+    /* The layout the engine is composing against: whether there is a lane,
+       and where the phone's slot is. */
+    layout: PageLayout;
     /* Milliseconds of the engine's own clock since its first frame, which is
        what the opening reveal is measured against. Exposed because it is the
        only way for a test to know the animation has reached a moment: the wall

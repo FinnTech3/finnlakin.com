@@ -35,10 +35,16 @@ export function IntroBoot() {
   /* The timeout is the failsafe. The engine that clears this attribute is
      loaded on demand, and if that request never arrives, the reader is left
      looking at an opaque black rectangle with the finished page underneath it.
-     Twelve seconds is past the engine's own ceiling, so it only ever fires when
-     the engine is not there at all. */
+
+     It stands down once the engine has taken the animation over, which the
+     engine marks with data-intro-owned. Twelve seconds used to be assumed to be
+     past the engine's own ceiling, and it is only past it when the engine
+     arrives within the first three: on a slow connection the engine could
+     start at five seconds and have the veil pulled out from under its words at
+     twelve, halfway through. From the moment the engine owns it, its own
+     ceiling, nine seconds from its start, is the guarantee. */
   const source = `try{if(location.pathname==="/"&&!sessionStorage.getItem(${JSON.stringify(
     STORAGE_KEY,
-  )})&&!matchMedia("(prefers-reduced-motion: reduce)").matches){var r=document.documentElement;r.dataset.intro="running";setTimeout(function(){if(r.dataset.intro==="running"){delete r.dataset.intro}},12000)}}catch(e){}`;
+  )})&&!matchMedia("(prefers-reduced-motion: reduce)").matches){var r=document.documentElement;r.dataset.intro="running";setTimeout(function(){if(r.dataset.intro==="running"&&!r.hasAttribute("data-intro-owned")){delete r.dataset.intro}},12000)}}catch(e){}`;
   return <script dangerouslySetInnerHTML={{ __html: source }} />;
 }

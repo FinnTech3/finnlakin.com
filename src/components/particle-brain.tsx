@@ -60,6 +60,7 @@ export function ParticleBrain({ className }: { className?: string }) {
            the next page view, which is a smaller problem than throwing. */
       }
       root.dataset.intro = "ending";
+      root.removeAttribute("data-intro-owned");
       fade = setTimeout(() => {
         delete root.dataset.intro;
       }, VEIL_FADE_MS);
@@ -90,6 +91,32 @@ export function ParticleBrain({ className }: { className?: string }) {
       finishIntro();
     };
 
+    /* Below the breakpoint the canvas covers the page from its top to the
+       bottom of the phone's slot, so the slot is inside it whatever height the
+       header and the copy above it turn out to be. The stylesheet makes it at
+       least a screen tall; this makes it reach the slot when the slot runs on
+       past the fold, which on most phones it does. Set as a minimum height, so
+       a phone's toolbar sliding away changes nothing here. Above the
+       breakpoint the canvas is fixed to the window and this is cleared. */
+    const wideQuery =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia("(min-width: 1100px)")
+        : null;
+    const fitHost = () => {
+      const slot = document.querySelector<HTMLElement>("[data-brain-slot]");
+      const narrow = wideQuery ? !wideQuery.matches : window.innerWidth < 1100;
+      const next =
+        narrow && slot
+          ? `${Math.ceil(slot.getBoundingClientRect().bottom + window.scrollY)}px`
+          : "";
+      if (host.style.minHeight === next) return false;
+      host.style.minHeight = next;
+      return true;
+    };
+    /* Before the engine exists, so it is built for the surface it will draw
+       on rather than resized onto it a frame later. */
+    fitHost();
+
     const engine: Engine | null = createParticleBrain({
       canvas,
       quality: forced ?? undefined,
@@ -111,6 +138,9 @@ export function ParticleBrain({ className }: { className?: string }) {
     }
 
     if (wantsIntro) {
+      /* Taken over from the boot script's failsafe, which stands down for it.
+         The ceiling below is the guarantee from here. */
+      root.setAttribute("data-intro-owned", "");
       window.addEventListener("keydown", skip);
       /* Held still while it runs.
 
@@ -165,8 +195,16 @@ export function ParticleBrain({ className }: { className?: string }) {
        or resize rather than a loop. Not a slower animation: a still picture
        that keeps up with the page. That path never joins the scheduler, because
        there is nothing continuous to schedule. */
+    /* Whether any of the canvas is on screen. Above the breakpoint it is fixed
+       to the window and always is. Below it the canvas covers the hero's first
+       screen and scrolls away with it, and a phone that has scrolled on to the
+       work is not asked to draw a brain nobody can see: on a phone that is the
+       difference between the page costing battery for as long as it is open
+       and costing it only at the top. */
+    let onScreen = true;
+
     const pump = () => {
-      if (!running || document.hidden) return;
+      if (!running || document.hidden || !onScreen) return;
       if (reducedMotion) {
         if (frame !== null) return;
         frame = requestAnimationFrame((now) => {
@@ -205,15 +243,50 @@ export function ParticleBrain({ className }: { className?: string }) {
        so a reader dragging a window edge is not read as a machine that
        cannot keep up. */
     const onResize = () => {
+      fitHost();
       engine.resize();
       frameScheduler().settle();
       pump();
     };
 
+    /* The slot moves whenever anything above it changes height: the fonts
+       arriving, the header wrapping, a rotated phone. Coalesced onto a frame,
+       and the engine is only resized when the canvas actually changed. */
+    let refitQueued = false;
+    const refit = () => {
+      if (refitQueued) return;
+      refitQueued = true;
+      requestAnimationFrame(() => {
+        refitQueued = false;
+        if (!running || !fitHost()) return;
+        engine.resize();
+        /* Resizing clears the canvas. Animated, the next frame is coming
+           anyway; for a reader who asked for less motion it is not, so one
+           settled frame is asked for, or the brain would stay blank. */
+        pump();
+      });
+    };
+    const layoutWatch =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(refit);
+    layoutWatch?.observe(document.body);
+    document.fonts?.ready.then(refit).catch(() => {
+      /* The observer above still catches the fonts landing. */
+    });
+
     const onVisibility = () => {
       if (document.hidden) pause();
       else pump();
     };
+
+    const sight =
+      typeof IntersectionObserver === "undefined"
+        ? null
+        : new IntersectionObserver(([entry]) => {
+            if (!entry) return;
+            onScreen = entry.isIntersecting;
+            if (onScreen) pump();
+            else pause();
+          });
 
     /* A lost context is the browser reclaiming the GPU, usually under memory
        pressure. Asking for it back tends to lose it again; showing the flat
@@ -238,6 +311,7 @@ export function ParticleBrain({ className }: { className?: string }) {
     window.addEventListener("resize", onResize, { passive: true });
     document.addEventListener("visibilitychange", onVisibility);
     canvas.addEventListener("webglcontextlost", onContextLost);
+    sight?.observe(host);
 
     if (!reducedMotion) release = join();
     host.dataset.brain = reducedMotion ? "still" : "live";
@@ -258,6 +332,7 @@ export function ParticleBrain({ className }: { className?: string }) {
       if (fade) clearTimeout(fade);
       window.removeEventListener("keydown", skip);
       delete root.dataset.intro;
+      root.removeAttribute("data-intro-owned");
       /* The lock has to come off here as well. Unmounting mid-intro, which a
          route change does, would otherwise leave the document unable to
          scroll. */
@@ -268,22 +343,22 @@ export function ParticleBrain({ className }: { className?: string }) {
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibility);
       canvas.removeEventListener("webglcontextlost", onContextLost);
+      sight?.disconnect();
+      layoutWatch?.disconnect();
+      host.style.minHeight = "";
       delete (window as unknown as { particleBrain?: Engine }).particleBrain;
       engine.dispose();
     };
   }, []);
 
-  /* Fixed and unreachable. pointer-events none is what stops it swallowing a
-     click on a link, a drag across a paragraph or a tab to a button, and
-     aria-hidden keeps it out of the reading order: it is decoration, and every
-     figure on this site is real text elsewhere.
+  /* Unreachable. pointer-events none is what stops it swallowing a click on a
+     link, a drag across a paragraph or a tab to a button, and aria-hidden keeps
+     it out of the reading order: it is decoration, and every figure on this
+     site is real text elsewhere.
 
-     Which layer it sits in is not fixed, and that is in globals.css rather than
-     here because the engine drives it. Behind the page on the dark stage, where
-     the stage is transparent and the cloud shows through it; in front of the
-     page on the paper half, where it cannot be behind anything, because every
-     paper band carries an opaque background of its own and a canvas underneath
-     one is a canvas nobody sees. */
+     Where it sits is in globals.css: behind the page, fixed to the window where
+     the page keeps a lane for it, and over the first screen where it does not.
+     It comes out in front of the veil while the opening animation runs. */
   return (
     <div
       ref={hostRef}

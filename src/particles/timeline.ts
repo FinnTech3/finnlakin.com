@@ -1,6 +1,6 @@
 import { clamp, easeForFrame, mapClamped } from "./pack";
 import { CAMERA_FOV, CAMERA_POSITION } from "./renderer";
-import type { CloudMask, LaneState, ParticleTimelineState } from "./types";
+import type { CloudMask, LaneState, PageLayout, ParticleTimelineState } from "./types";
 
 /* Scroll position in, everything the renderer needs out.
 
@@ -115,7 +115,28 @@ const MASK_ON_SECONDS = 0.25;
    measured. The right column, settled, not crossing. */
 const SETTLED_RIGHT: LaneState = { from: 1, to: 1, amount: 0, gapUv: 0.5 };
 
-function targets(progress: number, baseFactor: number, aspect: number, lane: LaneState) {
+/* And for the callers with no page to read a layout off: a screen with a lane. */
+const WIDE: PageLayout = { wide: true, slot: null };
+
+/* The phone's slot, which is the cloud's whole space below the breakpoint.
+
+   Its edge is softened over the outer seventh of its half height, and the
+   cloud is sized to fill most of what is left, because the slot is empty space
+   the layout made for it rather than a road through somebody else's column. A
+   slot shorter than MIN_SLOT_PX, which is what a phone held sideways leaves
+   under the controls, has no room for a brain worth drawing, and the cloud is
+   not drawn there at all once the opening animation is over. */
+const SLOT_SOFT = 0.15;
+const SLOT_FILL = 0.85;
+const MIN_SLOT_PX = 180;
+
+function targets(
+  progress: number,
+  baseFactor: number,
+  aspect: number,
+  lane: LaneState,
+  layout: PageLayout,
+) {
   const p = progress;
 
   /* The reference's numbers are written for a wide screen, where the cloud has
@@ -127,7 +148,14 @@ function targets(progress: number, baseFactor: number, aspect: number, lane: Lan
      and on a narrow one the opening composition moves below the headline
      instead of beside it, which is where the space is. Everything else in the
      timeline is unchanged. */
-  const narrow = aspect < 1.1;
+  /* Whether the page has given the cloud a lane, which is the layout's
+     decision and is read off it: see PageLayout. It used to be worked out
+     here from the aspect ratio, as 1.22, on the reasoning that 1100 by 900 is
+     the bands' breakpoint. A breakpoint is a width, not a shape, and between
+     1024 and 1099 pixels wide the cloud was cut to a lane the bands had
+     already collapsed, straight over a full width column of text. */
+  const wide = layout.wide;
+  const narrow = !wide;
   const spread = Math.min(1, aspect / 1.6);
   /* Where the cloud opens, and it is the lane rather than a number of its own.
 
@@ -145,15 +173,6 @@ function targets(progress: number, baseFactor: number, aspect: number, lane: Lan
   const openX = narrow ? 0 : (1 - LANE_FRACTION) * halfViewport(aspect) * 0.92;
 
   const openY = narrow ? -1.3 : 2.1;
-
-  /* Whether the page is wide enough to have given the cloud a lane.
-
-     The bands push their content to one side and leave the other for the cloud,
-     and they stop doing it below 1100 pixels, where there is no width to give
-     away. The two have to agree: a cloud travelling down a lane the layout has
-     collapsed is a cloud travelling down the middle of the reading. An aspect
-     of 1.22 is 1100 by 900, which is that breakpoint. */
-  const wide = aspect >= 1.22;
 
   const half = halfViewport(aspect);
   const laneX = (1 - LANE_FRACTION) * half;
@@ -294,6 +313,45 @@ function targets(progress: number, baseFactor: number, aspect: number, lane: Lan
      companion to it. */
   const settled = baseSize * (1 - 0.18 * mapClamped(p, 0.75, 1.15, 0, 1));
 
+  /* Below the breakpoint there is no column, and the cloud lives in the slot
+     under the hero's controls: centred in it, sized to fill it, turned by the
+     scroll as the rest of the choreography turns it, and cut to it by the final
+     pass. The canvas is positioned over the first screen rather than fixed to
+     the window, so the compositor scrolls the slot and the cloud together and
+     this composition holds still in the canvas's own space.
+
+     It used to hold the cloud low in a fixed canvas behind everything, with the
+     keep-out switched off, and the controls, the heading and the table all
+     scrolled up over a brain at full brightness. */
+  if (narrow) {
+    const room = layout.slot && layout.slot.px >= MIN_SLOT_PX ? layout.slot : null;
+    const scattered = Math.max(0, Math.min(1, explode));
+    const reach = CLOUD_RADIUS * (1 + scattered * EXPLODE_SPREAD);
+    const across = half * FRAME_FILL;
+    const down = room ? room.half * 2 * halfH * (1 - SLOT_SOFT) : 0;
+    return {
+      offset: {
+        x: 0,
+        y: room ? (room.centre - 0.5) * 2 * halfH : BASE.y,
+        z: BASE.z,
+      },
+      explode: scattered,
+      factor: room ? (SLOT_FILL * Math.min(down, across)) / reach : settled,
+      progress: progressTarget,
+      progress2,
+      rotation: { x: 0, y: INITIAL_YAW + rotationY, z: rotationZ },
+      mask: {
+        edge: 0.5,
+        side: 0,
+        feather: MASK_FEATHER,
+        gapCentre: room ? room.centre : 0.5,
+        gapHalf: room ? room.half : 0,
+        gapSoft: SLOT_SOFT,
+        off: 0,
+      },
+    } satisfies ParticleTimelineState;
+  }
+
   /* And smaller again while it is changing columns.
 
      The cloud at reading size is wider than the space between two sections, so
@@ -322,7 +380,7 @@ function targets(progress: number, baseFactor: number, aspect: number, lane: Lan
      nought at both ends, so the cloud is back at its own drift height by the
      time it is in either column. */
   const gapWorldY = (lane.gapUv - 0.5) * 2 * halfH;
-  const ridden = wide ? y * (1 - ride) + (gapWorldY - BASE.y) * ride : y;
+  const ridden = y * (1 - ride) + (gapWorldY - BASE.y) * ride;
 
   const burstReach = 1 + explode * EXPLODE_SPREAD;
   const radius = CLOUD_RADIUS * crossed * burstReach;
@@ -353,13 +411,12 @@ function targets(progress: number, baseFactor: number, aspect: number, lane: Lan
 
   const mask: CloudMask = {
     edge: 0.5 + side * (0.5 - LANE_FRACTION),
-    side: wide ? side : 0,
+    side,
     feather: MASK_FEATHER,
     gapCentre: lane.gapUv,
-    gapHalf: wide && ride > 0.001
-      ? Math.min(GAP_HALF_MAX, crossingReach / (2 * halfH))
-      : 0,
-    off: wide ? 0 : 1,
+    gapHalf: ride > 0.001 ? Math.min(GAP_HALF_MAX, crossingReach / (2 * halfH)) : 0,
+    gapSoft: 0.4,
+    off: 0,
   };
 
   return {
@@ -381,13 +438,14 @@ export class ParticleTimeline {
   private state: ParticleTimelineState;
   private baseFactor: number;
   private aspect: number;
+  private layout: PageLayout = WIDE;
 
   constructor(baseFactor: number, aspect: number) {
     this.baseFactor = baseFactor;
     this.aspect = aspect;
     /* Started at the resting values rather than at zero, so the first frame is
        the opening composition rather than a cloud easing in from the origin. */
-    this.state = targets(0, baseFactor, aspect, SETTLED_RIGHT);
+    this.state = targets(0, baseFactor, aspect, SETTLED_RIGHT, this.layout);
   }
 
   setBaseFactor(value: number) {
@@ -396,6 +454,12 @@ export class ParticleTimeline {
 
   setAspect(value: number) {
     this.aspect = value;
+  }
+
+  /* Read off the page by the scroll controller, every frame, because a resize
+     across the breakpoint or a font arriving can move it at any time. */
+  setLayout(value: PageLayout) {
+    this.layout = value;
   }
 
   get current(): ParticleTimelineState {
@@ -408,7 +472,7 @@ export class ParticleTimeline {
     deltaSeconds: number,
     lane: LaneState = SETTLED_RIGHT,
   ) {
-    const to = targets(sectionProgress, this.baseFactor, this.aspect, lane);
+    const to = targets(sectionProgress, this.baseFactor, this.aspect, lane, this.layout);
     const from = this.state;
     const step = easeForFrame(ease, deltaSeconds);
 
@@ -455,7 +519,7 @@ export class ParticleTimeline {
      The opening animation uses it to arrive at the place the page will take it
      over from, so that the hand-over has nothing left to move. */
   peek(sectionProgress: number, lane: LaneState = SETTLED_RIGHT): ParticleTimelineState {
-    return targets(sectionProgress, this.baseFactor, this.aspect, lane);
+    return targets(sectionProgress, this.baseFactor, this.aspect, lane, this.layout);
   }
 
   /* Pins the composition while the opening animation owns the screen.
@@ -493,7 +557,7 @@ export class ParticleTimeline {
   /* Used by the reduced motion path and by the tests, which need the settled
      answer for a scroll position without waiting for it to ease there. */
   settle(sectionProgress: number, lane: LaneState = SETTLED_RIGHT) {
-    this.state = targets(sectionProgress, this.baseFactor, this.aspect, lane);
+    this.state = targets(sectionProgress, this.baseFactor, this.aspect, lane, this.layout);
     return this.state;
   }
 }

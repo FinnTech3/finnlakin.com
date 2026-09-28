@@ -13,7 +13,7 @@ import {
   type Tier,
 } from "./quality";
 import { PostChain } from "./post";
-import { ParticleRenderer } from "./renderer";
+import { CAMERA_FOV, CAMERA_POSITION, ParticleRenderer } from "./renderer";
 import { ScrollController } from "./scroll";
 import { ParticleSimulation } from "./simulation";
 import { buildTargetSet, SEED } from "./targets";
@@ -164,7 +164,16 @@ function clipFor(mask: CloudMask): string {
   }
   if (mask.side > 0) return `inset(0 0 0 ${pc(mask.edge)})`;
   if (mask.side < 0) return `inset(0 ${pc(1 - mask.edge)} 0 0)`;
-  return "none";
+  /* No column, no strip and no escape is a cloud with nowhere to be, which is
+     a phone whose slot has no room. That is everything clipped, not nothing:
+     "none" here would have drawn the whole cloud over the page. */
+  return "inset(50%)";
+}
+
+/* The same question for the frame loop: is there anywhere at all this cloud
+   may be seen? When there is not, a frame drawn is a frame nobody sees. */
+function keepsNothing(mask: CloudMask) {
+  return mask.off <= 0 && mask.side === 0 && mask.gapHalf <= 0;
 }
 
 export function createParticleBrain(options: EngineOptions): ParticleBrain | null {
@@ -216,7 +225,26 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
      quadrant target texture with two words in it and the brain in the other
      two, so the words are made of the identical ten thousand pyramids and
      become the brain by the same morph that carries every other transition. */
-  const aspect = Math.max(0.3, window.innerWidth / Math.max(1, window.innerHeight));
+  /* The canvas's own shape rather than the window's. Below the breakpoint the
+     canvas covers the first screen at its largest, which on a phone is taller
+     than the window while the address bar is showing, and the words are laid
+     out for the surface they are drawn on. */
+  const box = canvas.getBoundingClientRect();
+  const boxWidth = box.width || window.innerWidth;
+  const boxHeight = box.height || window.innerHeight;
+  const aspect = Math.max(0.3, boxWidth / Math.max(1, boxHeight));
+
+  /* Where the middle of the window falls on the canvas, in the cloud's world
+     units. Nought wherever the canvas is the window. Below the breakpoint the
+     canvas runs from the top of the page to the bottom of the phone's slot,
+     which is usually past the fold, and the opening animation is composed on
+     the window the reader is looking at rather than on the middle of a canvas
+     that is partly below it. */
+  const halfWorld = Math.abs(CAMERA_POSITION[2]) * Math.tan((CAMERA_FOV * Math.PI) / 360);
+  const windowCentreY = (surface: number) => {
+    const view = Math.min(window.innerHeight, surface);
+    return (0.5 - view / 2 / Math.max(1, surface)) * 2 * halfWorld;
+  };
   const wordsFactor = introFactor(aspect);
   const runIntro = Boolean(options.intro) && !(options.reducedMotion ?? false);
 
@@ -238,8 +266,8 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
         const brain = built.shapes[0]!;
         return buildTargetSet(
           [
-            wordShape(INTRO_LINES[0]!, window.innerWidth, window.innerHeight, count, SEED + 3),
-            wordShape(INTRO_LINES[1]!, window.innerWidth, window.innerHeight, count, SEED + 5),
+            wordShape(INTRO_LINES[0]!, boxWidth, boxHeight, count, SEED + 3),
+            wordShape(INTRO_LINES[1]!, boxWidth, boxHeight, count, SEED + 5),
             brain,
             brain,
           ],
@@ -268,7 +296,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   const entryState = runIntro
     ? {
         ...timeline.current,
-        offset: { x: 0, y: 0, z: 0 },
+        offset: { x: 0, y: windowCentreY(boxHeight), z: 0 },
         factor: wordsFactor,
         rotation: { x: 0, y: 0, z: 0 },
       }
@@ -300,6 +328,12 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
 
   let width = 1;
   let height = 1;
+  /* The canvas's size in CSS pixels, which is what a pointer is measured in. */
+  let surfaceWidth = 1;
+  let surfaceHeight = 1;
+  /* Whether the last frame drawn was cut to nothing, so the next one like it
+     need not be drawn at all. */
+  let lastEmpty = false;
   let seconds = 0;
   let previousMs = 0;
   let show = reducedMotion ? 1 : 0;
@@ -322,6 +356,8 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     const rect = canvas.getBoundingClientRect();
     const cssWidth = Math.max(1, rect.width || window.innerWidth);
     const cssHeight = Math.max(1, rect.height || window.innerHeight);
+    surfaceWidth = cssWidth;
+    surfaceHeight = cssHeight;
 
     /* The drawing buffer is capped by area rather than by edge. A tall phone and
        a wide monitor have very different edges and very similar pixel counts,
@@ -428,6 +464,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     const progress = reducedMotion ? scroll.settle() : scroll.update(delta);
     if (reducedMotion) mouse.still();
     else mouse.update(delta);
+    timeline.setLayout(scroll.layout);
 
     let state;
     let morph;
@@ -452,10 +489,11 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
       const place = timeline.peek(progress, scroll.laneAt(progress));
       const t = mapClamped(introMs, SETTLE_FROM, HANDOVER_AT, 0, 1);
       const settle = t * t * (3 - 2 * t);
+      const centre = windowCentreY(surfaceHeight);
       state = timeline.hold(
         {
           x: place.offset.x * settle,
-          y: place.offset.y * settle,
+          y: centre + (place.offset.y - centre) * settle,
           z: place.offset.z * settle,
         },
         wordsFactor + (place.factor - wordsFactor) * settle,
@@ -470,6 +508,17 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
         : timeline.update(progress, config.timelineEase, delta, lane);
       morph = state.progress;
     }
+
+    /* Cut to nothing, and the last frame was too: a phone held sideways, where
+       the slot under the controls has no room for a brain. The canvas already
+       shows nothing, so the simulation and every pass of the draw are skipped
+       until there is somewhere for the cloud to be again. */
+    const empty = keepsNothing(state.mask);
+    if (empty && lastEmpty) {
+      lastFrameMs = performance.now() - started;
+      return;
+    }
+    lastEmpty = empty;
 
     /* The pointer, carried back through the projection into the space the
        simulation works in, so the shader can push particles away from it. Done
@@ -518,9 +567,17 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
        drawn from an unwritten texture. */
     if (steps === 0 && seconds <= delta) simulation!.step(inputsForStep, config, mobile);
 
+    /* The clock the picture is drawn at, as opposed to the one the simulation
+       runs on. For a reader who asked for less motion it stands still: the
+       film grain and anything else keyed to time used to be drawn afresh on
+       every settled frame, so every step of a scroll flickered the grain, which
+       is motion, however fine. The same page position now draws the same
+       picture. */
+    const drawnAt = reducedMotion ? 0 : seconds;
+
     const inputs = {
       timeline: introActive ? { ...state, progress: morph } : state,
-      seconds,
+      seconds: drawnAt,
       mouse: mouse.value.current,
       pitch: 0,
       yaw: 0,
@@ -565,7 +622,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     );
 
     if (chain) {
-      chain.render(tier.post, config, seconds, state.mask);
+      chain.render(tier.post, config, drawnAt, state.mask);
     } else {
       /* No post chain means no final pass, so the mask that keeps the cloud off
          the words is not running. The canvas element carries the same cut
@@ -595,7 +652,11 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
       return shift(1);
     },
     pointer(clientX, clientY) {
-      mouse.move(clientX, clientY, window.innerWidth, window.innerHeight);
+      /* Against the canvas, not the window. Above the breakpoint the canvas is
+         the window; below it the canvas is over the first screen of the page
+         and scrolls with it, and a narrow desktop window has a mouse. */
+      const top = scroll.layout.wide ? 0 : -window.scrollY;
+      mouse.move(clientX, clientY - top, surfaceWidth, surfaceHeight);
     },
     pointerLeave() {
       mouse.leave();
@@ -628,6 +689,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
         pointerActive: lastPointerActive,
         pointerSpeed: 0,
         scroll: scroll.value.sectionProgress,
+        layout: scroll.layout,
         since: elapsedMs,
       };
     },

@@ -96,8 +96,12 @@ export function PaletteTrigger() {
            A bg-card here resolved to the paper mist, so the control rendered as
            a near white pill with the stage's near white text on it, at 2.3:1.
            The border is enough to read as a field, and it is a token the header
-           does override. */
-        className="t-label flex min-h-11 w-full min-w-[9rem] items-center gap-2.5 rounded-full border border-rule px-4 text-left text-muted hover:border-rule-strong hover:text-ink sm:min-h-0 sm:w-auto sm:py-2.5"
+           does override.
+
+           Not full width on a phone either. It was, which gave it a row of its
+           own under the name and pushed the navigation onto a third, and the
+           header ended sixty pixels below where the page had been told it did. */
+        className="t-label flex min-h-11 min-w-[9rem] items-center gap-2.5 rounded-full border border-rule px-4 text-left text-muted hover:border-rule-strong hover:text-ink sm:min-h-0 sm:py-2.5"
       >
         {/* A magnifier, so the control reads as a field to search in rather
             than as a button that says Search. Inline rather than an icon

@@ -252,9 +252,13 @@ test.describe("the opening animation", () => {
     await expect(page.locator(".intro")).toBeHidden();
     await expect(page.locator("h1")).toBeVisible();
 
-    /* And the gradient draws a frame rather than animating one. */
+    /* And the gradient draws a frame rather than animating one. Given the
+       engine polls' twenty seconds rather than the default five: the page was
+       loaded with waitUntil commit, so this wait includes the whole bundle
+       arriving and hydrating, which on a loaded run of this suite took more
+       than five. */
     await expect
-      .poll(() => page.locator(".backdrop").getAttribute("data-backdrop"))
+      .poll(() => page.locator(".backdrop").getAttribute("data-backdrop"), { timeout: 20_000 })
       .toBe("still");
     await context.close();
   });
@@ -605,6 +609,98 @@ test.describe("the particle engine", () => {
     await page.waitForTimeout(2_500);
   }
 
+  test("agrees with the layout about where the lane is, either side of the breakpoint", async ({
+    page,
+    isMobile,
+  }) => {
+    test.skip(Boolean(isMobile), "a width test, run on the desktop project");
+    /* Three things decide whether the page has a column for the cloud: the
+       bands' lane padding, the stage's pinned layout and the engine's keep-out.
+       They used to be three breakpoints: the stage at 1024 pixels, the bands at
+       1100 and the engine at an aspect of 1.22. Between 1024 and 1099 pixels
+       wide the engine cut the cloud to a lane the bands had already collapsed,
+       so the cloud sat on a full width column of text, and above 1100 at a
+       squarer aspect it drew the cloud over everything while the bands still
+       kept a lane. */
+    await page.addInitScript((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
+    for (const [width, height] of [
+      [1099, 800],
+      [1100, 800],
+      [1100, 1000],
+      [1440, 900],
+      [1024, 768],
+    ] as const) {
+      await page.setViewportSize({ width, height });
+      await page.goto("/?brainQuality=low&brainDebug=1");
+      await handleReady(page);
+      const reading = await page.evaluate(() => {
+        const inner = document.querySelector<HTMLElement>(".band-lane-right > .band-inner")!;
+        const lane = Number.parseFloat(getComputedStyle(inner).paddingRight) > window.innerWidth * 0.3;
+        const panel = document.querySelector<HTMLElement>(".stage-panel-inner")!;
+        const pinned = getComputedStyle(panel).position === "sticky";
+        const handle = (
+          window as unknown as {
+            particleBrain: { inspect: () => { timeline: { mask: { side: number } } } };
+          }
+        ).particleBrain;
+        const column = handle.inspect().timeline.mask.side !== 0;
+        return { lane, pinned, column };
+      });
+      expect(
+        reading,
+        `at ${width}x${height} the bands, the stage and the engine disagree about the lane`,
+      ).toEqual({ lane: width >= 1100, pinned: width >= 1100, column: width >= 1100 });
+    }
+  });
+
+  test("stops drawing once its space has scrolled off a phone's screen", async ({
+    page,
+    isMobile,
+  }) => {
+    test.skip(!isMobile, "the canvas only scrolls away below the breakpoint");
+    /* Below the breakpoint the cloud lives in the hero's first screen and the
+       canvas scrolls away with it. A brain nobody can see should cost nothing,
+       so every draw call on its canvas is counted, at the context. */
+    await page.addInitScript((key) => {
+      sessionStorage.setItem(key, "1");
+      const counts = { draws: 0 };
+      (window as unknown as { brainDraws: typeof counts }).brainDraws = counts;
+      const proto = WebGL2RenderingContext.prototype as unknown as Record<
+        string,
+        (...args: unknown[]) => unknown
+      >;
+      for (const name of ["drawArrays", "drawArraysInstanced", "drawElements", "drawElementsInstanced"]) {
+        const original = proto[name]!;
+        proto[name] = function patched(this: WebGL2RenderingContext, ...args: unknown[]) {
+          if ((this.canvas as HTMLCanvasElement).closest?.("[data-brain]")) counts.draws += 1;
+          return original.apply(this, args);
+        };
+      }
+    }, INTRO_KEY);
+
+    const drawsOver = async (ms: number) => {
+      const read = () =>
+        page.evaluate(
+          () => (window as unknown as { brainDraws: { draws: number } }).brainDraws.draws,
+        );
+      const before = await read();
+      await page.waitForTimeout(ms);
+      return (await read()) - before;
+    };
+
+    await page.goto("/?brainQuality=low&brainDebug=1");
+    await handleReady(page);
+    expect(await drawsOver(1_500), "the brain was not drawing at the top of the page").toBeGreaterThan(0);
+
+    await page.evaluate(() => window.scrollTo(0, window.innerHeight * 2.5));
+    await page.waitForTimeout(800);
+    expect(await drawsOver(2_000), "still drawing a brain that has scrolled off the screen").toBe(0);
+
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(800);
+    expect(await drawsOver(1_500), "did not start drawing again on the way back").toBeGreaterThan(0);
+  });
+
   test("paints, and says which quality level it settled on", async ({ page }) => {
     await page.goto("/?brainQuality=low");
     await settled(page);
@@ -696,8 +792,22 @@ test.describe("the particle engine", () => {
       .toBe("still");
 
     await page.waitForTimeout(1_200);
-    const shot = async () =>
-      (await page.locator("[data-brain] canvas").screenshot()).toString("base64");
+    /* The window, clipped to the canvas, rather than a screenshot of the canvas
+       element. An element screenshot scrolls its element into view first, and
+       below the breakpoint the canvas runs past the fold, so each shot scrolled
+       the page, and a scroll is exactly what redraws a settled frame. The test
+       would have been moving the page and then reporting that it moved. */
+    const shot = async () => {
+      const box = await page.locator("[data-brain] canvas").boundingBox();
+      const view = page.viewportSize() ?? { width: 1280, height: 720 };
+      const top = Math.max(0, box?.y ?? 0);
+      const bottom = Math.min(view.height, (box?.y ?? 0) + (box?.height ?? view.height));
+      return (
+        await page.screenshot({
+          clip: { x: 0, y: top, width: view.width, height: Math.max(1, bottom - top) },
+        })
+      ).toString("base64");
+    };
     const first = await shot();
     await page.waitForTimeout(1_200);
     expect(await shot(), "the cloud moved for a reader who asked it not to").toBe(first);
@@ -1101,7 +1211,17 @@ test.describe("the particle engine", () => {
     expect(middle, "the opening did not start outside the frame").toBeLessThan(whole / 3);
   });
 
-  test("maps the scroll onto the whole document, section by section", async ({ page }) => {
+  test("maps the scroll onto the whole document, section by section", async ({
+    page,
+    isMobile,
+  }) => {
+    /* Where the page keeps a lane, which is where the cloud travels the whole
+       document. Below the breakpoint it lives in the hero and stops drawing
+       once that has scrolled away, so the engine is not there to follow a
+       phone to the fourth section; that contract is asserted on its own, in
+       "stops drawing once its space has scrolled off a phone's screen". The
+       mapping read here is the same code on both. */
+    test.skip(Boolean(isMobile), "the cloud only travels the document where there is a lane");
     test.slow();
     /* The contract in scroll.ts has been through two versions and is back at
        the first, which is worth saying rather than quietly reverting.
@@ -1162,7 +1282,13 @@ test.describe("the particle engine", () => {
     }
   });
 
-  test("follows the call to action through to the contact composition", async ({ page }) => {
+  test("follows the call to action through to the contact composition", async ({
+    page,
+    isMobile,
+  }) => {
+    /* The same reason as the test above: on a phone the cloud stays in the
+       hero, and the contact section is past it. */
+    test.skip(Boolean(isMobile), "the cloud only travels the document where there is a lane");
     test.slow();
     /* The call to action is an anchor to the last section, so following it
        moves the scroll from the top of the page to the bottom in one go. How
@@ -1222,6 +1348,22 @@ type TextBox = {
   label: string;
 };
 
+/* Anything a reader sees as part of the page rather than as the backdrop: a run
+   of words wherever it sits, a card or a control with a surface of its own, a
+   picture, a clip, an icon. */
+type ContentBox = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  label: string;
+};
+
+/* The brightest the backdrop gets behind the page with the page hidden, with a
+   margin. The gradient under its scrim was measured at 0.0069; anything over
+   this behind a piece of content is the particle cloud. */
+const OVERLAP_CEILING = 0.012;
+
 /* Eight samples across the six section timeline. The cloud moves, disperses,
    reforms and changes brightness as the page scrolls, so one position proves
    nothing about the others. */
@@ -1261,7 +1403,7 @@ test.describe("contrast where the words actually are", () => {
      on this page: no run of text is over a lit background. */
   test.describe.configure({ timeout: 180_000 });
 
-  test("every run of text clears AA against the pixels behind it", async ({
+  test("every run of text clears AA, and nothing is drawn over the cloud", async ({
     page,
     browser,
   }) => {
@@ -1382,10 +1524,56 @@ test.describe("contrast where the words actually are", () => {
          over the whole walk. */
       found += boxes.length;
 
+      /* Every piece of content on screen, whatever it sits on, for the stricter
+         question below. Contrast asks whether text stays legible over the
+         cloud; this asks whether the cloud is behind anything at all, which is
+         the rule the page is built to: nothing goes over the brain and the
+         brain goes over nothing. The contrast measurement passed on a phone
+         while the brain sat behind the controls and the table, because a dim
+         enough cloud behind a word is still legible. */
+      const content: ContentBox[] = await page.evaluate(() => {
+        const found: ContentBox[] = [];
+        const view = { width: window.innerWidth, height: window.innerHeight };
+        const media = new Set(["IMG", "VIDEO", "PICTURE", "CANVAS", "svg"]);
+        for (const element of Array.from(
+          document.body.querySelectorAll<HTMLElement>("header *, main *, footer *"),
+        )) {
+          const style = getComputedStyle(element);
+          if (style.visibility === "hidden" || style.display === "none") continue;
+          if (Number.parseFloat(style.opacity) < 0.05) continue;
+          const own = Array.from(element.childNodes).some(
+            (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim().length > 0,
+          );
+          const fill = style.backgroundColor.match(/-?\d+(\.\d+)?/g);
+          const surface = fill ? (fill.length > 3 ? Number(fill[3]) : 1) >= 0.5 : false;
+          if (!own && !surface && !media.has(element.tagName)) continue;
+          const box = element.getBoundingClientRect();
+          if (box.width < 2 || box.height < 2) continue;
+          if (box.bottom <= 0 || box.top >= view.height) continue;
+          if (box.right <= 0 || box.left >= view.width) continue;
+          found.push({
+            x: Math.max(0, box.left),
+            y: Math.max(0, box.top),
+            width: Math.min(view.width, box.right) - Math.max(0, box.left),
+            height: Math.min(view.height, box.bottom) - Math.max(0, box.top),
+            label: (
+              (element.textContent ?? "").trim() ||
+              element.getAttribute("aria-label") ||
+              element.tagName
+            ).slice(0, 40),
+          });
+        }
+        return found;
+      });
+
       await page.addStyleTag({
         content: "body > header, body > main, body > footer { visibility: hidden !important }",
       });
-      const shot = (await page.screenshot()).toString("base64");
+      /* In CSS pixels, because the boxes are. The default is device pixels,
+         which on the phone project is two and three quarter times as many, and
+         for as long as this test has run on a phone it was measuring the top
+         left of the screen scaled down rather than the pixels behind each box. */
+      const shot = (await page.screenshot({ scale: "css" })).toString("base64");
       /* Put it back, or the next sample measures a page with no text on it. */
       await page.evaluate(() => {
         const sheets = Array.from(document.head.querySelectorAll("style"));
@@ -1394,7 +1582,13 @@ test.describe("contrast where the words actually are", () => {
       });
 
       const brightest: number[] = await decoder.evaluate(
-        async ({ data, regions }: { data: string; regions: TextBox[] }) => {
+        async ({
+          data,
+          regions,
+        }: {
+          data: string;
+          regions: { x: number; y: number; width: number; height: number }[];
+        }) => {
           const image = new Image();
           image.src = `data:image/png;base64,${data}`;
           await image.decode();
@@ -1430,8 +1624,17 @@ test.describe("contrast where the words actually are", () => {
             return max;
           });
         },
-        { data: shot, regions: boxes },
+        { data: shot, regions: [...boxes, ...content] },
       );
+
+      content.forEach((box, index) => {
+        const behind = brightest[boxes.length + index] ?? 1;
+        expect(
+          behind,
+          `"${box.label}" at section progress ${point} has the cloud behind it, ` +
+            `at luminance ${behind.toFixed(4)}`,
+        ).toBeLessThanOrEqual(OVERLAP_CEILING);
+      });
 
       boxes.forEach((box, index) => {
         const background = brightest[index] ?? 1;

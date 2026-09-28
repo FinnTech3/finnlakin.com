@@ -89,6 +89,18 @@ export function Hero() {
             </div>
             <CtaVisibility />
           </div>
+
+          {/* Where the cloud lives on a screen too narrow to give it a column.
+
+              Empty on purpose, and only laid out below 1100 pixels, where the
+              bands stop keeping a lane. The engine measures it and draws the
+              cloud inside it and nowhere else, so on a phone the brain sits
+              under the controls in the first screen and leaves with it, and
+              nothing below it on the page ever has the brain behind it. The
+              canvas is positioned over this screen rather than fixed to the
+              window, so it is scrolled by the compositor with the page, and a
+              fast flick cannot leave the light a frame behind its space. */}
+          <div className="brain-slot" data-brain-slot="" aria-hidden="true" />
         </div>
       </div>
 
