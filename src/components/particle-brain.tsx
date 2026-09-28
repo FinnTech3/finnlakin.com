@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
+import { frameScheduler } from "@/particles/frame";
 import { createParticleBrain } from "@/particles/engine";
 import { debugRequested, forcedLevel } from "@/particles/quality";
 import { STORAGE_KEY } from "@/components/intro";
@@ -132,27 +133,45 @@ export function ParticleBrain({ className }: { className?: string }) {
       delete root.dataset.intro;
     }
 
-    let frame: number | null = null;
     let running = true;
+    /* Registered with the page's one scheduler rather than owning a loop.
 
-    const tick = (now: number) => {
-      frame = null;
+       The cloud is rank 0: it is drawn first in a frame and it is the last
+       thing given up when frames run long. The gradient behind it is rank 1 and
+       is thinned, then dropped, before the cloud's own quality levels are
+       touched at all. Two loops used to run here, each governing itself, and
+       the result was that a slow machine shed the subject and kept the
+       decoration. */
+    let release: (() => void) | null = null;
+    let frame: number | null = null;
+
+    const draw = (now: number) => {
       if (!running) return;
       engine.frame(now);
-      /* A reader who has asked for less motion gets one settled frame per
-         scroll or resize rather than a loop. Not a slower animation: a still
-         picture that keeps up with the page. */
-      if (!reducedMotion) frame = requestAnimationFrame(tick);
     };
 
+    /* A reader who has asked for less motion gets one settled frame per scroll
+       or resize rather than a loop. Not a slower animation: a still picture
+       that keeps up with the page. That path never joins the scheduler, because
+       there is nothing continuous to schedule. */
     const pump = () => {
-      if (!running || frame !== null || document.hidden) return;
-      frame = requestAnimationFrame(tick);
+      if (!running || document.hidden) return;
+      if (reducedMotion) {
+        if (frame !== null) return;
+        frame = requestAnimationFrame((now) => {
+          frame = null;
+          draw(now);
+        });
+        return;
+      }
+      if (!release) release = frameScheduler().add({ rank: 0, draw });
     };
 
     const pause = () => {
       if (frame !== null) cancelAnimationFrame(frame);
       frame = null;
+      release?.();
+      release = null;
     };
 
     /* No idle timeout. A cursor resting on the cloud should hold it open, the
@@ -204,6 +223,7 @@ export function ParticleBrain({ className }: { className?: string }) {
     document.addEventListener("visibilitychange", onVisibility);
     canvas.addEventListener("webglcontextlost", onContextLost);
 
+    if (!reducedMotion) release = frameScheduler().add({ rank: 0, draw });
     host.dataset.brain = reducedMotion ? "still" : "live";
     if (debugRequested()) {
       host.dataset.brainDebug = "1";

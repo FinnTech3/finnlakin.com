@@ -736,5 +736,38 @@ engine.setQuality("medium");
 engine.dispose();
 ```
 
-The host owns the loop, because the host is what knows about visibility,
-reduced motion and the route. Nothing that changes per frame is React state.
+The host decides *whether* to draw, because the host is what knows about
+visibility, reduced motion and the route. Nothing that changes per frame is
+React state.
+
+It no longer owns the loop. `src/particles/frame.ts` does, and it is the only
+`requestAnimationFrame` loop on the page.
+
+There were two. This engine ran one and the gradient backdrop in
+`src/components/backdrop.tsx` ran another, each governing itself. Two callbacks
+a frame for one picture, two WebGL contexts drawn from separate callbacks so the
+driver flushed and restored state twice, and, worse, two independent answers to
+"am I too slow".
+
+That second part was the real fault. `createFrameWatch` measured only this
+engine's frames and stepped **the cloud** down below 42fps sustained, while the
+decoration behind it carried on at full cost, because neither knew the other was
+there. The page shed its subject to protect its ornament.
+
+Now clients register with a rank. The cloud is rank 0: drawn first in a frame,
+and the last thing given up. The backdrop is rank 1, and when a 45 frame window
+averages past a 12ms budget it is thinned to every other frame, then dropped
+entirely. `createFrameWatch` still runs, but its result is only applied once
+`frameScheduler().hasSheddable` is false, which makes the cloud's own quality
+levels the last resort rather than the first.
+
+The budget is 12ms rather than a 60Hz frame's 16.7, because hitting 16.7 exactly
+leaves nothing for the browser's own style, paint and compositing on the same
+frame.
+
+`tests/frame-budget.spec.ts` asserts the structure, since frame rate cannot be
+measured on a machine with no GPU: one callback in flight at a time on the home
+page, the cloud drawn before the backdrop whatever order they register in, the
+cloud never missing a frame while shedding happens around it, and the shedding
+order itself, driven by an injected clock rather than by a machine that happens
+to be slow. Reverted against the two loop version that test reports 2.

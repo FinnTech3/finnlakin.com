@@ -1,5 +1,6 @@
 "use client";
 
+import { frameScheduler } from "@/particles/frame";
 import { useEffect, useRef } from "react";
 
 
@@ -31,11 +32,15 @@ const MAX_EDGE = 960;
    detail, and each one costs a full-screen pass. */
 const SWIRL_ITERATIONS = 6;
 
-/* Frames 4 through 20 are timed. Past this, the renderer is not keeping up
-   with anything worth animating. */
-const SLOW_FRAME_MS = 42;
-const WARMUP_FRAMES = 4;
-const SAMPLE_FRAMES = 20;
+/* This used to time its own frames 4 through 20 and stop itself past 42ms.
+
+   That measurement is deleted rather than moved, because it was answering the
+   wrong question. It timed this shader's frames while the particle cloud was
+   being drawn from a separate callback on the same frame, so a number that
+   looked healthy here could sit inside a frame that was nowhere near sixteen
+   milliseconds. The scheduler in particles/frame.ts measures the whole frame
+   once and gives this up first, which is the only version of that decision
+   that has all of the information. */
 
 const VERTEX_SHADER = `#version 300 es
 in vec4 a_position;
@@ -309,46 +314,38 @@ export function Backdrop() {
       };
     }
 
-    let frame: number | null = null;
     let running = true;
-    let frames = 0;
-    let sampleStart = 0;
+    let release: (() => void) | null = null;
     const start = performance.now();
 
     const stop = (state: "still" | "fallback") => {
       running = false;
-      if (frame !== null) cancelAnimationFrame(frame);
-      frame = null;
+      release?.();
+      release = null;
       settle(state);
     };
 
-    const tick = (now: number) => {
+    /* Rank 1: decoration. The scheduler draws the particle cloud first and
+       gives this up before the cloud is asked to lower its own quality, which
+       is the right way round and was not what happened when each owned its own
+       loop and governed itself.
+
+       It also no longer measures its own frames to decide whether to stop. One
+       measurement of the whole frame, in the scheduler, is the only honest one:
+       this shader's own time told it nothing about the thirty two thousand
+       particles being drawn from a different callback on the same frame. */
+    const draw = (now: number) => {
       if (!running) return;
-      const seconds = (now - start) / 1000;
-      shader?.draw(seconds * 0.14);
-
-      frames += 1;
-      if (frames === WARMUP_FRAMES) sampleStart = now;
-      if (frames === SAMPLE_FRAMES) {
-        const perFrame = (now - sampleStart) / (SAMPLE_FRAMES - WARMUP_FRAMES);
-        /* Slow enough that animating it is worse than not. The last frame stays
-           on screen, so the page keeps its composition and loses its movement. */
-        if (perFrame > SLOW_FRAME_MS) {
-          stop("still");
-          return;
-        }
-      }
-
-      frame = requestAnimationFrame(tick);
+      shader?.draw(((now - start) / 1000) * 0.14);
     };
 
     const onVisibility = () => {
       if (!running) return;
       if (document.hidden) {
-        if (frame !== null) cancelAnimationFrame(frame);
-        frame = null;
-      } else if (frame === null) {
-        frame = requestAnimationFrame(tick);
+        release?.();
+        release = null;
+      } else if (!release) {
+        release = frameScheduler().add({ rank: 1, draw, onShed: () => settle("still") });
       }
     };
 
@@ -366,11 +363,12 @@ export function Backdrop() {
     observer.observe(host);
 
     if (shader) settle("live");
-    frame = requestAnimationFrame(tick);
+    release = frameScheduler().add({ rank: 1, draw, onShed: () => settle("still") });
 
     return () => {
       running = false;
-      if (frame !== null) cancelAnimationFrame(frame);
+      release?.();
+      release = null;
       canvas.removeEventListener("webglcontextlost", onContextLost);
       document.removeEventListener("visibilitychange", onVisibility);
       observer.disconnect();

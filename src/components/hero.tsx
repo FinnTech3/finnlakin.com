@@ -1,4 +1,5 @@
 import { reconstructions } from "@/lib/reconstructions";
+import { CtaVisibility } from "@/components/cta-visibility";
 import { ShinyButton } from "@/components/shiny-button";
 import { person } from "@/lib/site";
 
@@ -79,10 +80,14 @@ export function Hero() {
                 knowing rather than quietly fixing, because the instruction was
                 to use it on both, and a muted second variant is a small change
                 if the flattening turns out to be wrong. */}
-            <div className="mt-9 flex flex-wrap items-center gap-3">
+            <div
+              data-cta-watch=""
+              className="mt-9 flex flex-wrap items-center gap-3"
+            >
               <ShinyButton href="#contact">Get in touch</ShinyButton>
               <ShinyButton href="#work">See the work</ShinyButton>
             </div>
+            <CtaVisibility />
           </div>
         </div>
       </div>

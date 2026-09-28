@@ -3,6 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { Clip } from "@/lib/media";
 
+/* How much of each mounted clip is on screen, shared across every instance.
+
+   Module scope because the decision is a comparison between clips and no clip
+   can make it alone: each observer callback only knows about its own element.
+   A WeakMap would not do, because this has to be iterated. Entries are removed
+   on unmount. */
+const ratios = new Map<HTMLVideoElement, number>();
+
 /* A clip, played only when it is on screen and only if the reader has not asked
    for less motion.
 
@@ -50,22 +58,70 @@ export function ClipPlayer({
     if (!video || !motion) return;
     if (typeof IntersectionObserver === "undefined") return;
 
+    /* One decoder at a time, and that is the change from playing everything
+       that was a fifth visible.
+
+       The home page carries ten of these now, where it carried two. Scrolling
+       the work section put two and three 1080p decoders on the machine at once,
+       each one competing for the same frame as the particle cloud, and a
+       decoder is not something the frame scheduler can shed.
+
+       So a clip plays only while it is the most visible one on the page. The
+       thresholds are a ramp rather than a single step because the comparison
+       needs a ratio to compare, not a boolean: without them the callback says
+       "still intersecting" all the way up the viewport and every clip claims to
+       be as visible as every other. */
     const watcher = new IntersectionObserver(
       ([entry]) => {
         if (!entry) return;
-        if (entry.isIntersecting) {
-          /* A rejected play() is not an error worth surfacing: a browser that
-             refuses autoplay leaves the poster, which is a still from the clip
-             and says the same thing more quietly. */
-          void video.play().catch(() => {});
-        } else {
-          video.pause();
+        ratios.set(video, entry.isIntersecting ? entry.intersectionRatio : 0);
+
+        let best: HTMLVideoElement | null = null;
+        let bestRatio = 0;
+        for (const [element, ratio] of ratios) {
+          if (ratio > bestRatio) {
+            bestRatio = ratio;
+            best = element;
+          }
+        }
+
+        /* Hysteresis, and it is not a nicety.
+
+           Switching the moment a challenger is one pixel more visible means a
+           scroll plays and pauses the same clips over and over, and each restart
+           of a `preload="none"` video re-enters buffering. Measured, that churn
+           took the contrast suite from 48 seconds to past its 90 second budget,
+           which is the cost of thrash showing up somewhere it could be counted.
+
+           So an incumbent that is still properly on screen keeps the decoder.
+           A challenger has to be clearly more visible to take it. */
+        const playing = [...ratios.keys()].find((element) => !element.paused);
+        if (playing && playing !== best) {
+          const incumbent = ratios.get(playing) ?? 0;
+          if (incumbent > 0.45 || bestRatio - incumbent < 0.2) {
+            best = playing;
+            bestRatio = incumbent;
+          }
+        }
+
+        for (const [element] of ratios) {
+          if (element === best && bestRatio > 0) {
+            /* A rejected play() is not an error worth surfacing: a browser that
+               refuses autoplay leaves the poster, which is a still from the
+               clip and says the same thing more quietly. */
+            if (element.paused) void element.play().catch(() => {});
+          } else if (!element.paused) {
+            element.pause();
+          }
         }
       },
-      { threshold: 0.2 },
+      { threshold: [0, 0.2, 0.4, 0.6, 0.8, 1] },
     );
     watcher.observe(video);
-    return () => watcher.disconnect();
+    return () => {
+      watcher.disconnect();
+      ratios.delete(video);
+    };
   }, [motion]);
 
   return (

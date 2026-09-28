@@ -1018,11 +1018,30 @@ function relativeLuminance(rgb: [number, number, number]) {
 }
 
 test.describe("contrast where the words actually are", () => {
+  /* Three minutes, and it is the machine rather than the test.
+
+     This is the heaviest thing in the suite by a distance: it drives the home
+     page to eight scroll positions, and at each one it hides the page, takes a
+     full page screenshot, restores it, and then walks every run of text on the
+     page measuring the composited pixels behind it. On a box with no GPU, where
+     a thirty two thousand particle cloud and a full screen shader are both
+     rasterised in software, that measures 72 seconds run on its own.
+
+     `test.slow()` triples the default thirty, which is ninety, and 72 against
+     90 is not a margin: it went over as soon as the run shared the machine with
+     other workers. The frame scheduler added a little to it as well, because
+     the backdrop now runs until the scheduler gives it up rather than stopping
+     itself after twenty frames.
+
+     Nothing is skipped and no assertion is relaxed. A slow machine is allowed
+     longer to arrive at the same answer, and the answer is the one that matters
+     on this page: no run of text is over a lit background. */
+  test.describe.configure({ timeout: 180_000 });
+
   test("every run of text clears AA against the pixels behind it", async ({
     page,
     browser,
   }) => {
-    test.slow();
 
     await page.goto("/");
     await page.evaluate((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);

@@ -1349,6 +1349,18 @@ html[data-intro="ending"] [data-brain] {
     transition: opacity var(--shiny-transition);
   }
 
+  /* Paused unless the control is on screen, which is not a nicety.
+
+     These animate a custom property that feeds a conic-gradient border and a
+     mask, so every frame is a real paint of the element rather than a transform
+     the compositor can do on its own. Two of them, running forever, on the one
+     page that also draws a thirty two thousand particle cloud. Scrolled past
+     the hero the reader cannot see them and the machine was still painting
+     them sixty times a second.
+
+     `.stage` carries `data-cta` from the hero's own observer. Paused rather
+     than removed so the border keeps the colour it stopped on instead of
+     snapping back to its initial angle. */
   .shiny-cta,
   .shiny-cta::before {
     animation: shiny-angle var(--shiny-duration) linear infinite;
@@ -1356,6 +1368,13 @@ html[data-intro="ending"] [data-brain] {
 
   .shiny-cta::after {
     animation: shiny-turn var(--shiny-duration) linear infinite;
+  }
+
+  :root[data-cta="off"] .shiny-cta,
+  :root[data-cta="off"] .shiny-cta::before,
+  :root[data-cta="off"] .shiny-cta::after,
+  :root[data-cta="off"] .shiny-cta > span::before {
+    animation-play-state: paused;
   }
 
   .shiny-cta:is(:hover, :focus-visible) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { frameScheduler } from "./frame";
 import { createFullscreen } from "./gl";
 import { MouseController, pointerInCloudSpace } from "./mouse";
 import { entryField } from "./entrance";
@@ -532,9 +533,20 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
 
     lastFrameMs = performance.now() - started;
 
+    /* The last resort, and only once it is.
+
+       This used to be the first thing that gave way: the cloud measured its own
+       frames and stepped itself down, while the decorative gradient behind it
+       kept drawing at full cost from a separate loop that did not know this one
+       existed. The page shed the subject and protected the decoration.
+
+       The scheduler is asked first now. While it still has something above rank
+       0 to thin or drop, the sample is taken and discarded, so the window keeps
+       moving and nothing is stepped down. The brain only loses particles when
+       there is nothing cheaper left on the page to lose. */
     if (adaptive && !reducedMotion) {
       const next = watch.sample(nowMs);
-      if (next) applyLevel(next);
+      if (next && !frameScheduler().hasSheddable) applyLevel(next);
     }
   }
 
