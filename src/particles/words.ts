@@ -46,15 +46,6 @@ export function introFactor(aspect: number) {
   return WORLD_HALF_HEIGHT * aspect;
 }
 
-/* Rescales a shape about the centre of the texture. Used to store the brain in
-   the intro's own texture at the size it will be when the intro hands over, so
-   that the handover changes nothing on screen. */
-export function rescale(shape: Shape, count: number, ratio: number): Shape {
-  const out = new Float32Array(count * 3);
-  for (let i = 0; i < count * 3; i++) out[i] = 0.5 + (shape[i]! - 0.5) * ratio;
-  return out;
-}
-
 /* One line of text, or several, as a shape.
 
    Every particle gets a target, which matters: a word drawn with fewer points

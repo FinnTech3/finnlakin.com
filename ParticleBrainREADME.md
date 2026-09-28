@@ -421,9 +421,23 @@ a portrait phone start on screen.
 `scripts/check-motion.ts` asserts both properties, projecting every seeded
 position forward again through an independently written transform.
 
-The handover is invisible by construction: the intro's texture holds the brain
-shrunk by exactly the ratio between the two factors, so the texture swap and the
-factor change happen in the same frame and cancel.
+**The hand-over moves nothing.** From 5.7 seconds the held composition travels,
+eased, from the middle of the screen at the words' scale to the place and size
+the page opens with, read off the timeline's own targets with `peek()`. By the
+hand-over at 6.9 seconds the two are the same numbers, and the brain in the
+intro's texture is the same brain, at the same scale, as the page's, so the
+texture swap moves no particle either. The keep-out then comes on over a
+quarter of a second rather than in one frame.
+
+It used to be claimed invisible by construction, with the brain stored shrunk
+by the ratio between the words' factor and the desktop one so that the swap and
+the factor change would cancel. They never did: the targets switch in a frame
+and the factor eases. On a monitor the brain swelled by 1.6 and shrank back,
+while still in the middle of the screen, where the keep-out cut away everything
+left of the column in one frame. On a phone the ratio used the desktop factor,
+so the brain ended the intro at four fifths of the screen's width and collapsed
+to half that. `tests/backdrop.spec.ts` now reads the composition every frame
+across the hand-over and asserts it does not move.
 
 The veil is `.intro` in `globals.css`, and an inline script in the layout decides
 before the first paint whether the animation runs at all. A reader with no
@@ -696,8 +710,9 @@ two and a half thousand particles costs a couple of hundred milliseconds of a
 phone's processor, and its top tier would throw half of them away.
 
 The level is chosen from the renderer string and the core count, then corrected
-by timing the frames: below 42fps sustained it steps down, above 56fps it may
-step up once, and never after it has stepped down.
+by the page's frame scheduler, which is the last rung of one ladder for the
+whole page: see Integration. It may step up once on a machine with room, and
+never after anything has been given up.
 
 A lower level draws fewer instances of the same simulation. Particle index is
 shuffled against position, so drawing the first six thousand gives an even
@@ -745,29 +760,54 @@ It no longer owns the loop. `src/particles/frame.ts` does, and it is the only
 
 There were two. This engine ran one and the gradient backdrop in
 `src/components/backdrop.tsx` ran another, each governing itself. Two callbacks
-a frame for one picture, two WebGL contexts drawn from separate callbacks so the
-driver flushed and restored state twice, and, worse, two independent answers to
-"am I too slow".
+a frame for one picture, and two independent answers to "am I too slow", so a
+slow machine stepped **the cloud** down while the decoration behind it carried
+on at full cost. The page shed its subject to protect its ornament.
 
-That second part was the real fault. `createFrameWatch` measured only this
-engine's frames and stepped **the cloud** down below 42fps sustained, while the
-decoration behind it carried on at full cost, because neither knew the other was
-there. The page shed its subject to protect its ornament.
+Now clients register with a rank, and the scheduler owns one ladder for the
+whole page, in a stated order:
 
-Now clients register with a rank. The cloud is rank 0: drawn first in a frame,
-and the last thing given up. The backdrop is rank 1, and when a 45 frame window
-averages past a 12ms budget it is thinned to every other frame, then dropped
-entirely. `createFrameWatch` still runs, but its result is only applied once
-`frameScheduler().hasSheddable` is false, which makes the cloud's own quality
-levels the last resort rather than the first.
+1. the decoration is thinned, from thirty frames a second to fifteen;
+2. the decoration is dropped, and holds its last frame;
+3. the cloud steps its quality down through `degrade()`, one level at a time.
 
-The budget is 12ms rather than a 60Hz frame's 16.7, because hitting 16.7 exactly
-leaves nothing for the browser's own style, paint and compositing on the same
-frame.
+**What is measured is the time between frames.** The first version of the
+scheduler timed the JavaScript inside each callback instead, and it was wrong in
+the way that mattered: WebGL only queues work, so on a machine whose graphics
+card cannot keep up the callback returns in a millisecond or two while frames
+are being dropped. It saw nothing, gave up nothing, and because the cloud's own
+governor had been told to wait for it, nothing on the page adapted at all.
+Driven through twenty seconds at thirty frames a second with draws that cost
+nothing, it drew the backdrop six hundred times out of six hundred. The
+container it was written in never showed it, because a software rasteriser
+backs up into the command queue and makes the callback itself slow.
 
-`tests/frame-budget.spec.ts` asserts the structure, since frame rate cannot be
-measured on a machine with no GPU: one callback in flight at a time on the home
-page, the cloud drawn before the backdrop whatever order they register in, the
-cloud never missing a frame while shedding happens around it, and the shedding
-order itself, driven by an injected clock rather than by a machine that happens
-to be slow. Reverted against the two loop version that test reports 2.
+The rules that keep it from reacting to the wrong things:
+
+- **A budget of a 20ms average**, fifty frames a second, over 45 frames.
+- **Each interval counts for at most two frames' worth**, so a long frame is a
+  dropped frame and nothing worse. At fifty milliseconds a burst of five slow
+  frames tipped a window on its own.
+- **A gap over a second is a pause**, a hidden tab or a closed lid, and not a
+  frame.
+- **Nothing is decided in the first second**, or for half a second after a
+  change: a quality step, a resize (the cloud calls `settle()`), or a client
+  joining a loop that is already running.
+- **Six frames in a row over 36ms relieves a hopeless machine within those six
+  frames** rather than after a whole window. The run is not reset by a window
+  closing, which it was, so a run that straddled a close went unanswered.
+
+The backdrop registers at thirty frames a second, time gated, so it draws
+thirty times a second on a 60, 120 or 144Hz display alike; a cadence of every
+other frame drew it sixty times a second at 120Hz. It does not join the loop at
+all while the opening animation runs: the veil over it is opaque, and while it
+was registered and merely skipping those frames, a struggling entrance had the
+scheduler give up a gradient that was costing nothing before it relieved the
+cloud, which was the cost.
+
+`tests/frame-budget.spec.ts` drives the scheduler with a stand-in display that
+steps frame timestamps, because a frame rate cannot be measured on a machine
+with no GPU. Every rule above has a test, and each of those tests was run
+against the behaviour it replaced and failed there first. It also asserts the
+page's structure in a browser: one frame callback in flight at a time on the
+home page, and one video decoding.

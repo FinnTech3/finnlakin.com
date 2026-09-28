@@ -330,7 +330,7 @@ export class PostChain {
       gl.uniform1f(this.finalUniforms.u_maskFeather ?? null, mask.feather);
       gl.uniform1f(this.finalUniforms.u_gapCentre ?? null, mask.gapCentre);
       gl.uniform1f(this.finalUniforms.u_gapHalf ?? null, mask.gapHalf);
-      gl.uniform1f(this.finalUniforms.u_maskOff ?? null, mask.off ? 1 : 0);
+      gl.uniform1f(this.finalUniforms.u_maskOff ?? null, mask.off);
     });
   }
 

@@ -286,6 +286,119 @@ test.describe("the opening animation", () => {
     await expect.poll(() => introState(page), { timeout: 6_000 }).toBe("none");
   });
 
+  test("hands over with nothing left to move", async ({ page }) => {
+    test.slow();
+    /* The composition the page opens with, read every frame straight off the
+       engine: where the cloud is, how large, how it is turned, and how much of
+       it the keep-out is letting through. Sampled after each frame the page
+       draws, whatever its rate, so the frame the animation hands over in is
+       always in the record. */
+    await page.addInitScript(() => {
+      type Sample = {
+        intro: string;
+        since: number;
+        x: number;
+        y: number;
+        factor: number;
+        yaw: number;
+        off: number;
+      };
+      const samples: Sample[] = [];
+      (window as unknown as { handover: Sample[] }).handover = samples;
+      const real = window.requestAnimationFrame.bind(window);
+      window.requestAnimationFrame = (callback: FrameRequestCallback) =>
+        real((time) => {
+          callback(time);
+          const brain = (
+            window as unknown as {
+              particleBrain?: {
+                inspect: () => {
+                  since: number;
+                  timeline: {
+                    offset: { x: number; y: number };
+                    factor: number;
+                    rotation: { y: number };
+                    mask: { off: number };
+                  };
+                };
+              };
+            }
+          ).particleBrain;
+          if (!brain) return;
+          const reading = brain.inspect();
+          const state = reading.timeline;
+          samples.push({
+            intro: document.documentElement.dataset.intro ?? "none",
+            since: reading.since,
+            x: state.offset.x,
+            y: state.offset.y,
+            factor: state.factor,
+            yaw: state.rotation.y,
+            off: state.mask.off,
+          });
+        });
+    });
+
+    await page.goto("/?brainQuality=low&brainDebug=1");
+    expect(await introState(page), "the intro should start on a first view").toBe("running");
+    await waitForIntroToFinish(page);
+    /* Long enough for the page's own easing to have arrived wherever it is
+       going, which is the composition the opening should already have been in. */
+    await page.waitForTimeout(3_000);
+
+    const samples = await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            handover: {
+              intro: string;
+              since: number;
+              x: number;
+              y: number;
+              factor: number;
+              yaw: number;
+              off: number;
+            }[];
+          }
+        ).handover,
+    );
+    const handedOver = samples.findIndex((sample) => sample.intro !== "running");
+    expect(handedOver, "never saw the animation hand over").toBeGreaterThan(0);
+    const atHandOver = samples[handedOver]!;
+    const settled = samples[samples.length - 1]!;
+
+    /* The frame the animation hands over in against where the page settles.
+       They were the middle of the screen at the words' size against the right
+       hand column at the page's: the release moved the whole brain across a
+       third of the screen and shrank it by a factor of 1.6, with the keep-out
+       coming on over it partway. */
+    expect(Math.abs(atHandOver.x - settled.x), "the brain moved sideways after the hand-over").toBeLessThan(
+      0.05,
+    );
+    expect(Math.abs(atHandOver.y - settled.y), "the brain moved up or down after the hand-over").toBeLessThan(
+      0.05,
+    );
+    expect(
+      Math.abs(atHandOver.factor / settled.factor - 1),
+      "the brain changed size after the hand-over",
+    ).toBeLessThan(0.02);
+    expect(Math.abs(atHandOver.yaw - settled.yaw), "the brain turned after the hand-over").toBeLessThan(
+      0.02,
+    );
+    /* And the keep-out came on over a quarter of a second rather than in the
+       frame after the hand-over, which is where a cut would show. How much of
+       it is left in that frame depends on how long the frame took, so the
+       expectation is worked out from the frame rather than fixed: on a machine
+       slow enough to take a quarter of a second over one frame, it is allowed
+       to be gone. */
+    const next = samples[handedOver + 1];
+    expect(next, "no frame was drawn after the hand-over").toBeDefined();
+    const elapsed = (next!.since - atHandOver.since) / 1000;
+    expect(
+      Number(next!.off),
+      `the keep-out came on in one frame of ${Math.round(elapsed * 1000)}ms`,
+    ).toBeGreaterThanOrEqual(Math.min(1, 1 - elapsed / 0.25) - 0.01);
+  });
 });
 
 

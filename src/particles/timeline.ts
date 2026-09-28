@@ -105,6 +105,11 @@ const GAP_HALF_MAX = 0.2;
    of light lying across the first characters of every line. */
 const MASK_FEATHER = 0.045;
 
+/* How long the keep-out takes to come on when the opening animation hands
+   over. The veil is still opaque for the first frames of its fade, and a
+   quarter of a second is gone before anything under it can be read. */
+const MASK_ON_SECONDS = 0.25;
+
 /* The default for the callers that have no page to read a lane off: the tests,
    the reduced motion path, and the first frame before the sections are
    measured. The right column, settled, not crossing. */
@@ -354,7 +359,7 @@ function targets(progress: number, baseFactor: number, aspect: number, lane: Lan
     gapHalf: wide && ride > 0.001
       ? Math.min(GAP_HALF_MAX, crossingReach / (2 * halfH))
       : 0,
-    off: !wide,
+    off: wide ? 0 : 1,
   };
 
   return {
@@ -429,10 +434,28 @@ export class ParticleTimeline {
          put it briefly between two columns, which is the middle of the screen,
          which is the reading. The one discontinuity in it, the snap from one
          column to the other, happens while the cloud is inside the seam strip
-         and is therefore invisible. */
-      mask: to.mask,
+         and is therefore invisible.
+
+         The exception is the keep-out coming on at all, which happens once, as
+         the opening animation hands over. That is ramped over a quarter of a
+         second, on the wall rather than per frame, so that on any machine the
+         bloom's outer edge fades rather than being sliced off. */
+      mask: {
+        ...to.mask,
+        off: Math.max(
+          to.mask.off,
+          from.mask.off - Math.max(0, deltaSeconds) / MASK_ON_SECONDS,
+        ),
+      },
     };
     return this.state;
+  }
+
+  /* Where the composition belongs at a scroll position, without going there.
+     The opening animation uses it to arrive at the place the page will take it
+     over from, so that the hand-over has nothing left to move. */
+  peek(sectionProgress: number, lane: LaneState = SETTLED_RIGHT): ParticleTimelineState {
+    return targets(sectionProgress, this.baseFactor, this.aspect, lane);
   }
 
   /* Pins the composition while the opening animation owns the screen.
@@ -462,7 +485,7 @@ export class ParticleTimeline {
          there is no reading: the copy has not settled, nothing is being
          scrolled, and the entrance is the subject of the screen rather than
          something beside it. The keep-out starts when the page does. */
-      mask: { ...this.state.mask, off: true },
+      mask: { ...this.state.mask, off: 1 },
     };
     return this.state;
   }

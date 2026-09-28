@@ -201,8 +201,13 @@ export type CloudMask = {
   gapCentre: number;
   /* uv half height of that strip. Nought means it is not crossing. */
   gapHalf: number;
-  /* Draw the cloud everywhere, for the cases with no column to keep out of. */
-  off: boolean;
+  /* How much of the cloud outside its own space is still drawn, from nought,
+     cut, to one, everything. One while the opening animation owns the screen,
+     where there is no reading to keep out of. When it hands over this eases
+     to nought over a quarter of a second rather than dropping in one frame,
+     so whatever the bloom's outer edge was reaching fades instead of being
+     sliced off. */
+  off: number;
 };
 
 export type ParticleTimelineState = {

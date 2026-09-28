@@ -93,7 +93,7 @@ function state(partial: Partial<ParticleTimelineState>): ParticleTimelineState {
     progress: 0,
     progress2: 0,
     rotation: { x: 0, y: 0, z: 0 },
-    mask: { edge: 0.6, side: 0, feather: 0.045, gapCentre: 0.5, gapHalf: 0, off: true },
+    mask: { edge: 0.6, side: 0, feather: 0.045, gapCentre: 0.5, gapHalf: 0, off: 1 },
 
     ...partial,
   };

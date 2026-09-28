@@ -18,7 +18,7 @@ import { ScrollController } from "./scroll";
 import { ParticleSimulation } from "./simulation";
 import { buildTargetSet, SEED } from "./targets";
 import { brainTargets } from "./brain-shape";
-import { introFactor, rescale, wordShape } from "./words";
+import { introFactor, wordShape } from "./words";
 import { mapClamped } from "./pack";
 import {
   DEFAULTS,
@@ -122,6 +122,13 @@ const BRAIN_FROM = 5000;
 const BRAIN_TO = 6300;
 const HANDOVER_AT = 6900;
 
+/* When the brain starts moving from the middle of the screen, at the scale the
+   words were drawn at, to the place and size the page opens with. It is most
+   of the way formed by then, so what a reader sees is the thing assembling
+   and then settling into position, and by the hand-over there is nothing left
+   to move. See the note at the hand-over in frame(). */
+const SETTLE_FROM = 5700;
+
 const INTRO_LINES: string[][] = [["FINN LAKIN"], ["ECONOMICS,", "FINANCE,", "SOFTWARE DEV"]];
 
 export type EngineOptions = {
@@ -149,7 +156,7 @@ export type EngineOptions = {
    is the one conversion here and the one thing to get wrong. */
 function clipFor(mask: CloudMask): string {
   const pc = (value: number) => `${(Math.min(1, Math.max(0, value)) * 100).toFixed(2)}%`;
-  if (mask.off) return "none";
+  if (mask.off > 0.5) return "none";
   if (mask.gapHalf > 0) {
     return `inset(${pc(1 - (mask.gapCentre + mask.gapHalf))} 0 ${pc(
       mask.gapCentre - mask.gapHalf,
@@ -215,16 +222,26 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
 
   const introSet = runIntro
     ? (() => {
-        /* The brain is stored here shrunk by exactly the ratio between the two
-           factors, so that at the handover the texture and the factor change in
-           the same frame and cancel: the picture does not move. */
-        const shrunk = rescale(built.shapes[0]!, count, config.factorDesktop / wordsFactor);
+        /* The brain here is the same brain the page uses, at the same scale,
+           so that swapping one target set for the other at the hand-over moves
+           no particle at all.
+
+           It used to be stored shrunk by the ratio of the desktop factor to the
+           words' factor, so that the texture and the factor would cancel at the
+           hand-over. They never did: the targets switch in a frame and the
+           factor eases, so on a monitor the brain swelled by a factor of 1.6 and
+           shrank back, and on a phone, where the ratio used the desktop factor
+           rather than the phone's, it ended the animation at four fifths of the
+           screen's width and collapsed to half that. Now the composition itself
+           travels to the page's opening place before the hand-over, and the
+           size goes with it. */
+        const brain = built.shapes[0]!;
         return buildTargetSet(
           [
             wordShape(INTRO_LINES[0]!, window.innerWidth, window.innerHeight, count, SEED + 3),
             wordShape(INTRO_LINES[1]!, window.innerWidth, window.innerHeight, count, SEED + 5),
-            shrunk,
-            shrunk,
+            brain,
+            brain,
           ],
           gridSize,
           [null, null, built.tone, built.tone],
@@ -421,7 +438,29 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
       morph =
         mapClamped(introMs, WORD_TWO_FROM, WORD_TWO_TO, 0, 1) +
         mapClamped(introMs, BRAIN_FROM, BRAIN_TO, 0, 1);
-      state = timeline.hold({ x: 0, y: 0, z: 0 }, wordsFactor, 0);
+      /* Settled into place before the page takes over.
+
+         The page's own composition is somewhere else entirely: on a monitor
+         the brain opens in the right hand column, smaller than it is drawn
+         here and turned a little. The hand-over used to release the hold with
+         the brain still in the middle of the screen, so the keep-out that
+         stops it lighting the words came on over a brain that was mostly
+         outside its column, and cut most of it away in one frame before the
+         rest slid across. So the composition travels there first, eased, while
+         the veil is still up and nothing else is on the screen, and at the
+         hand-over the page's composition and this one are the same numbers. */
+      const place = timeline.peek(progress, scroll.laneAt(progress));
+      const t = mapClamped(introMs, SETTLE_FROM, HANDOVER_AT, 0, 1);
+      const settle = t * t * (3 - 2 * t);
+      state = timeline.hold(
+        {
+          x: place.offset.x * settle,
+          y: place.offset.y * settle,
+          z: place.offset.z * settle,
+        },
+        wordsFactor + (place.factor - wordsFactor) * settle,
+        place.rotation.y * settle,
+      );
 
       if (introMs >= HANDOVER_AT) handOver();
     } else {
