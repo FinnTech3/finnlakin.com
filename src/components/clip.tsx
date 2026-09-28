@@ -34,8 +34,9 @@ export function ClipPlayer({
      renders about seven hundred pixels wide and 4K there is thirty megabytes
      nobody can see.
 
-     It falls back to `src` rather than failing when a clip has no 4K rendition:
-     one of the four does not, and its 1080 file is its ceiling. */
+     Either way it falls back to whichever rendition the clip has: a reel clip
+     with no 4K source plays its 1080 file, which is its ceiling, and a clip
+     with only a 4K file plays that rather than nothing. */
   full = false,
 }: {
   clip: Clip;
@@ -129,7 +130,7 @@ export function ClipPlayer({
       ref={ref}
       className={className ?? "block h-full w-full object-cover"}
       poster={clip.poster}
-      src={motion ? (full && clip.srcFull) || clip.src : undefined}
+      src={motion ? (full ? clip.srcFull ?? clip.src : clip.src ?? clip.srcFull) : undefined}
       preload="none"
       muted
       loop

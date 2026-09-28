@@ -372,29 +372,21 @@
    hide the page to photograph what is behind the words, which is the only
    honest way to measure it, and all three were photographing an empty canvas
    and calling the result a measurement. */
-/* Fixed and explicitly behind the cloud, and both halves of that matter.
+/* Fixed and explicitly behind the cloud.
 
-   The wrapper animates its own opacity, so it creates a stacking context. With
-   no position and no z-index of its own it painted in the ordinary positioned
-   step, which is after every negative z-index layer in the root context: the
-   cloud sits at -10, so the black plate inside this wrapper painted straight
-   over it and the brain disappeared from the page entirely. It was invisible
-   as a fault from the markup, because nothing in the wrapper says "on top" and
-   the elements inside it all carry negative z-indices of their own, which only
-   order them against each other.
-
-   Pinning it at -20 puts the whole group behind the cloud again, which is
-   where it was when the cloud was still inside it. */
+   The wrapper groups the black plate, the gradient and its scrim, and with a
+   position and a z-index of its own it is a stacking context that paints
+   before the cloud at -10. Without the z-index it painted in the ordinary
+   positioned step, after every negative layer in the root context, and the
+   black plate inside it covered the cloud entirely. It was invisible as a
+   fault from the markup, because nothing in the wrapper says "on top" and the
+   elements inside it all carry negative z-indices of their own, which only
+   order them against each other. */
 .stage-decoration {
   position: fixed;
   inset: 0;
   z-index: -20;
   pointer-events: none;
-  /* Written by the engine every frame it changes, from the same number that
-     decides whether the particles are drawn as a light or as an ink. One
-     number, so the black cannot still be there when the cloud has turned to
-     ink, or be gone while the cloud is still a light. The fallback of 1 is what
-     a page with no engine on it sees before the animation below takes over. */
 }
 
 /* The particle canvas, behind the page.

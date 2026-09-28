@@ -28,10 +28,16 @@ looked at before the file was committed:
 |---|---|---|---|
 | `11-2160.mp4`, `11-1080.mp4` | 11 | Aerial view of city traffic at night: a motorway interchange from directly above, all light trails and routing | https://mixkit.co/free-stock-video/aerial-view-of-city-traffic-at-night-11/ |
 | `4067-1080.mp4` | 4067 | Traffic in an underground tunnel: long-exposure light trails along a sunken motorway at dusk | https://mixkit.co/free-stock-video/traffic-in-an-underground-tunnel-4067/ |
-| `42343-2160.mp4`, `42343-1080.mp4` | 42343 | Movement in a city at night, in an aerial shot | https://mixkit.co/free-stock-video/movement-in-a-city-at-night-in-an-aerial-shot-42343/ |
-| `51585-2160.mp4`, `51585-1080.mp4` | 51585 | Flying over a creek full of rock | https://mixkit.co/free-stock-video/flying-over-a-relaxing-creek-full-of-rock-on-the-51585/ |
+| `42343-2160.mp4` | 42343 | Movement in a city at night, in an aerial shot | https://mixkit.co/free-stock-video/movement-in-a-city-at-night-in-an-aerial-shot-42343/ |
+| `51585-2160.mp4` | 51585 | Flying over a creek full of rock | https://mixkit.co/free-stock-video/flying-over-a-relaxing-creek-full-of-rock-on-the-51585/ |
 
 Poster frames are `<id>.jpg`, one frame from the master at 1920 wide.
+
+`42343` and `51585` carry only their 4K file. Both are on `/reel` and beside no
+project, so a card rendition of either is a file nothing loads, and theirs were
+deleted. This table and `src/lib/media.ts` both went on naming them for a
+while; `tests/media.spec.ts` now checks every path in the manifest against this
+folder.
 
 ## The eight added for the project cards
 
@@ -92,9 +98,9 @@ renditions and 25 for the 1080 ones. The resolution is untouched:
 `51585` is the heaviest because it is the one daylight clip, and running water
 and foliage give a codec the least to work with.
 
-Two renditions of each, because the page uses them at two sizes. `/reel` runs a
-clip the full width of the screen and gets the 4K one; beside a project a clip
-renders about seven hundred pixels wide, where 4K is payload nobody can see, and
-gets the 1080 one. Both load lazily, pause off screen, carry no audio, sit
+Two renditions where a clip is used at two sizes. `/reel` runs a clip the full
+width of the screen and gets the 4K one; beside a project a clip renders about
+seven hundred pixels wide, where 4K is payload nobody can see, and gets the 1080
+one. `11` is the only clip in both places, so it is the only one with both. Both load lazily, pause off screen, carry no audio, sit
 behind a poster frame until played, and do not play at all for a reader who has
 asked for less motion.

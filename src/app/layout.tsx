@@ -88,19 +88,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             See the note in components/intro.tsx. */}
         <IntroBoot />
 
-        {/* Behind everything, in this order: the shader, the scrim that holds
-            it down, then the particle cloud above both. The cloud is above the
-            scrim on purpose, so its colours are not capped, and carries its own
-            dimming wherever text is laid over it. All three are decoration and
-            none can be reached by a pointer or a screen reader.
-
-            Wrapped in one layer, because all three belong to the dark stage
-            and have to leave with it. The particles are drawn with additive
-            blending and would add to white below the stage, and the gradient
-            would wash the editorial half of the page; the wrapper fades out
-            over the last stretch of the stage's scroll. The elements inside
-            keep their own fixed positioning, so the wrapper is a handle and
-            not a container. */}
+        {/* Behind everything, in this order: the black plate, the shader, and
+            the scrim that holds it down. All three are decoration and none can
+            be reached by a pointer or a screen reader. Grouped in one fixed
+            layer so that they stack behind the particle cloud as a unit. */}
         <div className="stage-decoration">
           {/* The surface the other two are composited onto. See the note in
               globals.css: the stage cannot carry its own background, because
@@ -112,18 +103,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
 
         {/* Outside that wrapper, and it has to be.
 
-            The wrapper animates its own opacity, which makes it a stacking
-            context, which traps every z-index inside it. The opening animation
-            depends on exactly one thing escaping: the cloud is lifted above the
-            black veil so that the words are the only thing on the screen, and
-            inside the wrapper that lift was relative to the wrapper and did
-            nothing. The veil covered the cloud instead, and the entrance
-            measured zero lit pixels in the whole frame.
+            The wrapper is a stacking context, which traps every z-index inside
+            it. The opening animation depends on exactly one thing escaping:
+            the cloud is lifted above the black veil so that the words are the
+            only thing on the screen, and inside the wrapper that lift was
+            relative to the wrapper and did nothing. The veil covered the cloud
+            instead, and the entrance measured zero lit pixels in the whole
+            frame.
 
-            It fades with the stage all the same; globals.css gives it the same
-            animation by selector rather than by nesting. Above the scrim, so
-            its colours run at full strength, and below everything that carries
-            words. It mounts itself only on the home page. */}
+            Above the scrim, so its colours run at full strength, and below
+            everything that carries words. It is kept off the words by the
+            final pass cutting it to the space the layout leaves for it, not by
+            being dimmed. It mounts itself only on the home page. */}
         <ParticleBrainMount />
 
         {/* First focusable element on the page. Visually hidden until it takes

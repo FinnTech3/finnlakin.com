@@ -10,19 +10,27 @@
    kind of claim this site exists to argue against. When the recordings arrive
    they go in this list with `origin: "own"` and the rest of the page does not
    change. */
-export type Clip = {
-  id: string;
-  /* Relative to /public. The rendition a clip is given beside a project, where
-     it renders about seven hundred pixels wide and 4K would be payload nobody
-     can see. */
-  src: string;
-  /* The rendition /reel is given, where the clip is the full width of the
-     screen and the resolution is the point.
+/* Which files a clip carries. One or both, and the type will not accept
+   neither: a clip with no file is a poster pretending to be a video.
 
-     Absent on a clip whose source has no 4K rendition at all, in which case
-     `src` is the ceiling rather than an upscale of it: a 1080 frame stretched
-     to 3840 is not 4K, it is a larger file with the same detail in it. */
-  srcFull?: string;
+   `src` is the rendition a clip is given beside a project, where it renders
+   about seven hundred pixels wide and 4K would be payload nobody can see.
+   Absent on a clip that is on /reel and beside no project, because a card
+   rendition of it is a file nothing loads. Two of them used to point here at
+   files that had been deleted, which nothing noticed because nothing asked
+   for them; tests/media.spec.ts now checks every path against the disk.
+
+   `srcFull` is the rendition /reel is given, where the clip is the full width
+   of the screen and the resolution is the point. Absent on a clip whose source
+   has no 4K rendition at all, in which case `src` is its ceiling rather than
+   an upscale of it: a 1080 frame stretched to 3840 is not 4K, it is a larger
+   file with the same detail in it. Paths are relative to /public. */
+type Renditions =
+  | { src: string; srcFull?: string }
+  | { src?: undefined; srcFull: string };
+
+export type Clip = Renditions & {
+  id: string;
   poster: string;
   /* What is actually in the frame, in a sentence. Doubles as the accessible
      description, so it describes rather than titles. */
@@ -64,7 +72,6 @@ export const clips: Clip[] = [
   },
   {
     id: "city",
-    src: "/media/42343-1080.mp4",
     srcFull: "/media/42343-2160.mp4",
     poster: "/media/42343.jpg",
     description:
@@ -77,7 +84,6 @@ export const clips: Clip[] = [
   },
   {
     id: "creek",
-    src: "/media/51585-1080.mp4",
     srcFull: "/media/51585-2160.mp4",
     poster: "/media/51585.jpg",
     description:
