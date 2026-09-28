@@ -893,12 +893,10 @@ body {
   }
 
   .link-arrow:hover,
-  .link-arrow
-}
-
-:focus-visible {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  .link-arrow:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 }
 
 :focus-visible {

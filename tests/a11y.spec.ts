@@ -5,6 +5,7 @@ import { dropCrossOriginFrames } from "./axe-scope";
 import { PUBLIC_ROUTES as routes } from "./site-routes";
 
 type Page = import("@playwright/test").Page;
+type Locator = import("@playwright/test").Locator;
 
 async function settle(page: Page) {
   /* axe will catch an element mid-animation and report a contrast failure
@@ -183,4 +184,72 @@ test.describe("heading structure", () => {
       expect(skips, `${route} skips heading levels`).toEqual([]);
     });
   }
+});
+
+/* DESIGN.md's lowest emphasis control, the text link, carries its affordance in
+   its colour and its arrow at rest and gains an underline on hover. It is
+   underlined on keyboard focus as well, for whoever cannot hover.
+
+   The rule was written with its selector cut in half. The half left inside the
+   rule matched nothing, so no text link underlined on hover or on focus, and
+   the orphaned half underlined every focused control on the site instead, the
+   call to action included. The build reported it as a warning from the CSS
+   optimiser and nothing else, which is why the workflow now fails on one. */
+test.describe("the text link", () => {
+  /* A machine with no GPU draws this page at three to five frames a second,
+     measured with the brain at its lowest tier, and every hover and keypress
+     here waits on a frame: the desktop case spends about thirty seconds on its
+     ten steps. */
+  test.describe.configure({ timeout: 90_000 });
+
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => sessionStorage.setItem("fl-intro-played", "1"));
+    await page.goto("/");
+    await page.evaluate(() => document.fonts.ready);
+  });
+
+  const decoration = (target: Locator) =>
+    target.evaluate((element) => getComputedStyle(element).textDecorationLine);
+
+  /* Focus arrives by the keyboard, the way it does for a reader who tabs, so
+     :focus-visible matches for the reason it exists rather than by heuristic:
+     step onto the control from the one before it. */
+  async function tabOnto(page: Page, target: Locator) {
+    await target.focus();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Tab");
+    expect(
+      await target.evaluate(
+        (element) => element === document.activeElement && element.matches(":focus-visible"),
+      ),
+      "the keyboard did not land on the control",
+    ).toBe(true);
+  }
+
+  test("is underlined on hover and on keyboard focus, and not at rest", async ({
+    page,
+    isMobile,
+  }) => {
+    const link = page.locator("#contact a.link-arrow").first();
+    await link.scrollIntoViewIfNeeded();
+    expect(await decoration(link), "a text link is underlined at rest").toBe("none");
+
+    if (!isMobile) {
+      await link.hover();
+      expect(await decoration(link), "a text link is not underlined on hover").toBe("underline");
+      await page.mouse.move(0, 0);
+      expect(await decoration(link), "the underline outlasts the hover").toBe("none");
+    }
+
+    await tabOnto(page, link);
+    expect(await decoration(link), "a text link is not underlined on keyboard focus").toBe(
+      "underline",
+    );
+  });
+
+  test("is the only control focus underlines", async ({ page }) => {
+    const cta = page.locator("a.shiny-cta").first();
+    await tabOnto(page, cta);
+    expect(await decoration(cta), "keyboard focus underlines the call to action").toBe("none");
+  });
 });
