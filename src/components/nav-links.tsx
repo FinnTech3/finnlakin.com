@@ -11,7 +11,7 @@ export function NavLinks() {
   const pathname = usePathname();
 
   return (
-    <ul className="flex items-center gap-5">
+    <ul className="flex items-center gap-6">
       {nav.map((item) => {
         const current =
           item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
@@ -21,9 +21,7 @@ export function NavLinks() {
             <Link
               href={item.href}
               aria-current={current ? "page" : undefined}
-              className={`font-mono text-[12px] uppercase tracking-[0.08em] hover:text-accent ${
-                current ? "text-ink" : "text-muted"
-              }`}
+              className={`t-label hover:text-ink ${current ? "text-ink" : "text-muted"}`}
             >
               {item.label}
             </Link>

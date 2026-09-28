@@ -21,8 +21,8 @@ const publicDir = join(root, "public");
 mkdirSync(appDir, { recursive: true });
 mkdirSync(publicDir, { recursive: true });
 
-const INK = "#15171a";
-const PAPER = "#f7f7f4";
+const INK = "#ffffff";
+const PAPER = "#000000";
 
 /* Solid ground rather than a transparent one, so the mark holds its own
    against both a light and a dark browser tab instead of dissolving into

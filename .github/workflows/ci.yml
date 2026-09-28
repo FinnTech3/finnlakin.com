@@ -51,8 +51,20 @@ jobs:
       # Build first: Next generates the typed-route definitions that
       # PageProps<"/writing/[slug]"> resolves against, so a standalone tsc on a
       # clean checkout fails on routes that are perfectly valid.
+      #
+      # A malformed rule is dropped by the CSS optimiser with a warning and the
+      # build still succeeds, so the rule silently does nothing: that is how the
+      # text link lost its hover underline for a dozen commits. A warning from
+      # the optimiser fails the build here instead. bash is named so pipefail is
+      # on, and a failed build still fails through the tee.
       - name: Build
-        run: npm run build
+        shell: bash
+        run: |
+          npm run build 2>&1 | tee build.log
+          if grep -q "while optimizing generated CSS" build.log; then
+            echo "::error::the CSS optimiser dropped a rule; see its warning above"
+            exit 1
+          fi
 
       - name: Typecheck
         run: npx tsc --noEmit

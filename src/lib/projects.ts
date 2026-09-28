@@ -43,7 +43,7 @@ export const projects: Project[] = [
     stats: [
       { value: "11,593", label: "static arbitrage violations in the mark surface", tone: "flag" },
       { value: "88", label: "snapshots, BTC and ETH chains" },
-      { value: "235", label: "at or above one full tick, 2.0% of the total", tone: "flag" },
+      { value: "235", label: "at or above one full tick, 2.0% of the total" },
       { value: "0", label: "in the venue's own bid and ask, scanned the same way", tone: "pass" },
     ],
     provenance: "reproducible",
@@ -64,7 +64,7 @@ export const projects: Project[] = [
       { value: "~5 ns", label: "per update, 9.2× faster than BTreeMap" },
       { value: "736,997", label: "events replayed, byte-for-byte identical", tone: "pass" },
       { value: "99.4%", label: "agreement with the exchange's own snapshots" },
-      { value: "1.6× slower", label: "reading the top ten levels, the cost of the design", tone: "flag" },
+      { value: "1.6× slower", label: "reading the top ten levels, the cost of the design" },
     ],
     provenance: "measured",
     limits:
@@ -83,7 +83,7 @@ export const projects: Project[] = [
     stats: [
       { value: "0.45 bp", label: "median error on the Fed's fitted yields", tone: "pass" },
       { value: "14 bp", label: "error on the term premium from the same model", tone: "flag" },
-      { value: "81 bp", label: "specification band, from the start date alone", tone: "flag" },
+      { value: "81 bp", label: "specification band, from the start date alone" },
       { value: "0.9997", label: "correlation with the Fed's published ten-year premium" },
     ],
     provenance: "measured",
@@ -111,7 +111,7 @@ export const projects: Project[] = [
     stats: [
       { value: "796", label: "rules searched, best one kept" },
       { value: "0.75", label: "annualised Sharpe of the winner" },
-      { value: "0.80", label: "expected Sharpe from luck alone at that search size", tone: "flag" },
+      { value: "0.80", label: "expected Sharpe from luck alone at that search size" },
       { value: "0.43", label: "deflated Sharpe once the search is charged for", tone: "flag" },
     ],
     provenance: "simulated",
@@ -130,8 +130,8 @@ export const projects: Project[] = [
     stats: [
       { value: "+8.4%", label: "a year before costs" },
       { value: "−2.0%", label: "a year after them", tone: "flag" },
-      { value: "114%", label: "of starting capital paid away in charges", tone: "flag" },
-      { value: "3 of 4", label: "symbols lose money once costs are applied", tone: "flag" },
+      { value: "114%", label: "of starting capital paid away in charges" },
+      { value: "3 of 4", label: "symbols lose money once costs are applied" },
     ],
     provenance: "simulated",
     limits:
@@ -212,7 +212,7 @@ export const projects: Project[] = [
     stats: [
       { value: "8.3 yr", label: "break-even, month 99, on the default assumptions" },
       { value: "52%", label: "of swept scenarios where buying wins" },
-      { value: "$180,827", label: "swing from appreciation alone, 1.5% to 5.5%", tone: "flag" },
+      { value: "$180,827", label: "swing from appreciation alone, 1.5% to 5.5%" },
       { value: "98", label: "tests" },
     ],
     provenance: "illustrative",

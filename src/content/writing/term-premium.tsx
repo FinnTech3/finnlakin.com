@@ -26,7 +26,7 @@ export default function TermPremium() {
           { value: "0.45 bp", label: "median error on the published fitted yields", tone: "pass" },
           { value: "14 bp", label: "median error on the risk-neutral yield, and so on the premium", tone: "flag" },
           { value: "0.9997", label: "correlation with the Fed's published ten-year premium" },
-          { value: "81 bp", label: "movement in the premium from the start date alone", tone: "flag" },
+          { value: "81 bp", label: "movement in the premium from the start date alone" },
         ]}
       />
 

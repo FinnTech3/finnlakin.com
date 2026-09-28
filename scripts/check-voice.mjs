@@ -37,6 +37,12 @@ const EXEMPT = new Set([
    CSS property names appear. */
 const boundary = (word) => new RegExp(`(?<![-\\w])(?:${word})(?![-\\w])`, "gi");
 
+/* The same, but case sensitive, for a word whose capitalised form is a proper
+   noun. "gray" is the American spelling of a colour; "Gray" is Henry Gray, and
+   the brain's outline is traced from his anatomy. A list of allowed phrases
+   would go stale; the capital does the work. */
+const lowercaseOnly = (word) => new RegExp(`(?<![-\\w])(?:${word})(?![-\\w])`, "g");
+
 /* A CSS property name or a CSS value is not prose and cannot be spelled the
    British way: `color:` and `"center"` are part of the platform. Skipping them
    is narrow on purpose, keyed on the punctuation around the match rather than
@@ -65,7 +71,7 @@ const RULES = [
   { name: "canceled", pattern: boundary("canceled"), fix: "cancelled" },
   { name: "fulfill", pattern: boundary("fulfill"), fix: "fulfil" },
   { name: "judgment", pattern: boundary("judgment"), fix: "judgement" },
-  { name: "gray", pattern: boundary("gray"), fix: "grey" },
+  { name: "gray", pattern: lowercaseOnly("gray"), fix: "grey" },
 ];
 
 function walk(dir) {

@@ -21,7 +21,7 @@ export default function Nanobook() {
       <Figures
         items={[
           { value: "42,700", label: "resting levels in the snapshot" },
-          { value: "13.9bn", label: "one-cent ticks between the lowest bid and the highest ask", tone: "flag" },
+          { value: "13.9bn", label: "one-cent ticks between the lowest bid and the highest ask" },
           { value: "91.8%", label: "of writes that landed in the window this measurement chose", tone: "pass" },
           { value: "9.2×", label: "faster than a BTreeMap at the operation that dominates" },
         ]}
@@ -63,7 +63,7 @@ export default function Nanobook() {
         total={42700}
         parts={[
           { label: "Within 10% of the mid", value: 7045, tone: "neutral" },
-          { label: "Further out than that", value: 35655, tone: "flag" },
+          { label: "Further out than that", value: 35655, tone: "neutral" },
         ]}
         reading="Inside a tenth of a per cent of the mid there are 234 levels, 0.5% of the book. Inside one per cent, 723. The band within ten per cent holds 7,045, and it spans about 1.55 million ticks out of 13.9 billion: roughly a hundredth of one per cent of the range carries a sixth of the levels. The rest is dust parked where nothing trades."
       />

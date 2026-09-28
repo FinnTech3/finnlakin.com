@@ -89,11 +89,19 @@ test.describe("performance budget", () => {
     expect(result.lcp, "largest contentful paint").toBeLessThan(1500);
     expect(result.cls, "cumulative layout shift").toBeLessThan(0.05);
 
-    /* 500KB, down from 600. Inlining the command palette instead of splitting
-       it measured 580KB on this same page, so this ceiling is what stops that
-       122KB coming back: anything that pulls the panel into the first-load
+    /* 560KB, up from 500, and the increase is the particle engine: the
+       simulation, the shaders and the geometry. It is loaded only here,
+       dynamically, and largest contentful paint is unchanged because the hero
+       is server rendered text that does not wait for it. Every other route
+       still holds the old 500KB, asserted below, so the engine cannot quietly
+       leak back into a page that has no use for it.
+
+       The number before that was 500KB, down from 600. Inlining the command
+       palette instead of splitting it measured 580KB on this same page, so the
+       ceiling is what stops that 122KB coming back: anything that pulls the
+       panel into the first-load
        bundle again fails here rather than quietly shipping. */
-    expect(result.javascriptBytes / 1024, "uncompressed JavaScript, KB").toBeLessThan(500);
+    expect(result.javascriptBytes / 1024, "uncompressed JavaScript, KB").toBeLessThan(560);
 
     console.log(
       `home: LCP ${result.lcp}ms, CLS ${result.cls}, ` +
@@ -162,6 +170,9 @@ test.describe("performance budget", () => {
     const frameLoaded = second.frames().length > 1;
     await second.close();
 
+    /* Still 500. A write-up has no particle engine and must never download
+       one: before this was split per route it was shipping the whole thing to
+       render an essay. */
     expect(piece.javascriptBytes / 1024, "write-up JavaScript, KB").toBeLessThan(500);
     expect(piece.cls, "write-up layout shift").toBeLessThan(0.05);
     expect(piece.javascriptBytes).toBeLessThanOrEqual(home.javascriptBytes);

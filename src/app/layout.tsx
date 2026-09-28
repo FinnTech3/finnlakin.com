@@ -1,33 +1,33 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from "next/font/google";
+import { Inter, Source_Serif_4 } from "next/font/google";
+import { Backdrop, Scrim } from "@/components/backdrop";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
+import { Intro, IntroBoot } from "@/components/intro";
+import { ParticleBrainMount } from "@/components/particle-brain-mount";
 import { ogImageUrl } from "@/lib/metadata";
 import { siteDescription, siteTitle, siteUrl } from "@/lib/site";
 import "./globals.css";
 
-/* Only 400 and 500 are used. The single 600 on the site is `.longform strong`,
-   which sits on Newsreader, so a semibold Plex Sans was being downloaded and
-   never painted. */
-const plexSans = IBM_Plex_Sans({
-  variable: "--font-plex-sans",
+/* Two families, and DESIGN.md names both substitutes itself: Source Serif 4
+   for Signifier, Inter for Sohne.
+
+   No weight array on either, which gets the variable font: one file covering
+   the whole axis rather than a static face per weight. That matters more here
+   than it usually does, because the brief's body hierarchy is built out of
+   half steps (430, 450, 480) that simply do not exist as static faces.
+
+   The serif is loaded with its italic, which is the one place this costs a
+   second file. The brief's hero sets a phrase of the headline in italic, and
+   Source Serif's italic is drawn rather than slanted: a synthesised oblique of
+   a serif at ninety pixels looks like a mistake. */
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["400", "500"],
   display: "swap",
 });
 
-const plexMono = IBM_Plex_Mono({
-  variable: "--font-plex-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  display: "swap",
-});
-
-/* Italic is declared explicitly. Without it the browser synthesises an oblique
-   by slanting the upright, which is what the hero's emphasis and every <em> in
-   the long-form were getting: wrong letterforms, and conspicuously so on a
-   serif, where true italic is a different design rather than a tilt. */
-const newsreader = Newsreader({
-  variable: "--font-newsreader",
+const sourceSerif = Source_Serif_4({
+  variable: "--font-source-serif",
   subsets: ["latin"],
   style: ["normal", "italic"],
   display: "swap",
@@ -55,7 +55,9 @@ export const metadata: Metadata = {
     title: siteTitle,
     description: siteDescription,
     url: siteUrl,
-    images: [{ url: ogImageUrl("/"), width: 1200, height: 630, alt: siteTitle }],
+    images: [
+      { url: ogImageUrl("/"), width: 1200, height: 630, alt: siteTitle },
+    ],
   },
   twitter: {
     card: "summary_large_image",
@@ -65,29 +67,62 @@ export const metadata: Metadata = {
   },
 };
 
-/* Resolved per colour scheme, so the browser chrome matches the page it is
-   framing rather than one of the two themes. */
+/* Black, because the top of every page is the dark stage and the browser
+   chrome should meet it rather than flash paper above it. The page below the
+   stage is white, but a reader only sees the chrome against what is at the
+   top of the document. */
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f7f7f4" },
-    { media: "(prefers-color-scheme: dark)", color: "#101215" },
-  ],
-  colorScheme: "light dark",
+  themeColor: "#000000",
+  colorScheme: "light",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en-GB"
-      className={`${plexSans.variable} ${plexMono.variable} ${newsreader.variable} h-full antialiased`}
+      className={`${inter.variable} ${sourceSerif.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">
+      <body className="stage-host flex min-h-full flex-col">
+        {/* First thing in the document, so the decision about the opening
+            animation is made before anything paints. It sets one attribute.
+            See the note in components/intro.tsx. */}
+        <IntroBoot />
+
+        {/* Behind everything, in this order: the black plate, the shader, and
+            the scrim that holds it down. All three are decoration and none can
+            be reached by a pointer or a screen reader. Grouped in one fixed
+            layer so that they stack behind the particle cloud as a unit. */}
+        <div className="stage-decoration">
+          {/* The surface the other two are composited onto. See the note in
+              globals.css: the stage cannot carry its own background, because
+              the gradient and the cloud are both behind it. */}
+          <div aria-hidden="true" className="stage-plate" />
+          <Backdrop />
+          <Scrim />
+        </div>
+
+        {/* Outside that wrapper, and it has to be.
+
+            The wrapper is a stacking context, which traps every z-index inside
+            it. The opening animation depends on exactly one thing escaping:
+            the cloud is lifted above the black veil so that the words are the
+            only thing on the screen, and inside the wrapper that lift was
+            relative to the wrapper and did nothing. The veil covered the cloud
+            instead, and the entrance measured zero lit pixels in the whole
+            frame.
+
+            Above the scrim, so its colours run at full strength, and below
+            everything that carries words. It is kept off the words by the
+            final pass cutting it to the space the layout leaves for it, not by
+            being dimmed. It mounts itself only on the home page. */}
+        <ParticleBrainMount />
+
         {/* First focusable element on the page. Visually hidden until it takes
             focus, so a keyboard user can reach the content without tabbing
             through the whole header on every navigation. */}
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:border focus:border-accent focus:bg-panel focus:px-4 focus:py-2.5 focus:font-mono focus:text-xs focus:text-accent"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-70 focus:border focus:border-action focus:bg-black focus:px-4 focus:py-2.5 focus:t-label focus:text-ink"
         >
           Skip to content
         </a>
@@ -96,6 +131,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {children}
         </main>
         <SiteFooter />
+        <Intro />
         {/* Static and deferred rather than a React component, so a page view
             is recorded as soon as the document is parsed instead of waiting
             for hydration. See the note at the top of the file. */}

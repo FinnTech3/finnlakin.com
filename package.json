@@ -6,12 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint && node scripts/check-voice.mjs",
+    "lint": "eslint && node scripts/check-voice.mjs && tsx scripts/check-brain-targets.ts && tsx scripts/check-motion.ts && tsx scripts/check-dof.ts",
     "prebuild": "tsx scripts/build-cv-pdf.ts",
     "build:cv": "tsx scripts/build-cv-pdf.ts",
     "test": "playwright test",
     "build:icons": "tsx scripts/build-icons.ts",
-    "check:voice": "node scripts/check-voice.mjs"
+    "check:voice": "node scripts/check-voice.mjs",
+    "check:brain": "tsx scripts/check-brain-targets.ts",
+    "trace:brain": "tsx scripts/trace-brain-outline.ts",
+    "check:motion": "tsx scripts/check-motion.ts"
   },
   "dependencies": {
     "next": "16.3.4",

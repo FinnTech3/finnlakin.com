@@ -26,6 +26,42 @@ test.describe("every route renders cleanly", () => {
   }
 });
 
+/* The header is laid over the top of every page, so every page has to leave
+   room for it, and on a phone it did not. Below 640 pixels the header stacks
+   into more rows than the space kept for it: measured on a Pixel 5 it ended at
+   164 pixels while the content started at 104 on the home page, 112 on the CV
+   and 152 everywhere else, so the navigation was drawn through the
+   availability line, the name and the page titles. Measured on every route,
+   because the space is kept in more than one place. */
+test.describe("the header", () => {
+  for (const route of routes) {
+    test(`leaves the first line of ${route} clear`, async ({ page }) => {
+      await page.addInitScript(() => sessionStorage.setItem("fl-intro-played", "1"));
+      await page.goto(route);
+      await page.evaluate(() => document.fonts.ready);
+      const { header, content, label } = await page.evaluate(() => {
+        const bar = document.querySelector("header.site-header")!.getBoundingClientRect();
+        const first = Array.from(
+          document.querySelectorAll<HTMLElement>("main h1, main h2, main p, main li, main a"),
+        ).find((element) => {
+          const box = element.getBoundingClientRect();
+          return box.height > 0 && box.width > 0 && getComputedStyle(element).visibility !== "hidden";
+        })!;
+        const box = first.getBoundingClientRect();
+        return {
+          header: bar.bottom,
+          content: box.top + window.scrollY,
+          label: (first.textContent ?? "").trim().slice(0, 40),
+        };
+      });
+      expect(
+        content,
+        `the header ends at ${Math.round(header)}px and "${label}" starts at ${Math.round(content)}px`,
+      ).toBeGreaterThanOrEqual(header);
+    });
+  }
+});
+
 test("the page paints its headline with JavaScript disabled", async ({ browser }) => {
   /* Motion's initial="hidden" pattern bakes the hidden transform into the
      server HTML, which ships a hero that never paints if the bundle is blocked.
