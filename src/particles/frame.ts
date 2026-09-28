@@ -69,12 +69,17 @@ const HEADROOM_MS = 1000 / 56;
 /* How many frames are averaged before a decision. */
 const WINDOW = 45;
 
-/* Each interval enters the average at no more than this. One long frame, from
-   a garbage collection or a font arriving or a route changing, is a hitch and
-   not a verdict; clamped, a four hundred millisecond hitch moves a 45 frame
-   average by under a millisecond instead of by eight. A machine that is slow
-   on every frame still reads as slow, because every frame is. */
-const CLAMP_MS = 50;
+/* Each interval enters the average at no more than this, which is two frames
+   at sixty hertz: a long frame counts as a dropped frame and nothing worse.
+
+   The average is there to catch a page that is slow all the time, and a
+   stutter is not that. Clamped at fifty, a burst of five slow frames in an
+   otherwise perfect second pushed a 45 frame window over budget on its own;
+   at two frames' worth it moves it by under two milliseconds, while a page
+   that drops one frame in four still reads 20.8 and a page stuck at thirty
+   frames a second still reads 33. A burst long enough to matter is the fast
+   path's business, below. */
+const CLAMP_MS = 34;
 
 /* Longer than this is not a frame at all. A hidden tab, an occluded window and
    a laptop lid all stop the browser asking for frames, and the first one after
@@ -86,8 +91,9 @@ const PAUSE_MS = 1000;
    fonts, which is what starting costs rather than what running costs. */
 const WARMUP_MS = 1000;
 
-/* And nothing for half a second after any change: a quality step reallocates
-   the render targets, and the frame that does it is slow for that reason. */
+/* And nothing for half a second after any change: a quality step or a resize
+   reallocates the render targets, a client joining compiles and uploads, and
+   the frames that do it are slow for that reason rather than the machine's. */
 const SETTLE_MS = 500;
 
 /* Six frames in a row this far apart is not a machine having a moment, it is
@@ -118,6 +124,10 @@ type Registered = FrameClient & {
 
 export type FrameScheduler = {
   add: (client: FrameClient) => () => void;
+  /* Something just changed what the page costs to draw, a resize most often,
+     and the next half second is that change settling rather than the
+     machine. A client joining a running loop does this for itself. */
+  settle: () => void;
   /* The last completed window's average time between frames, in
      milliseconds, for anything that wants to report it. Nought until one
      window has closed. */
@@ -153,11 +163,14 @@ export function createFrameScheduler(
   let average = 0;
   let gaveUp = false;
   let offered = false;
+  /* Set when what the page draws has just changed: a client joining a loop
+     that is already running, or a client saying it has resized. The next
+     frames are that change settling, not the page's steady state. */
+  let changed = false;
 
   function restartWindow() {
     count = 0;
     total = 0;
-    hopeless = 0;
   }
 
   /* The cheapest thing still running, given up. Decoration first, from the
@@ -184,6 +197,7 @@ export function createFrameScheduler(
 
   function giveWay(nowMs: number) {
     restartWindow();
+    hopeless = 0;
     if (!giveUpOne()) return;
     gaveUp = true;
     quietUntil = nowMs + SETTLE_MS;
@@ -207,13 +221,16 @@ export function createFrameScheduler(
     if (previous === null) {
       previous = nowMs;
       quietUntil = nowMs + WARMUP_MS;
+      changed = false;
       return;
     }
     const interval = nowMs - previous;
     previous = nowMs;
 
-    if (interval > PAUSE_MS) {
+    if (changed || interval > PAUSE_MS) {
+      changed = false;
       restartWindow();
+      hopeless = 0;
       quietUntil = Math.max(quietUntil, nowMs + SETTLE_MS);
       return;
     }
@@ -283,12 +300,16 @@ export function createFrameScheduler(
       /* Sorted by rank so the subject is drawn before the decoration inside a
          single frame. */
       clients.sort((a, b) => a.rank - b.rank);
+      if (running) changed = true;
       start();
       return () => {
         const at = clients.indexOf(registered);
         if (at >= 0) clients.splice(at, 1);
         if (clients.length === 0) scheduler.stop();
       };
+    },
+    settle() {
+      if (running) changed = true;
     },
     get averageMs() {
       return average;

@@ -216,6 +216,59 @@ test.describe("the frame scheduler", () => {
     expect(site.events, "a hitch cost the page something").toEqual([]);
   });
 
+  test("does not give way to a stutter", () => {
+    const screen = display();
+    const site = page(screen);
+
+    /* Five slow frames in a row, every two seconds, in an otherwise perfect
+       sixty: a quarter of a second of visible stutter, and not a machine that
+       cannot keep up. Clamped at fifty milliseconds a frame, the average used
+       to go over budget on a single one of these. */
+    for (let second = 0; second < 20; second += 2) {
+      screen.run(2, 1000 / 60);
+      for (let i = 0; i < 5; i++) screen.step(60);
+    }
+    expect(site.events, "a stutter cost the page something").toEqual([]);
+  });
+
+  test("counts a run of slow frames even when it straddles a window", () => {
+    const screen = display();
+    let newcomer = 0;
+    screen.scheduler.add({ rank: 0, draw: () => {} });
+    screen.scheduler.add({ rank: 1, draw: () => (newcomer += 1) });
+
+    /* Past the warmup, then to three frames short of a window closing, then
+       six slow frames that run across the close. Closing a window used to
+       reset the run as well, so a run like this one was never seen and the
+       machine waited for the average instead. */
+    screen.run(1, 1000 / 60);
+    for (let i = 0; i < 42; i++) screen.step(1000 / 60);
+    for (let i = 0; i < 6; i++) screen.step(60);
+    const before = newcomer;
+    screen.run(1, 1000 / 60);
+    expect(
+      newcomer - before,
+      "six slow frames in a row went unanswered because a window closed among them",
+    ).toBeLessThanOrEqual(31);
+  });
+
+  test("gives the page time after a client says it has resized", () => {
+    const screen = display();
+    const site = page(screen);
+    screen.run(3, 1000 / 60);
+    /* A reader dragging a window edge: every render target reallocated, and a
+       run of slow frames that is the resize rather than the machine. */
+    screen.scheduler.settle();
+    for (let i = 0; i < 8; i++) screen.step(55);
+    const before = site.backdrop;
+    screen.run(1, 1000 / 60);
+    expect(
+      site.backdrop - before,
+      "a resize was read as a machine that cannot keep up, and the gradient was thinned",
+    ).toBeGreaterThanOrEqual(29);
+    expect(site.events).toEqual([]);
+  });
+
   test("does not read a pause as a frame", () => {
     const screen = display();
     const site = page(screen);
@@ -226,6 +279,28 @@ test.describe("the frame scheduler", () => {
     screen.step(5_000);
     screen.run(4, 1000 / 60);
     expect(site.events, "a pause cost the page something").toEqual([]);
+  });
+
+  test("gives a client that joins a running page time to warm up", () => {
+    const screen = display();
+    const site = page(screen);
+    /* A page with room to spare, and then something new arriving: the
+       gradient joining when the opening animation's veil lifts, or the cloud
+       coming back on screen on a phone. Its first frames are its own warm-up,
+       compiling and uploading, so a run of slow ones is not held against the
+       page. Held against it, six of them trip the fast path and the newcomer
+       is thinned before it has drawn a steady frame. */
+    screen.run(3, 1000 / 60);
+    let newcomer = 0;
+    screen.scheduler.add({ rank: 2, draw: () => (newcomer += 1) });
+    for (let i = 0; i < 6; i++) screen.step(60);
+    const before = newcomer;
+    screen.run(1, 1000 / 60);
+    expect(
+      newcomer - before,
+      "a newcomer was thinned for its own warm-up frames",
+    ).toBeGreaterThanOrEqual(59);
+    expect(site.events).toEqual([]);
   });
 
   test("caps the decoration at thirty frames a second on any display", () => {

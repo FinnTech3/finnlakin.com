@@ -200,8 +200,13 @@ export function ParticleBrain({ className }: { className?: string }) {
       if (reducedMotion) pump();
     };
 
+    /* A resize reallocates every render target the cloud draws through, and
+       the frames that do it are slow on any machine. The scheduler is told,
+       so a reader dragging a window edge is not read as a machine that
+       cannot keep up. */
     const onResize = () => {
       engine.resize();
+      frameScheduler().settle();
       pump();
     };
 
