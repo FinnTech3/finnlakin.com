@@ -21,44 +21,38 @@ import { createFrameScheduler } from "../src/particles/frame";
    does not care how fast the machine is. */
 
 test.describe("the frame scheduler", () => {
-  /* Driven with an injected clock and an injected scheduler, so the shedding
-     order is asserted rather than waited for. Making a real machine slow enough
-     to shed on demand is not a test, it is a coincidence. */
-  function harness() {
+  /* Driven by a stand-in display: each step advances the clock by one frame
+     interval and runs the frame the scheduler asked for. The interval is the
+     whole input, because it is the whole measurement. What a real machine
+     spends inside the callback does not matter here, and that is the point of
+     the first test below. */
+  function display() {
     let now = 0;
-    let cost = 0;
-    let reads = 0;
     const queue: ((nowMs: number) => void)[] = [];
-
-    /* The scheduler reads the clock exactly twice a frame, once before the
-       draws and once after, and the difference is what it charges the frame.
-       So the cost is applied on the second read. Driving it this way means the
-       shedding order is asserted against a stated frame cost rather than
-       against a machine that happens to be slow today. */
-    const clock = () => {
-      reads += 1;
-      if (reads % 2 === 0) now += cost;
-      return now;
-    };
-
     const scheduler = createFrameScheduler(
-      clock,
       (callback) => {
         queue.push(callback);
         return queue.length;
       },
       () => {},
     );
-
     return {
       scheduler,
-      /* Run one frame and charge `costMs` to it. */
-      step(costMs: number) {
-        cost = costMs;
+      /* One frame, arriving `intervalMs` after the last. */
+      step(intervalMs: number) {
+        now += intervalMs;
         const next = queue.shift();
         if (!next) return false;
         next(now);
         return true;
+      },
+      /* Frames at a steady interval for a stretch of simulated time. */
+      run(seconds: number, intervalMs: number) {
+        const until = now + seconds * 1000;
+        while (now + intervalMs <= until + 1e-6) this.step(intervalMs);
+      },
+      get now() {
+        return now;
       },
       get pendingCount() {
         return queue.length;
@@ -66,15 +60,59 @@ test.describe("the frame scheduler", () => {
     };
   }
 
-  test("runs one callback a frame, not one per client", () => {
-    const rig = harness();
-    const drawn: string[] = [];
-    rig.scheduler.add({ rank: 0, draw: () => drawn.push("brain") });
-    rig.scheduler.add({ rank: 1, draw: () => drawn.push("backdrop") });
+  /* The page as it is registered in production: a subject with quality levels
+     it can give up, and a gradient capped at thirty frames a second. Every
+     giving up is written down with the time it happened, so the order and the
+     timing can both be asserted. */
+  function page(screen: ReturnType<typeof display>, levels = 2) {
+    const events: { what: string; at: number }[] = [];
+    let left = levels;
+    let brain = 0;
+    let backdrop = 0;
+    let upgrades = 0;
+    screen.scheduler.add({
+      rank: 0,
+      draw: () => (brain += 1),
+      degrade: () => {
+        if (left === 0) return false;
+        left -= 1;
+        events.push({ what: "degrade", at: screen.now });
+        return true;
+      },
+      upgrade: () => {
+        upgrades += 1;
+        return true;
+      },
+    });
+    screen.scheduler.add({
+      rank: 1,
+      fps: 30,
+      draw: () => (backdrop += 1),
+      onShed: () => events.push({ what: "shed", at: screen.now }),
+    });
+    return {
+      events,
+      get brain() {
+        return brain;
+      },
+      get backdrop() {
+        return backdrop;
+      },
+      get upgrades() {
+        return upgrades;
+      },
+    };
+  }
 
-    expect(rig.pendingCount, "more than one frame queued at a time").toBe(1);
-    rig.step(1);
-    expect(rig.pendingCount, "more than one frame queued after a tick").toBe(1);
+  test("runs one callback a frame, not one per client", () => {
+    const screen = display();
+    const drawn: string[] = [];
+    screen.scheduler.add({ rank: 0, draw: () => drawn.push("brain") });
+    screen.scheduler.add({ rank: 1, draw: () => drawn.push("backdrop") });
+
+    expect(screen.pendingCount, "more than one frame queued at a time").toBe(1);
+    screen.step(16.7);
+    expect(screen.pendingCount, "more than one frame queued after a tick").toBe(1);
     expect(drawn, "both clients did not draw on the one callback").toEqual([
       "brain",
       "backdrop",
@@ -82,105 +120,152 @@ test.describe("the frame scheduler", () => {
   });
 
   test("draws the subject before the decoration, whatever order they register in", () => {
-    const rig = harness();
+    const screen = display();
     const drawn: string[] = [];
     /* Registered the wrong way round on purpose. */
-    rig.scheduler.add({ rank: 1, draw: () => drawn.push("backdrop") });
-    rig.scheduler.add({ rank: 0, draw: () => drawn.push("brain") });
+    screen.scheduler.add({ rank: 1, draw: () => drawn.push("backdrop") });
+    screen.scheduler.add({ rank: 0, draw: () => drawn.push("brain") });
 
-    rig.step(1);
+    screen.step(16.7);
     expect(drawn[0], "the decoration drew before the cloud").toBe("brain");
     expect(drawn[1]).toBe("backdrop");
   });
 
-  test("gives up the decoration before the subject, on the averaged window", () => {
-    const rig = harness();
-    let brain = 0;
-    let backdrop = 0;
-    let shed = 0;
-    rig.scheduler.add({ rank: 0, draw: () => (brain += 1) });
-    rig.scheduler.add({
-      rank: 1,
-      draw: () => (backdrop += 1),
-      onShed: () => (shed += 1),
-    });
+  /* The regression this file was rewritten for.
 
-    /* Over the 12ms budget and well under the 36ms that counts as hopeless, so
-       this exercises the averaged decision rather than the fast one. */
-    const run = (frames: number) => {
-      for (let i = 0; i < frames; i++) rig.step(16);
-    };
+     A machine whose graphics card cannot keep up looks like this from inside
+     the page: every callback returns almost at once, because WebGL only queues
+     the work, and the frames arrive thirty times a second instead of sixty
+     because the card is behind. The first version of the scheduler timed the
+     callback, saw nothing wrong, and gave up nothing for as long as the page
+     was open, while the brain's own governor waited for it. Driven through
+     the same twenty seconds, it drew the backdrop six hundred times out of six
+     hundred and reported there was still decoration left to give up. */
+  test("gives way when frames arrive slowly, even though drawing them costs nothing", () => {
+    const screen = display();
+    const site = page(screen);
+    screen.run(20, 1000 / 30);
 
-    /* One window past the warmup thins the decoration. It is not dropped yet
-       and the cloud has not been touched. */
-    run(70);
-    expect(shed, "the backdrop was dropped before it was thinned").toBe(0);
     expect(
-      rig.scheduler.hasSheddable,
-      "nothing left to shed while the backdrop is only thinned",
-    ).toBe(true);
-
-    const brainAfterThin = brain;
-    const backdropAfterThin = backdrop;
-    run(40);
-    expect(
-      backdrop - backdropAfterThin,
-      "the backdrop did not slow down after being thinned",
-    ).toBeLessThan(brain - brainAfterThin);
-
-    /* A second window drops it, and only then is there nothing left above the
-       cloud to give up. */
-    run(80);
-    expect(shed, "the backdrop never dropped").toBeGreaterThan(0);
-    expect(
-      rig.scheduler.hasSheddable,
-      "still claims something is sheddable after the backdrop went",
-    ).toBe(false);
+      site.events.map((event) => event.what),
+      "the page never gave anything up on a machine running at half rate",
+    ).toEqual(["shed", "degrade", "degrade"]);
   });
 
-  test("relieves a hopeless machine without waiting out a window", () => {
-    const rig = harness();
-    let backdrop = 0;
-    let shed = 0;
-    rig.scheduler.add({ rank: 0, draw: () => {} });
-    rig.scheduler.add({
-      rank: 1,
-      draw: () => (backdrop += 1),
-      onShed: () => (shed += 1),
-    });
+  test("gives up the decoration completely before the subject loses anything", () => {
+    const screen = display();
+    const site = page(screen);
 
-    /* Frames far past the budget. The averaged window is 45 frames behind a 20
-       frame warmup, so nothing here should need anywhere near that many.
+    /* Forty frames a second: over budget, and under the thirty six
+       milliseconds that counts as hopeless, so this is the averaged path. At
+       this rate the thirty frame cap draws the gradient on every other frame,
+       twenty times a second. */
+    screen.run(1, 25);
+    const drawnAtFullRate = site.backdrop;
 
-       This is the behaviour the backdrop used to carry itself, stopping after
-       twenty frames over 42ms. Replacing it with an average alone made a weak
-       machine grind through the full screen shader for about a hundred and
-       thirty frames before anything gave way, which is most of a second of jank
-       that the old code did not have. */
-    for (let i = 0; i < 14; i++) rig.step(50);
-
-    const drawnByThen = backdrop;
-    for (let i = 0; i < 10; i++) rig.step(50);
+    /* Past the warmup and one window, the gradient has been thinned and
+       nothing else has happened. */
+    screen.run(2, 25);
+    expect(site.events, "something went before the gradient was thinned").toEqual([]);
+    const drawnBefore = site.backdrop;
+    screen.run(0.7, 25);
     expect(
-      backdrop - drawnByThen,
-      "the backdrop was still drawing every frame on a machine that cannot cope",
-    ).toBeLessThan(10);
+      site.backdrop - drawnBefore,
+      "the gradient was not thinned to fifteen frames a second",
+    ).toBeLessThanOrEqual(11);
+    expect(drawnAtFullRate).toBeGreaterThanOrEqual(19);
 
-    for (let i = 0; i < 20; i++) rig.step(50);
-    expect(
-      shed,
-      "a hopeless machine never had the decoration taken off it",
-    ).toBeGreaterThan(0);
+    /* Then dropped, and only then the subject, one level at a time, until it
+       has nothing left to give. */
+    screen.run(20, 25);
+    expect(site.events.map((event) => event.what)).toEqual(["shed", "degrade", "degrade"]);
+    const [shed, first, second] = site.events;
+    expect(first!.at, "the subject stepped down before the gradient was gone").toBeGreaterThan(
+      shed!.at,
+    );
+    expect(second!.at).toBeGreaterThan(first!.at);
   });
 
-  test("keeps drawing the subject every frame while it sheds", () => {
-    const rig = harness();
-    let brain = 0;
-    rig.scheduler.add({ rank: 0, draw: () => (brain += 1) });
-    rig.scheduler.add({ rank: 1, draw: () => {} });
+  test("relieves a hopeless machine in seconds, not windows", () => {
+    const screen = display();
+    const site = page(screen);
 
-    for (let i = 0; i < 200; i++) rig.step(40);
-    expect(brain, "the cloud missed frames while shedding").toBe(200);
+    /* Five frames a second. The averaged window alone would take nine seconds
+       a rung at this rate; the fast path is six frames. */
+    screen.run(0.9, 200);
+    expect(site.events, "decided something inside the first second").toEqual([]);
+    screen.run(8, 200);
+    expect(site.events.map((event) => event.what)).toEqual(["shed", "degrade", "degrade"]);
+    expect(
+      site.events[2]!.at,
+      "took too long to reach the floor on a machine that plainly cannot cope",
+    ).toBeLessThan(8_000);
+  });
+
+  test("does not count one long frame against the page", () => {
+    const screen = display();
+    const site = page(screen);
+
+    /* A garbage collection, a font arriving or a route change every three
+       seconds: four hundred milliseconds of nothing, in thirty seconds of an
+       otherwise perfect sixty. */
+    for (let second = 0; second < 30; second += 3) {
+      screen.run(3, 1000 / 60);
+      screen.step(400);
+    }
+    expect(site.events, "a hitch cost the page something").toEqual([]);
+  });
+
+  test("does not read a pause as a frame", () => {
+    const screen = display();
+    const site = page(screen);
+
+    /* A hidden tab or a closed lid: the browser stops asking for frames, and
+       the first one after is seconds late through no fault of the machine. */
+    screen.run(2, 1000 / 60);
+    screen.step(5_000);
+    screen.run(4, 1000 / 60);
+    expect(site.events, "a pause cost the page something").toEqual([]);
+  });
+
+  test("caps the decoration at thirty frames a second on any display", () => {
+    for (const hertz of [60, 120, 144]) {
+      const screen = display();
+      const site = page(screen);
+      screen.run(2, 1000 / hertz);
+      expect(site.brain, `the subject skipped frames at ${hertz}Hz`).toBe(hertz * 2);
+      /* Within a frame or two of sixty in two seconds, whatever the refresh
+         rate. Every frame on a hundred and twenty hertz screen would be two
+         hundred and forty. */
+      expect(site.backdrop, `the gradient drew at the wrong rate at ${hertz}Hz`).toBeGreaterThan(
+        55,
+      );
+      expect(site.backdrop).toBeLessThanOrEqual(61);
+    }
+  });
+
+  test("keeps drawing the subject every frame while everything else gives way", () => {
+    const screen = display();
+    const site = page(screen);
+    for (let i = 0; i < 400; i++) screen.step(45);
+    expect(site.brain, "the cloud missed frames while the page shed").toBe(400);
+  });
+
+  test("offers the subject one step up on a machine with room, and only once", () => {
+    const screen = display();
+    const site = page(screen);
+    screen.run(20, 1000 / 60);
+    expect(site.upgrades, "a machine with room was never offered more").toBe(1);
+    expect(site.events).toEqual([]);
+  });
+
+  test("never offers a step up once anything has been given up", () => {
+    const screen = display();
+    const site = page(screen);
+    screen.run(4, 40);
+    expect(site.events.length, "nothing was given up on a slow start").toBeGreaterThan(0);
+    screen.run(20, 1000 / 60);
+    expect(site.upgrades, "stepped up after proving it could not hold the level").toBe(0);
   });
 });
 

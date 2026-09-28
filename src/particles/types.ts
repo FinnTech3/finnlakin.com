@@ -243,6 +243,11 @@ export type ScrollState = {
 
 export type ParticleBrain = {
   setQuality: (level: QualityLevel) => void;
+  /* One quality level down or up, for the page's frame scheduler, which owns
+     the decision and the order it is taken in. False when there is no level
+     to move to, or when the level was fixed by name. */
+  degrade: () => boolean;
+  upgrade: () => boolean;
   /* Pointer position in client coordinates. Stored by the engine and read once
      a frame, never acted on per event. */
   pointer: (clientX: number, clientY: number) => void;

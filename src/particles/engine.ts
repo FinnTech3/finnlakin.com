@@ -1,12 +1,10 @@
 "use client";
 
-import { frameScheduler } from "./frame";
 import { createFullscreen } from "./gl";
 import { MouseController, pointerInCloudSpace } from "./mouse";
 import { entryField } from "./entrance";
 import { clamp, mulberry32 } from "./pack";
 import {
-  createFrameWatch,
   detectCapability,
   initialLevel,
   isMobile,
@@ -277,8 +275,11 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
 
   let level: QualityLevel = options.quality ?? initialLevel(capability, mobile);
   let tier: Tier = tierFor(level, mobile);
-  const watch = createFrameWatch(level);
-  const adaptive = !options.quality;
+  /* Whether the page's frame scheduler may move this between levels. Not when
+     a level was asked for by name, which is how the tests hold one still, and
+     not for a reader who asked for less motion, who gets one settled frame
+     per scroll rather than a loop and so has no frame rate to govern. */
+  const adaptive = !options.quality && !reducedMotion;
 
   let width = 1;
   let height = 1;
@@ -328,8 +329,18 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   function applyLevel(next: QualityLevel) {
     level = next;
     tier = tierFor(level, mobile);
-    watch.reset();
     resize();
+  }
+
+  /* The last rung of the page's ladder, and only reached once the decoration
+     above it has already been thinned and dropped. See particles/frame.ts. */
+  const LEVELS: QualityLevel[] = ["low", "medium", "high"];
+  function shift(by: 1 | -1): boolean {
+    if (!adaptive) return false;
+    const next = LEVELS[LEVELS.indexOf(level) + by];
+    if (!next) return false;
+    applyLevel(next);
+    return true;
   }
 
   resize();
@@ -532,27 +543,17 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
 
 
     lastFrameMs = performance.now() - started;
-
-    /* The last resort, and only once it is.
-
-       This used to be the first thing that gave way: the cloud measured its own
-       frames and stepped itself down, while the decorative gradient behind it
-       kept drawing at full cost from a separate loop that did not know this one
-       existed. The page shed the subject and protected the decoration.
-
-       The scheduler is asked first now. While it still has something above rank
-       0 to thin or drop, the sample is taken and discarded, so the window keeps
-       moving and nothing is stepped down. The brain only loses particles when
-       there is nothing cheaper left on the page to lose. */
-    if (adaptive && !reducedMotion) {
-      const next = watch.sample(nowMs);
-      if (next && !frameScheduler().hasSheddable) applyLevel(next);
-    }
   }
 
   return {
     setQuality(next) {
       applyLevel(next);
+    },
+    degrade() {
+      return shift(-1);
+    },
+    upgrade() {
+      return shift(1);
     },
     pointer(clientX, clientY) {
       mouse.move(clientX, clientY, window.innerWidth, window.innerHeight);

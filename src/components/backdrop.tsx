@@ -345,7 +345,7 @@ export function Backdrop() {
         release?.();
         release = null;
       } else if (!release) {
-        release = frameScheduler().add({ rank: 1, draw, onShed: () => settle("still") });
+        release = frameScheduler().add({ rank: 1, fps: 30, draw, onShed: () => settle("still") });
       }
     };
 
@@ -363,7 +363,7 @@ export function Backdrop() {
     observer.observe(host);
 
     if (shader) settle("live");
-    release = frameScheduler().add({ rank: 1, draw, onShed: () => settle("still") });
+    release = frameScheduler().add({ rank: 1, fps: 30, draw, onShed: () => settle("still") });
 
     return () => {
       running = false;

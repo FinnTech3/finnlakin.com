@@ -9,7 +9,8 @@ import type { PostLevel, QualityLevel } from "./types";
    support every extension and still be a software rasteriser drawing at three
    frames a second, which no extension string will tell you. So the formats are
    detected by allocating one and asking whether it worked, and the speed is
-   detected by timing the frames and stepping down. */
+   detected by timing the frames and stepping down, which the page's frame
+   scheduler in particles/frame.ts does for everything on the page at once. */
 
 export type Capability = {
   /* What the simulation textures can be rendered into. Full float where it is
@@ -136,73 +137,12 @@ export function initialLevel(capability: Capability, mobile: boolean): QualityLe
   return cores >= 4 ? "high" : "medium";
 }
 
-/* Frame times, and the decision to step down.
-
-   Two things keep this from oscillating. It needs a sustained window rather
-   than a run of bad frames, so one long garbage collection does not cost a
-   quality level. And it will only ever step up once, and never after it has
-   stepped down: a machine that has already proved it cannot hold a level does
-   not get asked again, because the alternative is a page that changes quality
-   every few seconds forever. */
-const WINDOW = 90;
-const DOWN_MS = 1000 / 42;
-const UP_MS = 1000 / 56;
-/* The first frames include shader compilation and the first upload of every
-   texture, which is not what steady state costs. */
-const WARMUP = 20;
-
-export function createFrameWatch(start: QualityLevel) {
-  let level = start;
-  let seen = 0;
-  let total = 0;
-  let steppedDown = false;
-  let steppedUp = false;
-  let last = 0;
-
-  return {
-    get level() {
-      return level;
-    },
-    get averageMs() {
-      return seen > 0 ? total / seen : 0;
-    },
-    reset() {
-      seen = 0;
-      total = 0;
-      last = 0;
-    },
-    /* Returns the new level when it changes, and null when it does not. */
-    sample(nowMs: number): QualityLevel | null {
-      if (last === 0) {
-        last = nowMs;
-        return null;
-      }
-      const elapsed = nowMs - last;
-      last = nowMs;
-
-      seen += 1;
-      if (seen <= WARMUP) return null;
-      total += elapsed;
-
-      if (seen < WARMUP + WINDOW) return null;
-      const average = total / (seen - WARMUP);
-      seen = WARMUP;
-      total = 0;
-
-      if (average > DOWN_MS && level !== "low") {
-        level = level === "high" ? "medium" : "low";
-        steppedDown = true;
-        return level;
-      }
-      if (average < UP_MS && !steppedDown && !steppedUp && level !== "high") {
-        level = level === "low" ? "medium" : "high";
-        steppedUp = true;
-        return level;
-      }
-      return null;
-    },
-  };
-}
+/* Frame times, and the decision to step down, used to live here as a watch the
+   engine sampled every frame. It is in particles/frame.ts now, as the last
+   rung of one ladder for the whole page, because a watch that only saw the
+   brain could not know there was a cheaper thing on the page to give up
+   first. The rules it kept are the same: a sustained window rather than a run
+   of bad frames, one step up at most, and never after a step down. */
 
 /* A query string can force a level, which is how the tests exercise the high
    path on a machine that would otherwise be stepped straight down to low, and

@@ -150,6 +150,17 @@ export function ParticleBrain({ className }: { className?: string }) {
       engine.frame(now);
     };
 
+    /* The engine's quality levels are the scheduler's last rung, handed over
+       rather than governed here, so the whole page gives things up in one
+       order. The engine refuses both when a level was fixed by name. */
+    const join = () =>
+      frameScheduler().add({
+        rank: 0,
+        draw,
+        degrade: engine.degrade,
+        upgrade: engine.upgrade,
+      });
+
     /* A reader who has asked for less motion gets one settled frame per scroll
        or resize rather than a loop. Not a slower animation: a still picture
        that keeps up with the page. That path never joins the scheduler, because
@@ -164,7 +175,7 @@ export function ParticleBrain({ className }: { className?: string }) {
         });
         return;
       }
-      if (!release) release = frameScheduler().add({ rank: 0, draw });
+      if (!release) release = join();
     };
 
     const pause = () => {
@@ -223,7 +234,7 @@ export function ParticleBrain({ className }: { className?: string }) {
     document.addEventListener("visibilitychange", onVisibility);
     canvas.addEventListener("webglcontextlost", onContextLost);
 
-    if (!reducedMotion) release = frameScheduler().add({ rank: 0, draw });
+    if (!reducedMotion) release = join();
     host.dataset.brain = reducedMotion ? "still" : "live";
     if (debugRequested()) {
       host.dataset.brainDebug = "1";
