@@ -16,10 +16,12 @@ import { useEffect, useRef } from "react";
       edge here and stretched by CSS. A gradient this soft has no detail to
       lose, and the same shader then costs about 15ms.
    2. WebGL2 being absent is the easy case. Present but software is the one
-      that hurts, and nothing in the original noticed it. The loop below times
-      its own first frames and stops if they are slow, leaving the last frame
-      painted: a still gradient rather than a stuttering one.
-   3. It ran requestAnimationFrame forever, including in a hidden tab.
+      that hurts, and nothing in the original noticed it. The page's frame
+      scheduler, in particles/frame.ts, gives this up first when frames run
+      long, and it holds its last frame: a still gradient rather than a
+      stuttering one.
+   3. It ran requestAnimationFrame forever, including in a hidden tab, and it
+      ran under the opening animation's veil, which is opaque.
 
    Nothing here throws or writes to the console on failure. Every route is
    asserted console-clean, and a backdrop is the last thing that should be able
@@ -32,15 +34,19 @@ const MAX_EDGE = 960;
    detail, and each one costs a full-screen pass. */
 const SWIRL_ITERATIONS = 6;
 
-/* This used to time its own frames 4 through 20 and stop itself past 42ms.
+/* How fast the gradient moves, in shader time per second of the page's. */
+const SPEED = 0.14;
 
-   That measurement is deleted rather than moved, because it was answering the
-   wrong question. It timed this shader's frames while the particle cloud was
-   being drawn from a separate callback on the same frame, so a number that
-   looked healthy here could sit inside a frame that was nowhere near sixteen
-   milliseconds. The scheduler in particles/frame.ts measures the whole frame
-   once and gives this up first, which is the only version of that decision
-   that has all of the information. */
+/* Where the gradient's clock starts, and where it stands still for a reader who
+   asked for less motion. The same frame for both, so that reader sees the
+   picture everybody else opens on. */
+const OPENING = 2.4;
+
+/* The most one frame may advance the clock. The clock runs on the frames this
+   actually draws, not on the wall, so coming back from a hidden tab or out
+   from under the opening's veil carries on from the last picture instead of
+   jumping to wherever the wall says it should be. */
+const MAX_STEP_MS = 100;
 
 const VERTEX_SHADER = `#version 300 es
 in vec4 a_position;
@@ -285,58 +291,87 @@ export function Backdrop() {
     const shader = createShader(canvas, host);
 
     /* The host keeps its CSS gradient when the shader will not start, which is
-       what it was already painting before this effect ran, so nothing flashes. */
-    if (!shader) settle("fallback");
+       what it was already painting before this effect ran, so nothing flashes.
+       Nothing is registered with the frame scheduler either: a client that
+       draws nothing would still take two rungs of the ladder to give up. */
+    if (!shader) {
+      settle("fallback");
+      return;
+    }
 
-    const layout = () => {
-      shader?.resize();
-      const width = host.clientWidth;
-      const height = host.clientHeight;
-      if (width === 0 || height === 0) return;
+    const root = document.documentElement;
+    let time = OPENING;
+    let lastNow: number | null = null;
+    let running = true;
+    let lost = false;
+    let release: (() => void) | null = null;
 
-    };
+    const paint = () => shader.draw(time);
 
-    layout();
+    /* Resizing a canvas clears it. Whatever else is going on, the picture is
+       put back in the same callback, or a gradient that has stopped animating
+       turns black the first time a window is resized, and one that has not
+       flashes black until its next frame. The observer's first call, which
+       every observer makes on being attached, is also the first paint. */
+    const observer = new ResizeObserver(() => {
+      shader.resize();
+      if (!lost) paint();
+    });
 
     /* One frame and nothing else. A reader who has asked for less motion gets
        the composition without the movement, rather than a blank rectangle. */
     if (stillOnly) {
-      shader?.draw(2.4);
       settle("still");
-      const observer = new ResizeObserver(() => {
-        layout();
-        shader?.draw(2.4);
-      });
       observer.observe(host);
       return () => {
         observer.disconnect();
-        shader?.dispose();
+        shader.dispose();
       };
     }
 
-    let running = true;
-    let release: (() => void) | null = null;
-    const start = performance.now();
+    /* Rank 1: decoration, at thirty frames a second, which a gradient moving
+       this slowly cannot be told apart from sixty. The scheduler thins it,
+       then drops it, before the particle cloud is asked to give up anything. */
+    const draw = (now: number) => {
+      if (!running) return;
+      if (lastNow !== null) {
+        time += (Math.min(now - lastNow, MAX_STEP_MS) / 1000) * SPEED;
+      }
+      lastNow = now;
+      paint();
+    };
 
-    const stop = (state: "still" | "fallback") => {
+    /* Given up by the scheduler, for good. The slot is handed back rather than
+       kept, so a page whose subject has also stopped is not left running an
+       empty loop, and the last frame stays on screen. */
+    const onShed = () => {
       running = false;
       release?.();
       release = null;
-      settle(state);
+      settle("still");
     };
 
-    /* Rank 1: decoration. The scheduler draws the particle cloud first and
-       gives this up before the cloud is asked to lower its own quality, which
-       is the right way round and was not what happened when each owned its own
-       loop and governed itself.
+    /* Not part of the page's frame loop at all while the opening animation
+       runs.
 
-       It also no longer measures its own frames to decide whether to stop. One
-       measurement of the whole frame, in the scheduler, is the only honest one:
-       this shader's own time told it nothing about the thirty two thousand
-       particles being drawn from a different callback on the same frame. */
-    const draw = (now: number) => {
-      if (!running) return;
-      shader?.draw(((now - start) / 1000) * 0.14);
+       The veil over the page is opaque black and this is under it, so every
+       frame drawn there would be a full screen shader nobody can see, spent at
+       the moment the entrance most needs the card. It used to be registered
+       and simply skip those frames, which was worse than it sounds: the
+       scheduler saw a piece of decoration it could give up, and on a machine
+       struggling with the entrance it spent its first two steps giving up a
+       gradient that was costing nothing, shed it for the rest of the visit,
+       and only then got round to relieving the cloud, which was the actual
+       cost. Out of the loop, a struggling entrance relieves the cloud first,
+       and this is measured on its own merits once the page is there. It joins
+       when the veil starts to lift, from the frame it painted when it
+       mounted. */
+    const veiled = () => root.dataset.intro === "running";
+
+    const join = () => {
+      if (!running || release || document.hidden || veiled()) return;
+      lastNow = null;
+      release = frameScheduler().add({ rank: 1, fps: 30, draw, onShed });
     };
 
     const onVisibility = () => {
@@ -344,26 +379,35 @@ export function Backdrop() {
       if (document.hidden) {
         release?.();
         release = null;
-      } else if (!release) {
-        release = frameScheduler().add({ rank: 1, fps: 30, draw, onShed: () => settle("still") });
+      } else {
+        join();
       }
     };
+
+    /* The veil lifting is an attribute changing on the root: to "ending" when
+       the animation hands over, or removed outright by the failsafe in the
+       boot script or by a page with no engine to wait for. */
+    const intro = new MutationObserver(join);
+    intro.observe(root, { attributes: true, attributeFilter: ["data-intro"] });
 
     /* A lost context is the browser reclaiming the GPU, usually under memory
        pressure. Preventing the default would ask for a restore; this asks for
        nothing and shows the CSS gradient instead. */
     const onContextLost = (event: Event) => {
       event.preventDefault();
-      stop("fallback");
+      running = false;
+      lost = true;
+      release?.();
+      release = null;
+      settle("fallback");
     };
 
     canvas.addEventListener("webglcontextlost", onContextLost);
     document.addEventListener("visibilitychange", onVisibility);
-    const observer = new ResizeObserver(layout);
     observer.observe(host);
 
-    if (shader) settle("live");
-    release = frameScheduler().add({ rank: 1, fps: 30, draw, onShed: () => settle("still") });
+    settle("live");
+    join();
 
     return () => {
       running = false;
@@ -371,8 +415,9 @@ export function Backdrop() {
       release = null;
       canvas.removeEventListener("webglcontextlost", onContextLost);
       document.removeEventListener("visibilitychange", onVisibility);
+      intro.disconnect();
       observer.disconnect();
-      shader?.dispose();
+      shader.dispose();
     };
   }, []);
 
@@ -403,9 +448,8 @@ export function Backdrop() {
    0.0069.
 
    The particle cloud is not under it. It sits above, so its colours run at full
-   strength in the half of the opening screen that carries no text, and it is
-   held down by its own measured dimming everywhere else. See the note in
-   particles/timeline.ts. */
+   strength, and it is kept off the words by the final pass cutting it to the
+   space the layout leaves empty, not by being dimmed. See particles/timeline.ts. */
 export function Scrim() {
   return (
     <div
@@ -416,11 +460,7 @@ export function Scrim() {
 }
 
 /* The long-form pages used to stack a second scrim over the first, which took
-   the gradient down to about 12% so it read as atmosphere rather than as
-   something competing with a paragraph.
-
-   Gone, along with the gradient it was holding down. Those pages are paper
-   now, and the backdrop belongs to the stage at the top of the home page. Left
-   in place it was a black sheet at 55% over a white page: every write-up
-   rendered on a mid grey, every run of body text on it measured 3.7:1, and it
-   was invisible as a fault because the page still looked deliberate. */
+   the gradient down to about 12%. It went when those pages were paper, where
+   it was a black sheet at 55% over a white page and put every run of body text
+   on a mid grey at 3.7:1. Every page is the same dark surface now, and this one
+   scrim is the only thing between the gradient and the words. */

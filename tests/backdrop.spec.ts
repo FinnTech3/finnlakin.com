@@ -78,9 +78,11 @@ test.describe("the backdrop", () => {
 
   test("stops animating when the tab is hidden", async ({ page }) => {
     await page.goto("/");
-    await expect.poll(() => page.locator(".backdrop").getAttribute("data-backdrop")).toBe(
-      "live",
-    );
+    /* Live or still: on a box this slow the page is allowed to give the
+       gradient up within seconds, and both mean it painted. */
+    await expect
+      .poll(() => page.locator(".backdrop").getAttribute("data-backdrop"))
+      .toMatch(/^(live|still)$/);
 
     const framesWhileHidden = await page.evaluate(async () => {
       const raf = window.requestAnimationFrame.bind(window);
@@ -108,6 +110,113 @@ test.describe("the backdrop", () => {
 
     expect(framesWhileHidden, "the page should still be animating at all").toBeGreaterThan(
       0,
+    );
+  });
+
+  test("draws nothing under the opening animation's veil, and picks up when it lifts", async ({
+    page,
+  }) => {
+    /* The veil is opaque black and the gradient is under it, so anything drawn
+       while it is up is a full screen shader nobody can see, spent during the
+       entrance, which is exactly when the cloud needs the card. Counted at the
+       draw call, per canvas, and filed under whichever state the page was in
+       when it happened. */
+    await page.addInitScript(() => {
+      const counts = { underVeil: 0, after: 0 };
+      (window as unknown as { backdropDraws: typeof counts }).backdropDraws = counts;
+      const original = WebGL2RenderingContext.prototype.drawArrays;
+      WebGL2RenderingContext.prototype.drawArrays = function patched(
+        this: WebGL2RenderingContext,
+        ...args: Parameters<WebGL2RenderingContext["drawArrays"]>
+      ) {
+        const canvas = this.canvas as HTMLCanvasElement;
+        if (canvas.closest?.(".backdrop")) {
+          if (document.documentElement.dataset.intro === "running") counts.underVeil += 1;
+          else counts.after += 1;
+        }
+        return original.apply(this, args);
+      };
+    });
+
+    await page.goto("/");
+    expect(await introState(page), "the intro should start on a first view").toBe("running");
+    await waitForIntroToFinish(page);
+    await page.waitForTimeout(1_000);
+
+    const counts = await page.evaluate(
+      () =>
+        (window as unknown as { backdropDraws: { underVeil: number; after: number } })
+          .backdropDraws,
+    );
+    /* The frame it paints when it mounts, so there is a picture to lift the
+       veil onto, and at most one more if the page resizes under it. Animating
+       under the veil is two hundred. */
+    expect(counts.underVeil, "the gradient animated under an opaque veil").toBeLessThanOrEqual(2);
+    expect(counts.after, "the gradient never started once the veil lifted").toBeGreaterThan(0);
+  });
+
+  test("gives the gradient up on a machine that cannot keep up, and keeps it painted", async ({
+    page,
+    browser,
+  }) => {
+    /* A machine that cannot keep up, as the page sees one: frames arriving two
+       hundred milliseconds apart. The scheduler reads the time between frames
+       off the timestamps the browser hands it, and looks the function up at
+       each call, so replacing it before any script runs is the real thing
+       rather than a model of it. */
+    await page.addInitScript((key) => {
+      sessionStorage.setItem(key, "1");
+      const real = window.requestAnimationFrame.bind(window);
+      let clock = 0;
+      window.requestAnimationFrame = (callback: FrameRequestCallback) =>
+        real(() => {
+          clock += 200;
+          callback(clock);
+        });
+    }, INTRO_KEY);
+
+    await page.goto("/?brainQuality=low");
+    await expect
+      .poll(() => page.locator(".backdrop").getAttribute("data-backdrop"), { timeout: 30_000 })
+      .toBe("still");
+
+    /* Resizing a canvas clears it. A gradient that has stopped animating has no
+       next frame coming to put the picture back, so this is where a still
+       gradient used to turn black. */
+    const size = page.viewportSize() ?? { width: 1280, height: 720 };
+    await page.setViewportSize({ width: size.width - 120, height: size.height - 80 });
+    await page.waitForTimeout(600);
+
+    await page.addStyleTag({
+      content:
+        "body > header, body > main, body > footer, [data-brain] { visibility: hidden !important }",
+    });
+    const shot = (await page.screenshot()).toString("base64");
+
+    const decoder = await browser.newPage();
+    const brightest = await decoder.evaluate(async (data: string) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${data}`;
+      await image.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext("2d");
+      if (!context) return -1;
+      context.drawImage(image, 0, 0);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let max = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        max = Math.max(max, pixels[i]!, pixels[i + 1]!, pixels[i + 2]!);
+      }
+      return max;
+    }, shot);
+    await decoder.close();
+
+    /* Under the scrim the gradient's brightest violet is around seventy on a
+       channel. A cleared canvas is nought everywhere. */
+    expect(brightest, "the still gradient turned black when the window was resized").toBeGreaterThan(
+      8,
     );
   });
 });
@@ -176,6 +285,7 @@ test.describe("the opening animation", () => {
     /* Running, then ending while the veil fades, then gone. */
     await expect.poll(() => introState(page), { timeout: 6_000 }).toBe("none");
   });
+
 });
 
 
@@ -1047,9 +1157,11 @@ test.describe("contrast where the words actually are", () => {
     await page.evaluate((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
     await page.reload();
     await page.evaluate(() => document.fonts.ready);
+    /* Live or still, and either way painted: the scheduler is allowed to give
+       the gradient up on a machine this slow, and it keeps its last frame. */
     await expect
       .poll(() => page.locator(".backdrop").getAttribute("data-backdrop"))
-      .toBe("live");
+      .toMatch(/^(live|still)$/);
 
     const decoder = await browser.newPage();
     const worst: { ratio: number; label: string; at: number }[] = [];
