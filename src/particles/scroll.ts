@@ -1,5 +1,5 @@
 import { clamp, easeForFrame } from "./pack";
-import type { LaneState, PageLayout, ScrollState } from "./types";
+import type { LaneSeam, LaneState, PageLayout, ScrollState } from "./types";
 
 /* Scroll position, as a number from nought to six.
 
@@ -42,15 +42,10 @@ const MAX_SECTIONS_PER_SECOND = 4;
    a lane the page had already collapsed. */
 const LANE_QUERY = "(min-width: 1100px)";
 
-/* How far through a section the change of sides happens.
-
-   It ran 0.60 to 0.95, which put the crossing hard against the boundary and
-   left the cloud still moving as the next heading arrived. Brought forward, the
-   cloud is settled in its new column well before the incoming section fills the
-   screen, and the seam it crosses on is nearer the middle of the viewport where
-   there is most room either side of it. */
-const CROSS_FROM = 0.38;
-const CROSS_TO = 0.72;
+/* The margin kept between the cloud and the nearest line of text when it
+   crosses on a seam, in CSS pixels, on top of however far the page scrolled
+   in the last frame. */
+const SEAM_MARGIN_PX = 16;
 
 /* One eased, capped step of the timeline towards where the page is.
 
@@ -76,7 +71,12 @@ export class ScrollController {
   private state: ScrollState = { sectionProgress: 0, target: 0 };
   private boundaries: number[] = [];
   private lanes: number[] = [];
+  /* The padding either side of each boundary, which is the text-free seam. */
+  private seamAbove: number[] = [];
+  private seamBelow: number[] = [];
   private page: PageLayout = { wide: true, slot: null };
+  private lastY: number | null = null;
+  private drift = 0;
   private ease: number;
   private observer: ResizeObserver | null = null;
   private queued = false;
@@ -158,10 +158,19 @@ export class ScrollController {
 
     const tops: number[] = [];
     const lanes: number[] = [];
+    const padTop: number[] = [];
+    const padBottom: number[] = [];
     for (const id of SECTIONS) {
       const element = document.getElementById(id);
       if (!element) continue;
       tops.push(element.getBoundingClientRect().top + window.scrollY);
+      /* The band's padding is the text-free part of the seam either side of
+         its boundary: the only road across the page. Read off the inner, which
+         is what carries it. */
+      const inner = element.firstElementChild as HTMLElement | null;
+      const style = inner ? getComputedStyle(inner) : null;
+      padTop.push(style ? Number.parseFloat(style.paddingTop) || 0 : 0);
+      padBottom.push(style ? Number.parseFloat(style.paddingBottom) || 0 : 0);
       /* Which side of this band the cloud travels down, read off the markup
          rather than worked out again here.
 
@@ -181,6 +190,8 @@ export class ScrollController {
       );
     }
     this.lanes = lanes;
+    this.seamAbove = padBottom;
+    this.seamBelow = padTop;
     /* The last boundary, clamped to the furthest the page can actually scroll.
 
        The final section is shorter than a viewport, so its top never reaches the
@@ -262,64 +273,67 @@ export class ScrollController {
     return RANGE;
   }
 
-  /* Which lane the cloud should be in at a given progress, and how far through
-     a change of sides it is.
+  /* Which lanes are where on the screen, and the seams between them.
 
-     The crossing happens in the last fifth of a section rather than at its
-     boundary, so the cloud is already in the new lane by the time the incoming
-     heading reaches the top of the screen. Straddling the boundary put it
-     halfway across at the exact moment a heading arrived. */
-  laneAt(progress: number): LaneState {
+     Where the cloud changes sides used to be decided here as a stretch of each
+     section's progress, from 38% to 72% of the way through it, and that put
+     the crossing in the right place on one screen size. It has to happen when
+     the seam reaches the cloud, and where the seam is at a given progress
+     depends on how tall the section is against how tall the window is:
+     measured at 1920 by 1080, the seam had already passed above the cloud when
+     the crossing began. So this reports where the seams are, and the timeline
+     crosses as one passes the cloud's own height. */
+  laneState(): LaneState {
     const lanes = this.lanes;
-    const idle = (side: number): LaneState => ({
-      from: side,
-      to: side,
-      amount: 0,
-      gapUv: 0.5,
-    });
-    if (lanes.length < 2) return idle(1);
-
-    const step = RANGE / (lanes.length - 1);
-    const at = clamp(progress / step, 0, lanes.length - 1);
-    const index = Math.min(lanes.length - 1, Math.floor(at));
-    const here = lanes[index] ?? 1;
-    const next = lanes[Math.min(lanes.length - 1, index + 1)] ?? here;
-    if (here === next) return idle(here);
-
-    const through = at - index;
-    if (through <= CROSS_FROM) return idle(here);
-    if (through >= CROSS_TO) return idle(next);
-
-    return {
-      from: here,
-      to: next,
-      amount: (through - CROSS_FROM) / (CROSS_TO - CROSS_FROM),
-      gapUv: this.gapUv(index + 1),
-    };
-  }
-
-  /* Where the seam between two sections currently is, as a fraction up the
-     screen, with nought at the bottom because that is the space the final pass
-     samples in.
-
-     This is the only horizontal road across the page. Everywhere else at a
-     given scroll position there is a paragraph, so a cloud that changes sides
-     anywhere else changes sides through somebody's sentence, which is the
-     whole complaint. The seam is the band of vertical padding between one
-     section and the next, it moves up the screen as the page scrolls, and the
-     crossing rides it. */
-  private gapUv(boundary: number): number {
     const tops = this.boundaries;
-    const top = tops[boundary];
-    if (top === undefined || typeof window === "undefined") return 0.5;
+    if (typeof window === "undefined" || lanes.length < 2) {
+      return { here: lanes[0] ?? 1, seams: [] };
+    }
     const height = Math.max(1, window.innerHeight);
-    const css = top - window.scrollY;
-    return clamp(1 - css / height, 0, 1);
+    const scrollY = window.scrollY;
+
+    const middle = scrollY + height / 2;
+    let here = lanes[0] ?? 1;
+    for (let i = 0; i < tops.length; i++) {
+      if (middle >= tops[i]!) here = lanes[i] ?? here;
+    }
+
+    const seams: LaneSeam[] = [];
+    for (let i = 1; i < lanes.length; i++) {
+      if (lanes[i] === lanes[i - 1]) continue;
+      const above = this.seamAbove[i - 1] ?? 0;
+      const below = this.seamBelow[i] ?? 0;
+      /* The text-free band runs from the last line of one section to the first
+         of the next, which is the boundary less the padding above it and plus
+         the padding below it. */
+      const top = tops[i]! - above;
+      const bottom = tops[i]! + below;
+      const centre = (top + bottom) / 2 - scrollY;
+      const uv = 1 - centre / height;
+      if (uv < -0.5 || uv > 1.5) continue;
+      const clear = Math.max(0, (bottom - top) / 2 - SEAM_MARGIN_PX);
+      seams.push({
+        uv,
+        above: lanes[i - 1]!,
+        below: lanes[i]!,
+        clear: clear / height,
+        half: Math.max(0, clear - this.drift) / height,
+      });
+    }
+    seams.sort((a, b) => b.uv - a.uv);
+    return { here, seams };
   }
 
   read() {
     if (typeof window === "undefined") return;
-    this.state.target = this.progressFor(window.scrollY);
+    const y = window.scrollY;
+    /* How far the page moved since the last frame, which is how far ahead of
+       this frame's picture the compositor can have scrolled the page: the seam
+       the cloud crosses on is narrowed by it, so a mask a frame behind a fling
+       still cannot reach a line of text. */
+    this.drift = this.lastY === null ? 0 : Math.abs(y - this.lastY);
+    this.lastY = y;
+    this.state.target = this.progressFor(y);
   }
 
   update(deltaSeconds: number) {
@@ -332,9 +346,15 @@ export class ScrollController {
     return this.state.sectionProgress;
   }
 
-  /* Reduced motion and the still frame want the answer now, not eased into. */
+  /* Reduced motion and the still frame want the answer now, not eased into.
+
+     The target is read afresh, because the first frame and the hand-over come
+     here without a read before them. The drift is left alone: it is how far the
+     page moved between two frames, measured once a frame by read(), and this
+     used to measure it again straight after, found the page had not moved,
+     and under reduced motion left every frame with no margin for a fling. */
   settle() {
-    this.read();
+    if (typeof window !== "undefined") this.state.target = this.progressFor(window.scrollY);
     this.state.sectionProgress = this.state.target;
     return this.state.sectionProgress;
   }

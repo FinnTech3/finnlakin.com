@@ -152,22 +152,40 @@ export type EngineOptions = {
    numbers the shader gets rather than a second set: the fallback and the full
    path cut the cloud in the same place or the fallback is not a fallback.
 
-   CSS insets count from the top and the mask's y counts from the bottom, which
-   is the one conversion here and the one thing to get wrong. */
-function clipFor(mask: CloudMask): string {
-  const pc = (value: number) => `${(Math.min(1, Math.max(0, value)) * 100).toFixed(2)}%`;
+   A path rather than an inset, because the keep-out is up to three regions'
+   columns and a seam, and an inset is one rectangle. CSS counts from the top
+   and the mask's y counts from the bottom, which is the one conversion here
+   and the one thing to get wrong. */
+function clipFor(mask: CloudMask, width: number, height: number): string {
   if (mask.off > 0.5) return "none";
-  if (mask.gapHalf > 0) {
-    return `inset(${pc(1 - (mask.gapCentre + mask.gapHalf))} 0 ${pc(
-      mask.gapCentre - mask.gapHalf,
-    )} 0)`;
+  const rects: [number, number, number, number][] = [];
+  const px = (value: number) => Math.round(value * 10) / 10;
+  const add = (x0: number, top: number, x1: number, bottom: number) => {
+    const t = Math.min(1, Math.max(0, top));
+    const b = Math.min(1, Math.max(0, bottom));
+    if (t - b <= 0 || x1 - x0 <= 0) return;
+    rects.push([px(x0 * width), px((1 - t) * height), px(x1 * width), px((1 - b) * height)]);
+  };
+
+  /* Each region's column, top to bottom, between the splits. */
+  const [first, second] = mask.splits;
+  const tops = [1, first >= 0 ? first : -1, second >= 0 ? second : -1];
+  const bottoms = [first >= 0 ? first : 0, second >= 0 ? second : 0, 0];
+  for (let i = 0; i < 3; i++) {
+    const side = mask.sides[i]!;
+    if (side === 0 || tops[i]! < 0) continue;
+    const edge = 0.5 + side * mask.inner;
+    if (side > 0) add(edge, tops[i]!, 1, bottoms[i]!);
+    else add(0, tops[i]!, edge, bottoms[i]!);
   }
-  if (mask.side > 0) return `inset(0 0 0 ${pc(mask.edge)})`;
-  if (mask.side < 0) return `inset(0 ${pc(1 - mask.edge)} 0 0)`;
+  /* And the seam, or the phone's slot, across the whole width. */
+  if (mask.gapHalf > 0) add(0, mask.gapCentre + mask.gapHalf, 1, mask.gapCentre - mask.gapHalf);
+
   /* No column, no strip and no escape is a cloud with nowhere to be, which is
      a phone whose slot has no room. That is everything clipped, not nothing:
      "none" here would have drawn the whole cloud over the page. */
-  return "inset(50%)";
+  if (rects.length === 0) return "inset(50%)";
+  return `path("${rects.map(([x0, y0, x1, y1]) => `M${x0} ${y0}H${x1}V${y1}H${x0}Z`).join("")}")`;
 }
 
 /* The same question for the frame loop: is there anywhere at all this cloud
@@ -486,7 +504,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
          rest slid across. So the composition travels there first, eased, while
          the veil is still up and nothing else is on the screen, and at the
          hand-over the page's composition and this one are the same numbers. */
-      const place = timeline.peek(progress, scroll.laneAt(progress));
+      const place = timeline.peek(progress, scroll.laneState());
       const t = mapClamped(introMs, SETTLE_FROM, HANDOVER_AT, 0, 1);
       const settle = t * t * (3 - 2 * t);
       const centre = windowCentreY(surfaceHeight);
@@ -502,7 +520,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
 
       if (introMs >= HANDOVER_AT) handOver();
     } else {
-      const lane = scroll.laneAt(progress);
+      const lane = scroll.laneState();
       state = reducedMotion
         ? timeline.settle(progress, lane)
         : timeline.update(progress, config.timelineEase, delta, lane);
@@ -633,7 +651,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
          path. The low tier is what a weak machine gets, and a weak machine is
          exactly the one whose reader can least afford a paragraph printed over
          a light source. */
-      const clip = clipFor(state.mask);
+      const clip = clipFor(state.mask, surfaceWidth, surfaceHeight);
       if (canvas.style.clipPath !== clip) canvas.style.clipPath = clip;
     }
 

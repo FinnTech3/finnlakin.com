@@ -585,10 +585,16 @@ goes where the gap is at any screen width rather than at the one width it was
 tuned on.
 
 **Which side it is on is read off the markup, not worked out twice.** Each band
-declares `band-lane-left` or `band-lane-right`, and `ScrollController.laneAt()`
-reports the lane of the band the reader is in, crossing in the last fifth of a
-section so the cloud is already in place when the next heading reaches the top
-of the screen.
+declares `band-lane-left` or `band-lane-right`, and `ScrollController.laneState()`
+reports which lanes are where on the screen and where the seams between them are.
+
+**Whether there is a lane at all is one breakpoint, 1100 pixels**, for the bands'
+lane padding, the stage's pinned layout and the engine, which reads it through
+`matchMedia` rather than working it out. It was three: the stage collapsed at
+1024 pixels, the bands at 1100 and the engine at an aspect ratio of 1.22, so at
+1099 by 800 the stage was pinned beside a column the bands had collapsed and the
+cloud was cut to it over a full width column of text. A test asserts all three
+agree either side of the breakpoint.
 
 It was worked out twice, as a stack of ramps in `timeline.ts`, and the two
 disagreed. The ramps were a guess about where each section sits in the progress
@@ -601,35 +607,74 @@ statements of the same fact.
 
 ### Changing columns
 
-Which side the cloud is on is read off the markup: each band declares
-`band-lane-left` or `band-lane-right` and `ScrollController.laneAt()` reports
-the lane of the band the reader is in, together with how far through a change
-of columns it is and where the seam between the two sections currently sits on
-screen.
+The cloud changes sides on a **seam**, the band of padding between two sections
+whose lanes differ, because that is the one road across the page with no text
+on it. Three things make that true rather than approximately true.
 
-The crossing happens between 0.38 and 0.72 of the way through a section. It ran
-0.60 to 0.95, which put it hard against the boundary and left the cloud still
-moving as the next heading arrived; brought forward, it is settled well before
-the incoming section fills the screen, and the seam it rides is nearer the
-middle of the viewport where there is most room either side of it.
+**The crossing is geometric.** It starts when the seam coming up the screen is
+0.16 of the window below the cloud's own height, is halfway when the seam is at
+that height, and is over when the seam is as far above. It used to be a stretch
+of each section's progress, 0.38 to 0.72, which put the crossing in the right
+place on one screen size: measured at 1920 by 1080 the seam had already passed
+above the cloud when the crossing began.
 
-**It contracts to cross**, and that is load bearing rather than decorative. The
-cloud at reading size is wider than the space between two sections, so at full
-size there is no route across the page that is not through a paragraph. Drawing
-itself in is what makes the seam passable. It is also the better picture: the
-thing gathers itself up, crosses, and opens out again, rather than sliding
-sideways behind the words.
+**The screen is split where the lane changes.** Two sections with their content
+on opposite sides are on screen together for most of a scroll past their
+boundary, and the keep-out used to be one column for the whole screen, snapped
+across at the middle of the crossing. The next section's heading came up the
+screen in the old column, where the cloud still was. Now each region keeps the
+cloud to its own section's column, split at the seam (`splits` and `sides` in
+`CloudMask`, up to three regions), so a section's text never has the cloud
+behind it whichever way the page is going.
 
-The column term in the mask is **snapped** rather than blended. A lane number
-halfway between two columns describes a boundary in the middle of the screen,
-which is where the reading is. The cloud is never there: when it is between
-columns it is on the seam, and the strip is what is carrying it. The snap
-happens at the midpoint of the crossing, by which time the cloud is well inside
-that strip.
+**The cloud fits the seam it crosses on.** The strip the final pass keeps open
+across the middle of the screen is the seam itself, measured off the bands'
+padding, less a sixteen pixel margin and less however far the page scrolled in
+the last frame: the mask is worked out in script and the compositor can be a
+frame ahead of it, so a fling narrows the strip rather than letting it reach a
+line. Only the strip: the cloud is sized to the seam at rest, so its size does
+not follow the speed of the scroll, and in a fast one its edge is trimmed
+rather than the text reached. The strip used to be sized to the cloud and its
+bloom, which here is more than the seam, and let the glow out over the last line
+above and the heading below.
 
-There was a section here called "the words carry their own shade", describing a
-black gradient painted over the reading column. It is gone. See **Contrast**
-above for what replaced it and why.
+To fit, the cloud **gathers itself up to cross**: it contracts by
+`CROSS_CONTRACT`, its burst is drawn in with the crossing, and its size is capped
+to the seam's clear height in the middle of it. The crossing from about to path
+is inside a burst, two thirds dispersed, where even contracted the cloud reached
+a hundred and sixty six pixels either side of an eighty pixel seam. It now comes
+together as it reaches the seam and disperses again past it.
+`scripts/check-motion.ts` finds the halfway point of a crossing at every step of
+the timeline, since it depends on the cloud's height, and asserts every particle
+there is inside the seam: the worst is 0.73 of its clear half.
+
+`tests/crossing.spec.ts` stands at both crossings with the seam at six heights on
+the screen, from well below the cloud to well above it, and asserts nothing on
+the page has the cloud behind it at any of them. It also moves the page forty
+pixels a frame across a seam, with and without reduced motion, and asserts the
+strip is narrowed by exactly that while the page moves and by nothing once it
+stops.
+
+### Below the breakpoint
+
+A phone has no width to give the cloud a column, so it has a space instead: an
+empty slot under the hero's controls, `data-brain-slot`, and the cloud is drawn
+there and nowhere else. The canvas covers the page from its top to the bottom of
+that slot, positioned rather than fixed, so the compositor scrolls the slot and
+the cloud together and a fast flick cannot leave the light a frame behind its
+space; it stops drawing once it has scrolled off the screen. The opening
+animation is composed on the window, and the cloud settles into the slot before
+the hand-over. On a short phone the slot runs past the fold and the cloud is
+partly below it at first, never cut and never under the words; a phone held
+sideways, whose slot has no room, plays the entrance and then draws nothing,
+skipping the frames rather than drawing blanks.
+
+It used to keep the cloud low in a fixed canvas behind everything with the
+keep-out switched off, so the controls, the heading, the table and the cards all
+scrolled up over it. The contrast walk passed anyway, because a dim enough cloud
+behind a word is still legible, and because on the phone project it had been
+measuring the wrong pixels: its screenshot was in device pixels and its boxes in
+CSS pixels. It now also asks whether anything is drawn over the cloud at all.
 
 ### Nothing leaves the frame
 
@@ -691,8 +736,12 @@ Everything in `DEFAULTS` in `src/particles/types.ts`:
 | Vignette | `vignetteOffset`, `vignetteDarkness` |
 | Section timings | the `mapClamped` stacks in `timeline.ts` |
 | How far the cloud draws in to cross | `CROSS_CONTRACT` in `timeline.ts` |
-| Where in a section it crosses | `CROSS_FROM`, `CROSS_TO` in `scroll.ts` |
-| The mask's edge softening, and the ceiling on the seam strip | `MASK_FEATHER`, `GAP_HALF_MAX` in `timeline.ts` |
+| How near its height a seam starts a crossing | `CROSS_WINDOW` in `timeline.ts` |
+| How much of a seam the crossing cloud may fill | `SEAM_FILL` in `timeline.ts` |
+| The margin kept from text on a seam | `SEAM_MARGIN_PX` in `scroll.ts` |
+| The mask's edge softening | `MASK_FEATHER` in `timeline.ts` |
+| The phone's slot: its height, and how full the cloud draws it | `.brain-slot` in `globals.css`, `SLOT_FILL`, `SLOT_SOFT`, `MIN_SLOT_PX` in `timeline.ts` |
+| When the brain starts settling into place at the end of the opening | `SETTLE_FROM` in `engine.ts` |
 | Fold pattern | `FOLD_FREQUENCY`, `FOLD_BANDS`, `FOLD_STRETCH`, `FOLD_DEPTH` in `brain-anatomy.ts` |
 | Cortex density | `SKIN`, `INTERIOR_SHARE`, `STRAY_SHARE`, `SULCUS_THINNING` in `brain-shape.ts` |
 | How much relief colours | `RELIEF_SHARE` in `targets.ts` |
@@ -732,7 +781,9 @@ The drawing buffer is capped by area rather than by edge, at 2.2 million pixels.
 ## Reduced motion, visibility and failure
 
 - `prefers-reduced-motion: reduce` gets one settled frame, stepped to
-  convergence at startup rather than animated, redrawn on scroll and resize.
+  convergence at startup rather than animated, redrawn on scroll and resize,
+  and once more when the page comes to rest: a frame drawn mid-scroll carries
+  that scroll's margin in the seam, and it is not the picture to leave up.
 - A hidden tab stops drawing. On return the clock does not jump.
 - No WebGL2, no float render target, a shader that will not compile or a
   framebuffer the driver refuses: `createParticleBrain` returns null and the page

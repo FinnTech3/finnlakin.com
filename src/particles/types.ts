@@ -187,11 +187,34 @@ export type PageLayout = {
   slot: { centre: number; half: number; px: number } | null;
 };
 
+/* A seam between two sections whose lanes differ: the one kind of place the
+   cloud can change sides, because it is the one band of the page with no text
+   across it. */
+export type LaneSeam = {
+  /* uv y of the middle of the seam, up from the bottom of the window. */
+  uv: number;
+  /* The lanes of the sections above and below it, +1 right and -1 left. */
+  above: number;
+  below: number;
+  /* uv half height of the part of it that is clear of text with the page at
+     rest: the padding either side, less a margin. What the cloud is sized to
+     and the split is softened over, so neither changes with how fast the page
+     is moving. */
+  clear: number;
+  /* The same, less however far the page scrolled in the last frame, which is
+     how far the compositor can be ahead of a mask worked out from script. What
+     the mask cuts to: in a fast scroll the cloud's edge can be trimmed, and the
+     text still cannot be reached. */
+  half: number;
+};
+
+/* Which lanes are where on the screen, read off the page every frame. */
 export type LaneState = {
-  from: number;
-  to: number;
-  amount: number;
-  gapUv: number;
+  /* The lane of the section across the middle of the window, which is the
+     cloud's when there is no seam near it. */
+  here: number;
+  /* Seams on or near the screen, top first. */
+  seams: LaneSeam[];
 };
 
 /* The room the cloud is allowed, as the final pass needs it: everything is in
@@ -202,11 +225,29 @@ export type LaneState = {
    whichever side the words were. Cutting the light is the same requirement
    without that cost, and it is the only version that also contains the bloom. */
 export type CloudMask = {
-  /* uv x of the boundary between the cloud's column and the page's. */
+  /* uv x of the boundary between the cloud's column and the page's, in the
+     region the cloud itself is in. */
   edge: number;
   /* +1 when the cloud's column is the right of the screen, -1 the left, and 0
-     where there is no column to keep out of, such as a phone. */
+     where there is no column to keep out of, such as a phone. The region the
+     cloud itself is in; `sides` has every region. */
   side: number;
+  /* Where the lane changes on the screen, as uv y up from the bottom, top
+     first, and -1 for none. The screen is split there, and each region keeps
+     the cloud to its own section's column: two sections with their content on
+     opposite sides can both be on screen, and the cloud's column in one is the
+     other's text. */
+  splits: [number, number];
+  /* The column side in each region, top to bottom. */
+  sides: [number, number, number];
+  /* uv height over which each column fades to nothing towards a split, from
+     either side. It is the seam's clear half, so the fade lies inside the seam
+     and cannot reach a word; without it the split was a hard horizontal line
+     sliced through a dispersed cloud. */
+  splitSoft: number;
+  /* How far the column's inner edge sits from the middle of the screen, in uv:
+     the edge is at 0.5 + side * inner. */
+  inner: number;
   /* uv width of the ramp at that boundary, measured into the cloud's own
      column so that softening the edge can never light a word. */
   feather: number;

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { DEFAULTS } from "../src/particles/types";
+import { brightestIn, collectContent, OVERLAP_CEILING, photographBehind } from "./cloud-overlap";
 
 type Browser = import("@playwright/test").Browser;
 type Page = import("@playwright/test").Page;
@@ -1348,22 +1349,6 @@ type TextBox = {
   label: string;
 };
 
-/* Anything a reader sees as part of the page rather than as the backdrop: a run
-   of words wherever it sits, a card or a control with a surface of its own, a
-   picture, a clip, an icon. */
-type ContentBox = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  label: string;
-};
-
-/* The brightest the backdrop gets behind the page with the page hidden, with a
-   margin. The gradient under its scrim was measured at 0.0069; anything over
-   this behind a piece of content is the particle cloud. */
-const OVERLAP_CEILING = 0.012;
-
 /* Eight samples across the six section timeline. The cloud moves, disperses,
    reforms and changes brightness as the page scrolls, so one position proves
    nothing about the others. */
@@ -1407,7 +1392,6 @@ test.describe("contrast where the words actually are", () => {
     page,
     browser,
   }) => {
-
     await page.goto("/");
     await page.evaluate((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
     await page.reload();
@@ -1530,102 +1514,11 @@ test.describe("contrast where the words actually are", () => {
          the rule the page is built to: nothing goes over the brain and the
          brain goes over nothing. The contrast measurement passed on a phone
          while the brain sat behind the controls and the table, because a dim
-         enough cloud behind a word is still legible. */
-      const content: ContentBox[] = await page.evaluate(() => {
-        const found: ContentBox[] = [];
-        const view = { width: window.innerWidth, height: window.innerHeight };
-        const media = new Set(["IMG", "VIDEO", "PICTURE", "CANVAS", "svg"]);
-        for (const element of Array.from(
-          document.body.querySelectorAll<HTMLElement>("header *, main *, footer *"),
-        )) {
-          const style = getComputedStyle(element);
-          if (style.visibility === "hidden" || style.display === "none") continue;
-          if (Number.parseFloat(style.opacity) < 0.05) continue;
-          const own = Array.from(element.childNodes).some(
-            (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim().length > 0,
-          );
-          const fill = style.backgroundColor.match(/-?\d+(\.\d+)?/g);
-          const surface = fill ? (fill.length > 3 ? Number(fill[3]) : 1) >= 0.5 : false;
-          if (!own && !surface && !media.has(element.tagName)) continue;
-          const box = element.getBoundingClientRect();
-          if (box.width < 2 || box.height < 2) continue;
-          if (box.bottom <= 0 || box.top >= view.height) continue;
-          if (box.right <= 0 || box.left >= view.width) continue;
-          found.push({
-            x: Math.max(0, box.left),
-            y: Math.max(0, box.top),
-            width: Math.min(view.width, box.right) - Math.max(0, box.left),
-            height: Math.min(view.height, box.bottom) - Math.max(0, box.top),
-            label: (
-              (element.textContent ?? "").trim() ||
-              element.getAttribute("aria-label") ||
-              element.tagName
-            ).slice(0, 40),
-          });
-        }
-        return found;
-      });
-
-      await page.addStyleTag({
-        content: "body > header, body > main, body > footer { visibility: hidden !important }",
-      });
-      /* In CSS pixels, because the boxes are. The default is device pixels,
-         which on the phone project is two and three quarter times as many, and
-         for as long as this test has run on a phone it was measuring the top
-         left of the screen scaled down rather than the pixels behind each box. */
-      const shot = (await page.screenshot({ scale: "css" })).toString("base64");
-      /* Put it back, or the next sample measures a page with no text on it. */
-      await page.evaluate(() => {
-        const sheets = Array.from(document.head.querySelectorAll("style"));
-        const last = sheets[sheets.length - 1];
-        if (last && last.textContent?.includes("visibility: hidden")) last.remove();
-      });
-
-      const brightest: number[] = await decoder.evaluate(
-        async ({
-          data,
-          regions,
-        }: {
-          data: string;
-          regions: { x: number; y: number; width: number; height: number }[];
-        }) => {
-          const image = new Image();
-          image.src = `data:image/png;base64,${data}`;
-          await image.decode();
-          const canvas = document.createElement("canvas");
-          canvas.width = image.width;
-          canvas.height = image.height;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return regions.map(() => 1);
-          ctx.drawImage(image, 0, 0);
-          const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-
-          const channel = (value: number) => {
-            const v = value / 255;
-            return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-          };
-
-          return regions.map((region) => {
-            const x0 = Math.max(0, Math.floor(region.x));
-            const y0 = Math.max(0, Math.floor(region.y));
-            const x1 = Math.min(canvas.width, Math.ceil(region.x + region.width));
-            const y1 = Math.min(canvas.height, Math.ceil(region.y + region.height));
-            let max = 0;
-            for (let y = y0; y < y1; y++) {
-              for (let x = x0; x < x1; x++) {
-                const i = (y * canvas.width + x) << 2;
-                const luminance =
-                  0.2126 * channel(pixels[i]!) +
-                  0.7152 * channel(pixels[i + 1]!) +
-                  0.0722 * channel(pixels[i + 2]!);
-                if (luminance > max) max = luminance;
-              }
-            }
-            return max;
-          });
-        },
-        { data: shot, regions: [...boxes, ...content] },
-      );
+         enough cloud behind a word is still legible. The measurement is shared
+         with the crossing test, in cloud-overlap.ts. */
+      const content = await collectContent(page);
+      const shot = await photographBehind(page);
+      const brightest = await brightestIn(decoder, shot, [...boxes, ...content]);
 
       content.forEach((box, index) => {
         const behind = brightest[boxes.length + index] ?? 1;

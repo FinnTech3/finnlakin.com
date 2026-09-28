@@ -131,8 +131,10 @@ export class PostChain {
       "u_vignetteDarkness",
       "u_grain",
       "u_exposure",
-      "u_maskEdge",
-      "u_maskSide",
+      "u_splits",
+      "u_sides",
+      "u_splitSoft",
+      "u_laneInner",
       "u_maskFeather",
       "u_gapCentre",
       "u_gapHalf",
@@ -326,8 +328,15 @@ export class PostChain {
         level === "full" ? config.grainStrength : config.grainStrength * 0.6,
       );
       gl.uniform1f(this.finalUniforms.u_exposure ?? null, EXPOSURE);
-      gl.uniform1f(this.finalUniforms.u_maskEdge ?? null, mask.edge);
-      gl.uniform1f(this.finalUniforms.u_maskSide ?? null, mask.side);
+      gl.uniform2f(this.finalUniforms.u_splits ?? null, mask.splits[0], mask.splits[1]);
+      gl.uniform3f(
+        this.finalUniforms.u_sides ?? null,
+        mask.sides[0],
+        mask.sides[1],
+        mask.sides[2],
+      );
+      gl.uniform1f(this.finalUniforms.u_laneInner ?? null, mask.inner);
+      gl.uniform1f(this.finalUniforms.u_splitSoft ?? null, mask.splitSoft);
       gl.uniform1f(this.finalUniforms.u_maskFeather ?? null, mask.feather);
       gl.uniform1f(this.finalUniforms.u_gapCentre ?? null, mask.gapCentre);
       gl.uniform1f(this.finalUniforms.u_gapHalf ?? null, mask.gapHalf);

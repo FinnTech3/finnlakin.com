@@ -165,12 +165,16 @@ uniform float u_exposure;
 /* The keep-out. The cloud is drawn everywhere the page's words are not, and
    these say where that is, in the same screen space the page is laid out in.
 
-   u_maskSide is +1 when the cloud's column is the right of the screen and -1
-   when it is the left; u_maskEdge is where that column starts. u_gapCentre and
-   u_gapHalf are the strip between two sections, which is the only horizontal
-   road across the page that has no text on it. */
-uniform float u_maskEdge;
-uniform float u_maskSide;
+   The screen is split at up to two heights, u_splits, where the lane changes
+   between two sections, and u_sides is the column in each region top to
+   bottom: +1 the right of the screen, -1 the left, 0 none. The column starts
+   u_laneInner from the middle of the screen. u_gapCentre and u_gapHalf are the
+   strip between two sections, which is the only horizontal road across the
+   page that has no text on it. */
+uniform vec2 u_splits;
+uniform vec3 u_sides;
+uniform float u_splitSoft;
+uniform float u_laneInner;
 uniform float u_maskFeather;
 uniform float u_gapCentre;
 uniform float u_gapHalf;
@@ -228,9 +232,20 @@ void main() {
      The ramp is one sided. It runs from the boundary *into* the cloud's own
      column, never out of it, so a feather that softens the edge cannot also
      leak light onto a word. */
-  float keep = u_maskSide == 0.0
+  float side = v_uv.y > u_splits.x ? u_sides.x : (v_uv.y > u_splits.y ? u_sides.y : u_sides.z);
+  float edge = 0.5 + side * u_laneInner;
+  float keep = side == 0.0
     ? 0.0
-    : smoothstep(0.0, u_maskFeather, (v_uv.x - u_maskEdge) * u_maskSide);
+    : smoothstep(0.0, u_maskFeather, (v_uv.x - edge) * side);
+
+  /* Faded to nothing towards a split, from both sides, across the seam's clear
+     half: the split is where one section's column hands over to the next's,
+     and a hard line there sliced straight through a dispersed cloud. The fade
+     lies inside the seam, which has no text in it. */
+  if (u_splitSoft > 0.0) {
+    float nearest = min(abs(v_uv.y - u_splits.x), abs(v_uv.y - u_splits.y));
+    keep *= smoothstep(0.0, u_splitSoft, nearest);
+  }
 
   /* And the road across. While the cloud is changing sides it is not in either
      column, it is in the gap between two sections, which is the one band of the

@@ -191,10 +191,6 @@ export function ParticleBrain({ className }: { className?: string }) {
         upgrade: engine.upgrade,
       });
 
-    /* A reader who has asked for less motion gets one settled frame per scroll
-       or resize rather than a loop. Not a slower animation: a still picture
-       that keeps up with the page. That path never joins the scheduler, because
-       there is nothing continuous to schedule. */
     /* Whether any of the canvas is on screen. Above the breakpoint it is fixed
        to the window and always is. Below it the canvas covers the hero's first
        screen and scrolls away with it, and a phone that has scrolled on to the
@@ -202,14 +198,31 @@ export function ParticleBrain({ className }: { className?: string }) {
        difference between the page costing battery for as long as it is open
        and costing it only at the top. */
     let onScreen = true;
+    /* Where the page was when the last still frame was drawn. */
+    let stillAt: number | null = null;
 
+    /* A reader who has asked for less motion gets one settled frame per scroll
+       or resize rather than a loop. Not a slower animation: a still picture
+       that keeps up with the page. That path never joins the scheduler, because
+       there is nothing continuous to schedule.
+
+       A frame drawn while the page moves narrows the seam the cloud crosses on
+       by how far it moved, for the compositor that has scrolled on ahead of
+       it. The page coming to rest is not an event, so one more frame is drawn
+       once it has stopped: the picture a reader is left looking at is the
+       settled one, and not the last frame of a fling with its margin in. */
     const pump = () => {
       if (!running || document.hidden || !onScreen) return;
       if (reducedMotion) {
         if (frame !== null) return;
         frame = requestAnimationFrame((now) => {
           frame = null;
+          const at = window.scrollY;
           draw(now);
+          if (at !== stillAt) {
+            stillAt = at;
+            pump();
+          }
         });
         return;
       }

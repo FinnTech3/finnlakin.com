@@ -93,7 +93,19 @@ function state(partial: Partial<ParticleTimelineState>): ParticleTimelineState {
     progress: 0,
     progress2: 0,
     rotation: { x: 0, y: 0, z: 0 },
-    mask: { edge: 0.6, side: 0, feather: 0.045, gapCentre: 0.5, gapHalf: 0, gapSoft: 0.4, off: 1 },
+    mask: {
+      edge: 0.6,
+      side: 0,
+      splits: [-1, -1],
+      sides: [0, 0, 0],
+      splitSoft: 0,
+      inner: 0.1,
+      feather: 0.045,
+      gapCentre: 0.5,
+      gapHalf: 0,
+      gapSoft: 0.4,
+      off: 1,
+    },
 
     ...partial,
   };
@@ -367,6 +379,63 @@ for (const delta of [1 / 120, 1 / 60, 1 / 30, 0.25, 0.5]) {
   );
   check(worstSlot <= 1, "no particle leaves a phone's slot at any scroll position",
     `${worstSlot.toFixed(2)} of the core`);
+
+  /* A crossing, in the middle, fits the seam it crosses on.
+
+     The seam is the band of padding between two sections, eighty pixels
+     either side of the boundary here, less the sixteen the scroll controller
+     keeps as a margin: at 720 pixels that is a clear half height of 0.089 of
+     the window. Halfway across, the cloud is in the middle of the screen
+     where only the seam is drawn, so any particle outside the band is a
+     particle cut away. Where halfway is depends on the cloud's own height, so
+     it is found rather than assumed: the seam height at which the cloud's
+     column flips from the upper section's side to the lower's. */
+  console.log("Crossings");
+  const CLEAR = (80 - 16) / 720;
+  let worstSeam = 0;
+  let worstSeamAt = "";
+  for (const aspect of [1.6, 1.78, 2.4]) {
+    const line = new ParticleTimeline(DEFAULTS.factorDesktop, aspect);
+    line.setLayout({ wide: true, slot: null });
+    const at = (uv: number, p: number) =>
+      line.settle(p, { here: 1, seams: [{ uv, above: 1, below: -1, clear: CLEAR, half: CLEAR }] });
+    for (let p = 1.5; p <= 5.0001; p += 0.25) {
+      let low = 0.05;
+      let high = 0.95;
+      if (at(low, p).mask.side === at(high, p).mask.side) continue;
+      for (let i = 0; i < 30; i++) {
+        const mid = (low + high) / 2;
+        if (at(mid, p).mask.side === 1) low = mid;
+        else high = mid;
+      }
+      const seamUv = high;
+      const state = at(seamUv, p);
+      const shape = built.shapes[p < 2.85 ? 0 : p < 3.5 ? 1 : p < 5.2 ? 2 : 3]!;
+      const depth = Math.abs(CAMERA_Z - state.offset.z);
+      for (let i = 0; i < COUNT; i += 7) {
+        const m = 1 + (multiplier[i]! - 1) * state.explode;
+        const scale = state.factor * m;
+        let x = (shape[i * 3]! - 0.5) * scale;
+        let y = (shape[i * 3 + 1]! - 0.5) * scale;
+        let z = (shape[i * 3 + 2]! - 0.5) * scale;
+        const { y: ry, z: rz } = state.rotation;
+        const x1 = x * Math.cos(ry) + z * Math.sin(ry);
+        z = -x * Math.sin(ry) + z * Math.cos(ry);
+        x = x1;
+        const y2 = x * Math.sin(rz) + y * Math.cos(rz);
+        y = y2;
+        const d = Math.max(0.05, depth - z);
+        const hh = d * Math.tan((CAMERA_FOV * Math.PI) / 360);
+        const uv = 0.5 + (y + state.offset.y) / (2 * hh);
+        const share = Math.abs(uv - seamUv) / CLEAR;
+        if (share > worstSeam) worstSeamAt = `aspect ${aspect}, progress ${p.toFixed(2)}`;
+        worstSeam = Math.max(worstSeam, share);
+      }
+    }
+  }
+  console.log(`  worst reach across a seam: ${worstSeam.toFixed(2)} of its clear half (${worstSeamAt})`);
+  check(worstSeam <= 1, "a crossing cloud fits the seam it crosses on",
+    `${worstSeam.toFixed(2)} of the clear half`);
 }
 
 if (failures > 0) {
