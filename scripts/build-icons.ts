@@ -3,10 +3,20 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { carbon, chalk } from "../src/lib/colours";
 
 /* Generates the icon set from one mark so every size stays in step. Run with
    `npm run build:icons` after changing it; the outputs are committed, because
    they are assets rather than build products.
+
+   The mark is two letters built out of bars on a grid of sixty four, in chalk
+   on carbon. It is drawn from rectangles and not set in a typeface, for two
+   reasons. An icon is shown by a browser's tab strip and a phone's home screen,
+   neither of which can load a web font, so type in an SVG falls back to
+   whatever the machine has and the mark is different on every one. And the
+   previous version fetched its face from Google at generation time, which made
+   the output depend on a request that this repository's own policy is built to
+   avoid. Bars have no metrics to disagree about.
 
    The PNGs are encoded here rather than taken from a screenshot. Chromium
    drops the alpha channel when an image is fully opaque, which yields a
@@ -21,17 +31,28 @@ const publicDir = join(root, "public");
 mkdirSync(appDir, { recursive: true });
 mkdirSync(publicDir, { recursive: true });
 
-const INK = "#ffffff";
-const PAPER = "#000000";
+/* Chalk on carbon. The wall is a mid grey that sits badly in a tab strip, which
+   is either lighter or darker than it, so the icon carries its own ground. */
+const GROUND = carbon;
+const MARK = chalk;
+
+/* The F and the L, in sixty fourths of the icon: x, y, width, height. Every bar
+   is eight wide, and the two letters are the same height, so the pair reads as
+   one piece cut from a single sheet. */
+const BARS: readonly (readonly [number, number, number, number])[] = [
+  [12, 12, 8, 40],
+  [12, 12, 18, 8],
+  [12, 28, 14, 8],
+  [36, 12, 8, 40],
+  [36, 44, 18, 8],
+];
 
 /* Solid ground rather than a transparent one, so the mark holds its own
    against both a light and a dark browser tab instead of dissolving into
    whichever it was not designed for. */
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Finn Lakin">
-  <rect width="64" height="64" fill="${INK}"/>
-  <text x="32" y="44" text-anchor="middle"
-        font-family="Newsreader, Georgia, 'Times New Roman', serif"
-        font-size="40" font-weight="500" fill="${PAPER}">FL</text>
+  <rect width="64" height="64" fill="${GROUND}"/>
+${BARS.map(([x, y, w, h]) => `  <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${MARK}"/>`).join("\n")}
 </svg>`;
 
 const CRC_TABLE = (() => {
@@ -91,32 +112,23 @@ function encodePng(rgba: Uint8Array, size: number): Buffer {
 async function main() {
   const browser = await chromium.launch();
   const tab = await browser.newPage();
-  await tab.setContent(
-    `<!doctype html><html><head><meta charset="utf-8">
-     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:wght@500&display=block">
-     </head><body></body></html>`,
-    { waitUntil: "load" },
-  );
-  await tab.evaluate(() => document.fonts.load('500 40px Newsreader'));
-  await tab.evaluate(() => document.fonts.ready);
+  await tab.setContent(`<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>`);
 
   async function render(size: number): Promise<Buffer> {
     const pixels = await tab.evaluate(
-      ({ size, ink, paper }) => {
+      ({ size, ground, mark, bars }) => {
         const canvas = document.createElement("canvas");
         canvas.width = size;
         canvas.height = size;
         const ctx = canvas.getContext("2d")!;
-        ctx.fillStyle = ink;
+        ctx.fillStyle = ground;
         ctx.fillRect(0, 0, size, size);
-        ctx.fillStyle = paper;
-        ctx.font = `500 ${size * 0.625}px Newsreader, Georgia, serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "alphabetic";
-        ctx.fillText("FL", size / 2, size * 0.6875);
+        ctx.fillStyle = mark;
+        const unit = size / 64;
+        for (const [x, y, w, h] of bars) ctx.fillRect(x * unit, y * unit, w * unit, h * unit);
         return Array.from(ctx.getImageData(0, 0, size, size).data);
       },
-      { size, ink: INK, paper: PAPER },
+      { size, ground: GROUND, mark: MARK, bars: BARS.map((bar) => [...bar]) },
     );
     return encodePng(Uint8Array.from(pixels), size);
   }
