@@ -4,6 +4,7 @@ import { Backdrop, Scrim } from "@/components/backdrop";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { Intro, IntroBoot } from "@/components/intro";
 import { ParticleBrainMount } from "@/components/particle-brain-mount";
+import { SiteOnly } from "@/components/site-only";
 import { ogImageUrl } from "@/lib/metadata";
 import { siteDescription, siteTitle, siteUrl } from "@/lib/site";
 import "./globals.css";
@@ -92,14 +93,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             the scrim that holds it down. All three are decoration and none can
             be reached by a pointer or a screen reader. Grouped in one fixed
             layer so that they stack behind the particle cloud as a unit. */}
-        <div className="stage-decoration">
-          {/* The surface the other two are composited onto. See the note in
-              globals.css: the stage cannot carry its own background, because
-              the gradient and the cloud are both behind it. */}
-          <div aria-hidden="true" className="stage-plate" />
-          <Backdrop />
-          <Scrim />
-        </div>
+        <SiteOnly>
+          <div className="stage-decoration">
+            {/* The surface the other two are composited onto. See the note in
+                globals.css: the stage cannot carry its own background, because
+                the gradient and the cloud are both behind it. */}
+            <div aria-hidden="true" className="stage-plate" />
+            <Backdrop />
+            <Scrim />
+          </div>
+        </SiteOnly>
 
         {/* Outside that wrapper, and it has to be.
 
@@ -126,11 +129,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           Skip to content
         </a>
-        <SiteHeader />
+        <SiteOnly>
+          <SiteHeader />
+        </SiteOnly>
         <main id="main" tabIndex={-1} className="flex-1 outline-none">
           {children}
         </main>
-        <SiteFooter />
+        <SiteOnly>
+          <SiteFooter />
+        </SiteOnly>
         <Intro />
         {/* Static and deferred rather than a React component, so a page view
             is recorded as soon as the document is parsed instead of waiting

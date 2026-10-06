@@ -1501,3 +1501,40 @@ html[data-intro="ending"] [data-brain] {
     scale: 1.2;
   }
 }
+
+/* The design directions, at /looks.
+
+   Three whole surfaces, each with its own paper, its own type and its own way
+   of drawing the cloud, built to be looked at one at a time while one of them
+   is chosen. Everything the site itself supplies is unmounted around them by
+   SiteOnly: no black plate, no gradient, no header and no footer.
+
+   The paper goes on the root element and it has to. The cloud's canvas is
+   fixed at z-index -10, which paints above the root's background and below
+   every block in the page, so a page wrapper carrying the paper colour would
+   cover the cloud completely. That is not a hypothetical: it is how the ink
+   reading was lost the first time it was built on this site. Nothing between
+   the root and the content may paint an opaque background. */
+html:has([data-look="index"]),
+html:has([data-look="archive"]) {
+  background: #edeae3;
+}
+
+html:has([data-look="print"]) {
+  background: #f2eee4;
+}
+
+html:has([data-look="concrete"]) {
+  background: #a7a39b;
+}
+
+/* The header is gone on these routes, so the room left for it is not wanted.
+   After the rule that adds it, because the two are the same specificity. */
+body:has([data-look]) main {
+  padding-top: 0;
+}
+
+/* Each direction keeps the site's own .band-inner and .band-lane-* rule for the
+   lane, deliberately rather than inventing its own spacing: the engine reads
+   which side the cloud travels on off those class names, and the width it masks
+   to is --lane. */

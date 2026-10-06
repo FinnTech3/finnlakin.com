@@ -40,6 +40,10 @@ export function collectContent(page: Page): Promise<ContentBox[]> {
     for (const element of Array.from(
       document.body.querySelectorAll<HTMLElement>("header *, main *, footer *"),
     )) {
+      /* The cloud is not content. On a page that mounts it inside itself, the
+         collector was picking up the cloud's own canvas and then reporting that
+         the cloud was behind it. */
+      if (element.closest("[data-brain]")) continue;
       const style = getComputedStyle(element);
       if (style.visibility === "hidden" || style.display === "none") continue;
       if (Number.parseFloat(style.opacity) < 0.05) continue;
@@ -74,7 +78,15 @@ export function collectContent(page: Page): Promise<ContentBox[]> {
    pixels, which on the phone project is two and three quarter times as many. */
 export async function photographBehind(page: Page): Promise<string> {
   await page.addStyleTag({
-    content: "body > header, body > main, body > footer { visibility: hidden !important }",
+    content:
+      /* The cloud stays. On the site it is mounted beside the page and this
+         never came up; a design direction mounts it inside its own page, so
+         hiding the page hid the thing being measured and the photograph came
+         back as bare paper. Visibility is inherited and can be turned back on
+         under something hidden, which is the one property that can express
+         "everything but this". */
+      "body > header, body > main, body > footer { visibility: hidden !important }" +
+      " [data-brain] { visibility: visible !important }",
   });
   const shot = (await page.screenshot({ scale: "css" })).toString("base64");
   await page.evaluate(() => {
@@ -134,6 +146,123 @@ export function brightestIn(
       });
     },
     { data, regions },
+  );
+}
+
+/* The same rule on a page that is not dark.
+
+   Over black the cloud is light, and "is anything bright behind this word" is
+   the whole question. On paper it is ink: darker than the sheet, or in the case
+   of chalk on concrete lighter than the wall, or two colours at once. Not one
+   of those is a question about brightness.
+
+   What they have in common is that the sheet is flat, so the measurement is
+   distance from the sheet's own colour. Nought is bare paper and anything over
+   this ceiling is a mark. The sheet is read off the photograph rather than
+   passed in: it is the commonest colour in a frame the cloud covers a fraction
+   of, which is one fewer number for a caller to get wrong. */
+export const MARK_CEILING = 0.03;
+
+/* Both measurements below run in a page of their own, so this is written as a
+   string and evaluated there. The alternative is passing a function, which
+   Playwright would serialise per call and which cannot then be shared between
+   the two of them. */
+const MARK_TOOLS = `
+  async function decodeShot(data) {
+    const image = new Image();
+    image.src = "data:image/png;base64," + data;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(image, 0, 0);
+    return { pixels: ctx.getImageData(0, 0, canvas.width, canvas.height).data, width: canvas.width, height: canvas.height };
+  }
+  /* The commonest colour, quantised to five bits a channel. On a page printed
+     on one flat sheet, that is the sheet. */
+  function paperOf(pixels) {
+    const counts = new Map();
+    for (let i = 0; i < pixels.length; i += 4) {
+      const key = ((pixels[i] >> 3) << 10) | ((pixels[i + 1] >> 3) << 5) | (pixels[i + 2] >> 3);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    let best = -1;
+    let mode = 0;
+    for (const [key, count] of counts) {
+      if (count > best) { best = count; mode = key; }
+    }
+    return [((mode >> 10) & 31) * 8 + 4, ((mode >> 5) & 31) * 8 + 4, (mode & 31) * 8 + 4];
+  }
+  function distanceFrom(pixels, i, paper) {
+    return Math.max(
+      Math.abs(pixels[i] - paper[0]),
+      Math.abs(pixels[i + 1] - paper[1]),
+      Math.abs(pixels[i + 2] - paper[2]),
+    ) / 255;
+  }
+`;
+
+/* The furthest any pixel inside each region gets from the sheet. Over bare
+   paper this is nought, and over a mark it is not. */
+export function markedBehind(
+  decoder: Page,
+  data: string,
+  regions: { x: number; y: number; width: number; height: number }[],
+): Promise<number[]> {
+  return decoder.evaluate(
+    ({ data, regions, tools }: { data: string; regions: ContentBox[]; tools: string }) =>
+      new Function(
+        "data",
+        "regions",
+        `${tools}
+        return (async () => {
+          const shot = await decodeShot(data);
+          if (!shot) return regions.map(() => 1);
+          const paper = paperOf(shot.pixels);
+          return regions.map((region) => {
+            const x0 = Math.max(0, Math.floor(region.x));
+            const y0 = Math.max(0, Math.floor(region.y));
+            const x1 = Math.min(shot.width, Math.ceil(region.x + region.width));
+            const y1 = Math.min(shot.height, Math.ceil(region.y + region.height));
+            let worst = 0;
+            for (let y = y0; y < y1; y++) {
+              for (let x = x0; x < x1; x++) {
+                const d = distanceFrom(shot.pixels, (y * shot.width + x) << 2, paper);
+                if (d > worst) worst = d;
+              }
+            }
+            return worst;
+          });
+        })();`,
+      )(data, regions) as Promise<number[]>,
+    { data, regions: regions as ContentBox[], tools: MARK_TOOLS },
+  );
+}
+
+/* How much of the frame carries a mark at all. A test that the cloud goes over
+   nothing has to show the cloud is there, or a page that failed to draw it
+   passes for the wrong reason. */
+export function markedShare(decoder: Page, data: string, over = MARK_CEILING): Promise<number> {
+  return decoder.evaluate(
+    ({ data, over, tools }: { data: string; over: number; tools: string }) =>
+      new Function(
+        "data",
+        "over",
+        `${tools}
+        return (async () => {
+          const shot = await decodeShot(data);
+          if (!shot) return 0;
+          const paper = paperOf(shot.pixels);
+          let marked = 0;
+          for (let i = 0; i < shot.pixels.length; i += 4) {
+            if (distanceFrom(shot.pixels, i, paper) > over) marked += 1;
+          }
+          return marked / (shot.pixels.length / 4);
+        })();`,
+      )(data, over) as Promise<number>,
+    { data, over, tools: MARK_TOOLS },
   );
 }
 
