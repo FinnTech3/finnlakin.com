@@ -1,407 +1,453 @@
-# Steep — Style Reference
-> serif analytics on warm paper
+# Concrete: style reference
+> one wall, four colours, two faces, nothing floating
 
-**Theme:** light
+**Theme:** light, and only one. There is no dark mode and no toggle.
 
-Steep renders analytics as editorial — serif Signifier headlines float over a near-monochrome white canvas while a single warm peach accent (#fbe1d1) punctuates an otherwise achromatic system. The page reads like a product magazine spread: oversized italicized display type, generous breathing room, large soft-edged cards at 24px radius, and pill-shaped controls that sit flat against the surface. Components feel quiet and weightless — shadows are barely-there, borders are hairline, and color is rationed to functional emphasis (a peach callout card, a dark brown label on peach). The product surfaces (region tables, activation charts, AI composers) are presented as floating artifacts around the headline, not nested in a dashboard shell.
+Concrete treats the site as a wall that work is pinned to. The page is a warm mid
+grey, `#a7a39b`, and everything on it is one of three other colours: carbon for
+type and rules, chalk for the two surfaces that are not wall, and a single acid
+yellow-green that is allowed to shout. Nothing floats. There are no cards, no
+radius, no shadow and no gradient used as a surface, so the only depth on the site
+is a scored line and a block of a different material. Headlines are Big Shoulders,
+condensed, upper case and enormous, and on the home page the name is large enough
+for the screen to crop it. Everything that is read is Martian Mono, small, wide
+and spaced, the way a terminal prints a listing. The work is an index with a
+verdict column rather than a grid of pictures, and the brain behind it is chalk
+dust on the wall.
 
-## Tokens — Colors
+It came out of the three directions built for Finn to choose between (Archive,
+Print room, Concrete), and he picked this one. The other two are in the history at
+`b29e2b0` and nowhere in the tree.
+
+## Tokens: colours
+
+The four colours are the whole palette. `src/lib/colours.ts` holds the same four
+for the places that cannot read a stylesheet (the viewport's theme colour, the
+manifest, the share cards and the icon generator), and `tests/platform.spec.ts`
+asserts that the wall there is the wall painted on the root.
 
 | Name | Value | Token | Role |
 |------|-------|-------|------|
-| Ink Black | `#17191c` | `--color-ink-black` | Primary text, filled button background, nav logo — the only dark surface in the system; every CTA and body headline resolves to this near-black |
-| Paper White | `#ffffff` | `--color-paper-white` | Page canvas, button text, elevated card surfaces — the dominant background tone carrying ~76 frequency points |
-| Mist Gray | `#f2f2f3` | `--color-mist-gray` | Card surfaces, secondary backgrounds, input fills — the quiet layer beneath paper for nested content |
-| Fog White | `#fafafb` | `--color-fog-white` | Secondary page background for alternating sections, hover surfaces — one step above paper for subtle band variation |
-| Slate Gray | `#777b86` | `--color-slate-gray` | Link color, muted helper text, footer copy — cool desaturated gray that sits between body text and disabled |
-| Ash Gray | `#979799` | `--color-ash-gray` | Tertiary labels, category tags (Marketing, Finance, Sales) — one step lighter than link color |
-| Smoke Gray | `#a3a6af` | `--color-smoke-gray` | Placeholder text (Ask anything…), disabled labels — the lightest functional gray, used when text recedes |
-| Blush Peach | `#fbe1d1` | `--color-blush-peach` | Accent card background, warm highlight wash — the only chromatic surface in the system; creates editorial warmth against monochrome |
-| Sienna Brown | `#5d2a1a` | `--color-sienna-brown` | Text and stroke on peach surfaces, dark accent for chart line strokes — a warm deep brown that pairs with Blush Peach like ink on kraft paper |
+| Wall | `#a7a39b` | `--wall`, `--paper` | The page. Painted on `html`, and on nothing else |
+| Carbon | `#121212` | `--carbon`, `--ink` | Type, scored lines, the filled control, the inverted block |
+| Chalk | `#f4f2ee` | `--chalk`, `--panel` | The sheet, the dialog, and type on carbon |
+| Acid | `#d4ff3a` | `--acid`, `--flag`, `--accent-soft` | A result that did not hold, and the highlight under a link or control that has focus or a pointer on it |
 
-## Tokens — Typography
+Every other colour on the site is one of those four at an alpha, so a grey that is
+not the wall's own never appears. The semantic tokens are what components ask
+for. Components never name a colour, which is how one block can turn the whole
+palette over.
 
-### Signifier — Display and headline serif — used exclusively for H1/H2 at three sizes; weight stays at 400 (regular) at every scale, which is the signature choice: the serif whispers authority rather than shouting in bold · `--font-signifier`
-- **Substitute:** GT Sectra, Tiempos Headline, Source Serif 4, or ui-serif/Georgia as fallback
-- **Weights:** 400
-- **Sizes:** 44px, 64px, 90px
-- **Line height:** 1.30
-- **Letter spacing:** -2.25px at 90px, -0.96px at 64px, -0.66px at 44px
-- **Role:** Display and headline serif — used exclusively for H1/H2 at three sizes; weight stays at 400 (regular) at every scale, which is the signature choice: the serif whispers authority rather than shouting in bold
+| Token | On the wall | Role |
+|-------|-------------|------|
+| `--ink` | carbon | Body and headings |
+| `--ink-soft` | carbon at 0.92 | Paragraphs that sit beside a headline |
+| `--muted`, `--faint` | carbon at 0.8 | Captions and labels |
+| `--rule` | carbon at 0.28 | A thin scored line. A line, not text, so it is exempt from the text ratios |
+| `--rule-strong` | carbon | The heavy scored line |
+| `--accent` | carbon | Interactive text: links, and nothing else |
+| `--accent-soft` | acid | The highlight under a link on hover and focus |
+| `--action`, `--action-ink` | carbon, chalk | The filled control, one per view. Never text |
+| `--pass` | carbon | A result that held. Plain |
+| `--flag` | acid | A result that did not. A swatch behind carbon, never a text colour |
+| `--card`, `--band` | transparent | Nothing. They are tokens so that a component asking for a surface gets none rather than an opaque box laid over the cloud |
+| `--veil` | carbon | The sheet over the opening animation |
 
-### Sohne — Body, UI, and navigation sans — the workhorse covering everything from 14px metadata to 26px subheads; the half-step weights (430, 450, 480) create fine-grained hierarchy without jumping to bold · `--font-sohne`
-- **Substitute:** Inter, Söhne (Klim Type Foundry), or ui-sans-serif/system-ui stack
-- **Weights:** 400, 430, 450, 480, 500
-- **Sizes:** 14px, 15px, 16px, 17px, 18px, 20px, 22px, 26px
-- **Line height:** 1.00–1.50
-- **Letter spacing:** -0.234px at 26px, -0.162px at 18px, 0 at body sizes
-- **Role:** Body, UI, and navigation sans — the workhorse covering everything from 14px metadata to 26px subheads; the half-step weights (430, 450, 480) create fine-grained hierarchy without jumping to bold
+### Contrast, worked out
 
-### Type Scale
+Small text needs 4.5:1 and large text needs 3:1. These are computed, not eyeballed,
+and `tests/a11y.spec.ts` runs axe at critical, serious and moderate on every route.
 
-| Role | Size | Line Height | Letter Spacing | Token |
-|------|------|-------------|----------------|-------|
-| caption | 15px | 1.5 | — | `--text-caption` |
-| body | 17px | 1.35 | — | `--text-body` |
-| body-lg | 20px | 1.35 | — | `--text-body-lg` |
-| subheading | 22px | 1.5 | — | `--text-subheading` |
-| heading-sm | 26px | 1.18 | -0.23px | `--text-heading-sm` |
-| heading | 44px | 1.3 | -0.66px | `--text-heading` |
-| heading-lg | 64px | 1.3 | -0.96px | `--text-heading-lg` |
-| display | 90px | 1.3 | -2.25px | `--text-display` |
+| Pair | Ratio | Used for |
+|------|-------|----------|
+| Carbon on wall | 7.45 | Everything |
+| Carbon at 0.92 on wall | 6.64 | `--ink-soft` |
+| Carbon at 0.8 on wall | 5.32 | `--muted`, `--faint`, and the lowest text on the site |
+| Carbon at 0.66 on wall | 3.92 | The bay numerals only, which are large type |
+| Carbon on acid | 16.20 | The `.flag` swatch |
+| Carbon on chalk | 16.76 | The sheet, and the dialog |
+| Chalk on carbon | 16.76 | The inverted block |
+| Chalk at 0.7 on carbon | 8.54 | `--muted` inside the inverted block |
+| Acid on wall | 2.17 | **Never text.** This is why a flag is a swatch |
+| Chalk on wall | 2.25 | **Never text.** It is the colour of the brain |
+| Chalk on acid | 1.03 | Never. Carbon is stated on `.flag` itself so a block that turns type to chalk cannot put chalk on acid |
 
-## Tokens — Spacing & Shapes
+The wall is as dark as it can be and still hold small text above 4.5:1 once the
+alphas are raised. The first version of this wall had its labels at 0.66, which
+axe measured at 3.9. If the wall is ever moved, it is moved lighter, not darker,
+and the alphas above are re-derived against it.
 
-**Base unit:** 4px
+## Tokens: typography
 
-**Density:** comfortable
+Two families, each at one end of the scale and nowhere between. A third face would
+be a step in the middle of a scale whose point is that it has none. Both load once,
+in `src/app/layout.tsx`, through `next/font/google`, subset and self hosted (the
+content security policy allows `font-src 'self'`, and no reader's address is handed
+to a third party to render a paragraph).
 
-### Spacing Scale
+**Big Shoulders** is the headline face, `--font-shoulders`. Condensed, upper case
+and heavy. Loaded as the variable font, so one file covers the weights 500, 600 and
+700 that the scale uses. It is for anything that is a heading, a name, a lead
+sentence or a quotation, and for nothing small.
 
-| Name | Value | Token |
-|------|-------|-------|
-| 4 | 4px | `--spacing-4` |
-| 8 | 8px | `--spacing-8` |
-| 12 | 12px | `--spacing-12` |
-| 16 | 16px | `--spacing-16` |
-| 20 | 20px | `--spacing-20` |
-| 24 | 24px | `--spacing-24` |
-| 28 | 28px | `--spacing-28` |
-| 32 | 32px | `--spacing-32` |
-| 40 | 40px | `--spacing-40` |
-| 64 | 64px | `--spacing-64` |
-| 80 | 80px | `--spacing-80` |
-| 96 | 96px | `--spacing-96` |
-| 124 | 124px | `--spacing-124` |
-| 128 | 128px | `--spacing-128` |
-| 160 | 160px | `--spacing-160` |
+**Martian Mono** is the reading face, `--font-martian`, with its width axis loaded
+because the labels are set wider than the body (`wdth` 112). It is for everything
+else, and it is the default on `body`.
 
-### Border Radius
+Both are `display: swap`, so text is never invisible, and a face that arrives late
+changes the page's metrics. What stands in for each while it arrives is therefore
+part of the system and is made by hand in `src/app/globals.css`, from measurements
+of the real faces:
 
-| Element | Value |
-|---------|-------|
-| cards | 24px |
-| images | 12px |
-| inputs | 16px |
-| buttons | 9999px |
-| smallCards | 16px |
-| elevatedCards | 20px |
+- **`Shoulders Fallback`** is Arial scaled to 68.5% under weight 650 and 76.5%
+  above it, with the real face's ascent and descent. Big Shoulders is about 0.69 of
+  Arial's width over the text the site sets in it.
+- **`Martian Mono Fallback`** is a plain monospace scaled to 119%, because every
+  character of the real face is 0.714 of the size across and a monospace is 0.6, so
+  the arithmetic is exact. It takes the name of the stand-in next/font generates,
+  which is Arial at 157% and 21 to 24% too wide across the labels, and replaces it
+  by coming later in the stylesheet with the same descriptors.
+- **Measures on headline text are in `em`, never `ch`.** A `ch` is the width of a
+  zero in whichever face is showing, so a box sized in them wraps the same words
+  differently in the stand-in and in the real face.
+- **The two labels at the top of the hero stack on a phone** and do not wrap, for
+  the same reason: a row that cannot wrap does not change its mind when the face
+  lands.
 
-### Shadows
+With the font files held back 2.5 seconds, a swap now moves the page by 0.0001 on a
+laptop and 0.0005 on a phone, against 0.195 on the phone before. `tests/performance.spec.ts`
+asserts under 0.01 on both projects, and asserts separately that the hand-made
+Martian rule is the last one declared under the generated name, because on a
+machine without Arial the generated one is never used and the difference cannot be
+seen as a shift.
 
-| Name | Value | Token |
-|------|-------|-------|
-| subtle | `oklab(0 0 0 / 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.08) ...` | `--shadow-subtle` |
-| subtle-2 | `oklab(0 0 0 / 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.1) 0...` | `--shadow-subtle-2` |
-| subtle-3 | `rgba(4, 23, 43, 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.1)...` | `--shadow-subtle-3` |
+### Type scale
 
-### Layout
+| Class | Face | Size | Weight | Line height | Used for |
+|-------|------|------|--------|-------------|----------|
+| `.t-display-lg` | Big Shoulders | `clamp(4.5rem, min(17vw, 24svh), 15rem)` | 700 | 0.86 | The name, on the home page only. Sized by the shorter of the window's width and a quarter of its height, so the controls are on the first screen on a laptop |
+| `.t-hlg` | Big Shoulders | `clamp(3rem, 8vw, 6.5rem)` | 700 | 0.88 | A page's own title where the page is not the home page |
+| `.t-h` | Big Shoulders | `clamp(2.25rem, 6vw, 4.5rem)` | 600 | 0.9 | A section's heading |
+| `.t-hsm` | Big Shoulders | `clamp(1.875rem, 3.6vw, 2.75rem)` | 600 | 0.95 | An entry's name, and a long-form heading |
+| `.t-sub` | Big Shoulders | `clamp(1.25rem, 2.6vw, 2rem)` | 500 | 1.05 | The one sentence a section leads with |
+| `.t-h3` | Big Shoulders | 1.375rem | 600 | 1.05 | The smallest thing that is still a heading, and the wordmark |
+| `.quote` | Big Shoulders | `clamp(1.125rem, 2.1vw, 1.5rem)` | 500 | 1.2 | Somebody else speaking. It changes voice instead of drawing quotation marks |
+| body | Martian Mono | 0.875rem | 400 | 1.6 | Paragraphs |
+| `.t-body-lg` | Martian Mono | 1rem | 400 | 1.6 | A lead paragraph |
+| `.t-caption` | Martian Mono | 0.75rem | 400 | 1.55 | Captions and notes |
+| `.t-label` | Martian Mono, `wdth` 112 | 0.6875rem | 400 | 1.35 | Labels: tracked at 0.16em, upper case, in `--faint` |
+| `.longform` | Martian Mono | 0.9375rem | 400 | 1.75 | The essays, at 62ch. The most legible setting the site has, on the chalk sheet |
 
-- **Page max-width:** 1200px
-- **Section gap:** 80px
-- **Card padding:** 20px
-- **Element gap:** 8px
+The hierarchy is the gap between the two ends, not a ladder of steps. Do not add a
+size in the middle.
 
-## Components
+## Spacing, shape and line
 
-### Pill Button — Filled
-**Role:** Primary call-to-action (Get started, Book a demo)
+- **Radius is zero everywhere.** Controls, blocks, the sheet, the dialog and the
+  embeds are square. A rounded corner is the first thing that would put this back
+  into the system it replaced.
+- **There are no shadows.** Nothing is raised, so nothing is lowered. Hover
+  feedback is a rule lighting up or a link gaining its acid highlight.
+- **No gradient is a surface.** Two exist, both for function: the carbon scrim
+  under a caption over a moving picture (`.clip-scrim`), and the ring of light
+  running round the call to action.
+- **Lines are scored into the wall.** `.scored` is a 2px carbon line; `.scored-thin`
+  is a 1px line at the `--rule` alpha. Table headers sit on a 2px line and rows on a
+  1px one. A bay and the sheet have a 2px carbon edge.
+- **Space** is generous and set by `clamp`: `.section-pad` is
+  `clamp(3.5rem, 8vw, 7rem)` above and below a section's content, and the gutter is
+  `clamp(1.25rem, 5vw, 7rem)`. Measure is `58ch` for a paragraph (`.measure`) and
+  `48ch` for a tighter one.
+- **A page has a left edge and the work hangs from it.** Nothing is centred. The
+  `.shell` column and a band's content both start where the name does.
 
-Background #17191c, text #ffffff, border 1px solid #ffffff (invisible against fill), border-radius 9999px (fully rounded), padding 0 20px, height auto with text. Sohne 16px weight 400. No shadow. The pill shape and dark fill against white is the signature action element — it reads as a solid black lozenge.
+## Layout, and the lane
 
-### Pill Button — Ghost
-**Role:** Secondary action paired with filled primary (Book a demo beside Get started)
+The home page is laid out around a lane. The brain is about 370 pixels across, so
+there is nowhere for it to be that is not over somebody's paragraph unless the page
+gives it a column, and it does. Each band's content sits to one side and the cloud
+travels down the other, changing sides at two band boundaries (about to path, and
+skills to endorsements). Below 1100 pixels the lane collapses, and the cloud draws
+inside a slot under the hero's controls instead.
 
-Background transparent, text #17191c, border 1px solid #17191c, border-radius 9999px, padding 0 20px. Sohne 16px weight 400. Shares the pill geometry with the filled variant so they read as a matched pair on the same baseline.
+This is a contract with the particle engine (`ParticleBrainREADME.md`), and these
+things must hold:
 
-### Text Link with Arrow
-**Role:** Inline navigation and section transitions (Learn more →, Read the story →)
+- The seven section ids are `hero`, `work`, `about`, `path`, `skills`,
+  `endorsements` and `contact`, in that order.
+- The side is a class on the `<section>`: `band-lane-right` puts the lane on the
+  right and the content on the left, and `band-lane-left` the reverse. In order,
+  the lanes are right (hero, work, about), left (path, skills), right
+  (endorsements, contact).
+- The engine reads the padding on each section's **first child** as the seam it has
+  to change columns in. That is `.section-pad`, which is a measurement as well as a
+  margin.
+- `--lane` is `40vw` and `LANE_FRACTION` in `src/particles/timeline.ts` is `0.4`.
+  They are the same number and are changed together.
+- **A rule belongs to the block it is inside, never to a band**, or it runs through
+  the lane under the cloud. For the same reason the header has no rule under it, and
+  on the home page the footer's rule stops where the lane starts
+  (`body:has(#hero) .site-footer .shell`).
+- **Nothing between the root and the content paints an opaque background on `/`.**
+  The canvas is fixed at `z-index: -10`, above the root's background and below every
+  block, so the wall is on `html`, the body is transparent, and a wrapper that
+  carried the wall colour would cover the cloud completely.
+- The first screen carries the name, the standfirst and the two controls, and starts
+  on what it is. The rest of the evidence arrives on the way down. The controls sit
+  **beside** the standfirst from 720px and not under it, because under it they fell
+  below the fold at 1280 by 720, 1366 by 768 and 657, 1536 by 730, 1100 by 700 and
+  1024 by 700: the name takes most of the first screen on purpose, and anything
+  stacked beneath the standfirst goes past the bottom of a laptop's window.
+  `tests/first-screen.spec.ts` holds it at 1280 by 720, 1366 by 657, 1440 by 900,
+  1920 by 950 and 393 by 727.
+- No figure, rule or box reaches into the lane. There is deliberately no utility
+  for it.
 
-No background, no border, no border-radius, text #17191c, Sohne 16px weight 400, padding 20px 0. The arrow glyph (→) is part of the label, not a separate icon. This is the lowest-emphasis interactive element — underlines only on hover.
-
-### Nav Link
-**Role:** Top navigation items (Product, Resources, Customers, Pricing)
-
-No background or border, text #17191c, Sohne 16px weight 400, padding 2px 0. Sits in a transparent top bar with the logo left and CTAs right. The nav is whisper-quiet — no background, no shadow, no separator.
-
-### Neutral Card
-**Role:** Feature blocks, content containers, and base card surface
-
-Background #f2f2f3, border-radius 24px, no shadow, no border, padding varies (0 internally with content children providing their own padding). This is the default workhorse card — flat, soft, and quiet.
-
-### Accent Peach Card
-**Role:** Editorial highlight or callout panel (customer quotes, feature spotlights)
-
-Background #fbe1d1, text and strokes #5d2a1a, border-radius 24px, no shadow, no border. The warm-on-warm palette creates a kraft-paper effect — these cards should be rare (one per page maximum) to preserve their impact.
-
-### Floating Product Artifact
-**Role:** Hero and section visual elements (region table, activation chart, registration card, AI composer)
-
-Background #ffffff, border-radius 20px, subtle box-shadow: 0 0 0 1px rgba(4,23,43,0.05), 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1), padding 16px 20px 12px 12px. These are the product UI fragments that float around hero text — they are the only elements with visible shadow, and only at 10% opacity.
-
-### Input / Composer
-**Role:** AI question input field (Ask anything…)
-
-Background #ffffff, border 1px solid #ececec or hairline, border-radius 16px, padding 16px, placeholder text #a3a6af in Sohne 16px. Contains left-side @ and ⓘ icons and a right-side dark circular send button (40px diameter, #17191c fill, white arrow icon).
-
-### Stat Card with Chart
-**Role:** Data display fragment (Registrations 2.4k, Activation 46.2%)
-
-White floating artifact surface with a bold metric in Sohne 20px weight 500 #17191c, a delta line (↑ 5.5x vs last week) in Sohne 14px #777b86, and a minimal line or radial chart in #5d2a1a stroke. No axes, no gridlines — the chart is a gestural line, not a data dashboard.
-
-### Avatar Bubble
-**Role:** User presence indicator on floating cards (JB, AF initials)
-
-Circular, 40px diameter, border-radius 9999px, background tinted (light green for JB, light blue for AF), 2-letter monogram in Sohne weight 500, small directional arrow (cursor pointer) extending from the bubble edge.
-
-### Tag / Category Label
-**Role:** Section or content category markers (Marketing, Finance, Sales)
-
-No background, no border, text in Sohne 14px weight 400 #979799. Intentionally ghost-like — these are typographic tags, not badges. They group without visual weight.
-
-## Do's and Don'ts
-
-### Do
-- Use Signifier weight 400 at 44/64/90px for all display and heading copy; never substitute a sans-serif at these sizes
-- Use the peach #fbe1d1 card surface at most once per page and only for editorial emphasis — treat it as a rare accent, not a background
-- Set border-radius to 9999px on all buttons and 24px on all content cards; these are the two structural radii of the system
-- Pair every filled pill button (#17191c) with a ghost pill button (#17191c border, transparent fill) as a secondary action on the same row
-- Use Sohne half-step weights (430, 450, 480) for body hierarchy before reaching weight 500 — the scale is finer than standard 400/500/700
-- Set letter-spacing to -0.025em on 90px display, -0.015em on 64/44px headings, and -0.009em on 26/18px Sohne — tighter tracking at larger sizes is the typographic signature
-- Keep the 4px base unit: use 4/8/12/16/20/24px for component padding, and 80px for section gaps
-
-### Don't
-- Don't use chromatic colors beyond the peach/brown pair — the system is intentionally 97% achromatic; introducing blue, green, or purple will break the editorial restraint
-- Don't use bold (600+) or semibold (500) weights in Signifier — the serif stays at 400 across all sizes, that restraint is the signature
-- Don't apply drop shadows to content cards (Neutral Card or Accent Peach Card) — only floating product artifacts earn elevation
-- Don't use border-radius below 16px on cards or below 9999px on buttons — sharp corners and moderate radii are not part of this system
-- Don't underline inline text links at rest — the arrow suffix (→) carries the link affordance; underlines appear only on hover
-- Don't place the peach #fbe1d1 card on a non-white section background — it needs Paper White or Card Mist beneath it to read as warm-on-neutral
-- Don't use the #5d2a1a Sienna Brown outside peach surfaces — it's the ink for Blush Peach cards and chart strokes, never body text on white
+Every other route is an ordinary column: `Section` without `lane` renders in
+`.shell`, because the cloud mounts on `/` only and a lane with nothing in it is a
+wasted third of the screen.
 
 ## Surfaces
 
-| Level | Name | Value | Purpose |
-|-------|------|-------|---------|
-| 0 | Canvas | `#ffffff` | Default page background; the white paper everything sits on |
-| 1 | Card Mist | `#f2f2f3` | Quietly nested content blocks, feature cards, tab panels |
-| 2 | Section Fog | `#fafafb` | Alternating section bands that break up the white canvas without contrast |
-| 3 | Accent Blush | `#fbe1d1` | Editorial accent cards; the chromatic punctuation of the system |
-| 4 | Elevated White | `#ffffff` | Floating product UI artifacts (region tables, activation charts, AI composer) that overlap hero/section content with subtle shadow |
+There are three materials. Everything is on the wall, and a block of another
+material is a decision somebody made, not a default.
 
-## Elevation
+| Level | Name | Value | Where |
+|-------|------|-------|-------|
+| 0 | Wall | `#a7a39b` | Every page, and nearly everything on it |
+| 1 | Carbon block | `#121212` | `.chalk-block`, `.on-carbon`: the one inverted surface, used where a thing has to be read before anything else. The reconstruction ledger on the home page, the callout on the strongest project, and the caption over the reel's film. The tokens turn over inside it, so the same markup is carbon on the wall and chalk on carbon without restating a rule |
+| 2 | Chalk sheet | `#f4f2ee` | `.sheet`, `.palette`: a poster pasted on the wall, for anything read for twenty minutes. The essays, the privacy page and the search dialog |
+| - | Veil | `#121212` | The sheet over the opening animation, for the seven seconds the chalk cloud and the words are the only things on screen, lifting onto the wall |
 
-- **Floating Product Artifact:** `0 0 0 1px rgba(4,23,43,0.05), 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)`
-- **Modal / Overlay Card:** `oklab(0 0 0 / 0.05) 0px 0px 0px 1px, rgba(0,0,0,0.1) 0px 8px 40px 0px`
-- **Dropdown / Popover:** `oklab(0 0 0 / 0.05) 0px 0px 0px 1px, rgba(0,0,0,0.08) 0px 4px 24px 0px`
+`.chalk-block` is named for the chalk type on it. It is a block of carbon.
+
+## Components
+
+### Section
+A scored line with a label under it, a display heading, an optional lead sentence,
+and the content in a container (so what is inside lays itself out against the room
+the band gives it and not the window's). The line is inside the section's own
+container. `level` makes it the `h1` on a page whose heading it is, and `lane`
+chooses a side on the home page.
+
+### Header and footer
+The header is in the flow, above the page, and nothing else: the name in `.t-h3`,
+the navigation as labels, and the search as a ruled box. There is no rule under it.
+The footer is a scored line, the links as arrow labels, and the one sentence that
+says nothing here is financial advice.
+
+### Link with arrow
+`.link-arrow`. Carbon like the text around it, with the arrow as part of the label,
+and no underline at rest. On hover **and on keyboard focus** it underlines at 2px
+and takes the acid highlight, so a reader who cannot hover has the same signal.
+Inside running prose a link is underlined at rest, because there is no arrow to
+carry it.
+
+### Control
+`.pill`, `.pill-filled`, `.pill-ghost`. Square, 2px carbon edge, set in the
+terminal's voice (12px, tracked, upper case), at least 44px tall. The filled one is
+carbon with chalk on it, and there is one per view. Hover is acid with carbon on it.
+
+### The call to action
+`ShinyButton`, `.shiny-cta`. The animated control Finn supplied, re-skinned for the
+wall: square and carbon, with acid light running round the edge and a field of dots
+masked to a sweeping arc. It is paused while it is off screen (`data-cta` on the
+root, set by the hero's observer), because it animates a custom property and every
+frame is a real paint, and it holds still for a reader who asked for less motion.
+The glow and the inner shimmer are gone: acid over carbon at any strength worth
+seeing goes to olive. It uses the page's face, not its own import.
+
+### The ledger
+`Ledger` and `.index-table`: a table of quantity, what it is against, the
+deviation and the verdict, aligned and undecorated. A verdict is carried three
+ways at once, by the word, the weight, and for a result that did not hold, the
+swatch, so that nobody needs the colour. Below 720px it is a list of short blocks
+of the same four things in the same order, and the table is `display: none`, so it
+is not in the accessibility tree twice.
+
+### The index
+`ProjectIndex`: the work as a listing, a number, the piece and its headline, the
+one figure that carries it, what it is built with, and how far the evidence goes.
+Each piece links to its entry. It scrolls inside itself on a narrow screen, and the
+region is focusable and named so a keyboard can reach the columns that are off the
+edge.
+
+### An entry
+`ProjectEntry`: name, headline, body, clip, stats, the interval band, **what this
+does not show**, and the links. The limits are not optional and are not a footnote.
+
+### Flag and held
+`.flag` is a result that did not hold: the words, on a swatch of acid, with carbon
+on it, set on the words themselves and not on a table cell (on a cell the swatch
+stretches down a row with a paragraph in it and reads as a rendering fault). `.held`
+is a result that did: plain, at weight 500, with the word saying so. In print the
+swatch becomes weight 700 and an outline, because a pale grey says nothing and a
+colour printer and a monochrome one disagree about a pale green.
+
+### Bays
+`Bays`: five squares cut into the wall with a number and a label, empty, with a
+heading that counts them and says none is filled. They are the other half of the
+work (painting and drawing, photography and film, 3D and code, graphic design,
+archive and fashion), held open. A placeholder that was somebody else's picture is
+the one thing this site argues against. When a bay is filled, replace the
+component: the heading would be wrong the day one is.
+
+### Endorsements
+`.quote` in the headline face, upper case, with no marks drawn for it, the name
+beneath it as a label, and the word "Cut." where an endorsement was trimmed. No
+discs, no tinted cards.
+
+### The search dialog
+`.palette`: a square sheet of chalk with a carbon edge. The wall behind it is dimmed
+by a flat carbon at 0.62 and nothing is blurred.
+
+### Charts and figures
+Square marks. A result that did not hold is a bar of acid with a carbon edge (acid
+alone against the wall is 2.17:1, and the edge is what makes it a shape), with its
+number in a `.flag` swatch beside it, so the reading is in the text as well as the
+colour. Every figure declares where its data came from.
+
+## Motion
+
+Motion is CSS, so no library can park an element at a hidden transform and leave the
+page blank when a script is blocked. The budget is small: rows settling once on load
+(`.settle-rows`, 420ms), hover feedback at 140ms, and the call to action's light.
+The name is never animated: it is the first thing a reader needs, and it is painted,
+not arriving.
+
+The opening animation runs about seven seconds on a reader's first visit to `/`:
+the name, then the second line, then the brain, then the hand-over, with the veil
+lifting over 700ms. Both lines are drawn in the headline face, read off the page's
+own `h1`, and the engine waits for that face to arrive (up to 1.5 seconds) before it
+draws the words, so a slow connection never gets them in a fallback. The page is held
+still while it runs. It does not run for a reader who asked for less motion, and it
+is controlled by an attribute set before first paint so that LCP still happens on
+the real content.
+
+`prefers-reduced-motion: reduce` collapses every animation and transition to
+nothing.
 
 ## Imagery
 
-Imagery is product-first, not lifestyle: floating UI fragments (region tables with 5-row data, line charts showing activation over Aug–Nov, radial progress rings, AI input composers) are positioned as cropped screenshots around editorial headlines. No photography, no illustration, no abstract graphics. All product visuals sit on white floating-artifact cards with hairline borders and soft 10% shadows. Avatar circles carry a small directional cursor pointer — a visual motif that signals live interaction. The hero composition is a text-and-UI collage, not a centered headline with a stock photo.
+There is no imagery yet, and that is deliberate. The art, the photography and the
+clothes are Finn's, and none of it is on the site until he supplies it with its
+provenance.
 
-## Layout
+- **No stock images and no generated images**, standing in for his work or for
+  anything else. The bays are empty and say so.
+- **No brand marks, logos or assets** from the designers the look nods to.
+- **No texture on the wall.** axe cannot read text over a background image, so a
+  texture would quietly weaken the accessibility gate. It can come later if he asks
+  and the gate can be kept.
+- The brain is the only picture: chalk dust drawn by the particle engine, in the
+  `ink` surface with chalk pigments. It is the quietest of the three looks by nature
+  (chalk on this wall is 2.25:1) and is the centrepiece because of what it does and
+  not because of how loud it is.
+- When work arrives, it goes in the bays, square, scored, captioned with a label,
+  with its medium and its date. A moving clip over a caption has the carbon scrim.
 
-Page model is max-width 1200px centered, with hero sections going near full-bleed but staying within the container. The hero pattern is a centered oversized serif headline with a subhead and pill button pair, surrounded by four floating product artifact cards (region table top-left, registration card right, activation chart bottom-left, AI composer bottom-center) that overlap the white canvas at varied offsets. Sections alternate between Paper White and Card Mist backgrounds to create quiet rhythm without strong contrast. Feature sections use a 2-column text+UI layout with generous 80px vertical gaps. Navigation is a single transparent top bar (no background, no border, no shadow) with logo left, nav links center, and two CTAs (text link + filled pill) right. The overall density is spacious — the page breathes between sections, and content never crowds the edges.
+## Content rules
 
-## Agent Prompt Guide
+- **If a number cannot be sourced, it is not printed.** Every figure declares where
+  it came from: reproduced offline from a capture committed to its repository,
+  measured against real data, simulated over historical prices, the output of
+  assumptions the reader sets, or a tool with no result to reproduce.
+- **No availability claim.** The site does not say when, or whether, Finn is
+  available or seeking work. It had a dated one once, and it went stale. `person`
+  has no field for it, so TypeScript flags any use.
+- **Private repositories are never linked.** The public work links only to public
+  repositories.
+- **Nothing on the site or in the repository names the tools or models that helped
+  write it.**
+- **British spelling, and no em dashes**, in every `.ts`, `.tsx` and `.mjs` under
+  `src` and `scripts`, comments included. `npm run check:voice` scans for it.
+- **Some of the wording is a first draft of what Finn said, and is his to rewrite.**
+  The hero's paragraph (the film, print, drawing and clothes line) and the copy
+  under the Bays, each in one place.
 
-## Quick Color Reference
-- text: #17191c
-- background: #ffffff
-- border: #ececec
-- muted text: #777b86
-- accent: #fbe1d1
-- primary action: #17191c (filled action)
+## Accessibility
 
-## Example Component Prompts
-1. **Hero headline + accent card collage**: White canvas (#ffffff). Display headline at 90px Signifier weight 400, #17191c, letter-spacing -2.25px, with one italicized phrase mid-sentence. Subhead at 17px Sohne weight 400, #777b86. Below: a filled pill button (background #17191c, text #ffffff, border-radius 9999px, padding 0 20px, Sohne 16px) and a ghost pill button (background transparent, border 1px solid #17191c, text #17191c, border-radius 9999px) side by side. Surround the text with three white floating product artifact cards: a data table card, a line chart card, and a stat card — each with background #ffffff, border-radius 20px, box-shadow 0 0 0 1px rgba(4,23,43,0.05) + 0 20px 25px -5px rgba(0,0,0,0.1), positioned with negative margins to overlap the text margins.
+- axe at critical, serious and moderate on every route, and a 400px sideways-scroll
+  check, in `tests/a11y.spec.ts`.
+- **A verdict is never carried by its colour alone.** The word says it, the weight
+  says it, and in print an outline says it.
+- **Acid is never text on the wall.** At 2.17:1 it cannot be read at any size here.
+  It is a swatch behind carbon, or a highlight behind carbon.
+- **Focus is visible on everything**, a 2px carbon ring at a 3px offset, and acid
+  inside a carbon block (carbon on carbon is nothing). Links gain their highlight on
+  focus as well as hover.
+- **Controls are at least 44px tall.**
+- A region that can scroll is focusable and named.
+- The skip link is the first focusable element, carbon on chalk with a carbon edge
+  when it appears.
+- The cloud is `aria-hidden` and never takes a click, a selection or the keyboard.
+  It holds still for a reader who asked for less motion, stops drawing when the tab
+  is hidden, and stops when its space has scrolled off a phone's screen.
+- **Print** is ink on white with the chrome removed, for the CV and the essays. Links
+  print their address, and the blocks of carbon and chalk become a bordered page.
 
-2. **Accent editorial card**: Background #fbe1d1, text #5d2a1a, border-radius 24px, no shadow, padding 40px. Title at 26px Sohne weight 450, #5d2a1a, letter-spacing -0.23px. Body quote at 18px Sohne weight 430, #5d2a1a. Attribution at 14px Sohne weight 400, #5d2a1a. Place this card once on a #ffffff section, never on a colored or dark background.
+## Do's and don'ts
 
-3. **Neutral feature card**: Background #f2f2f3, border-radius 24px, no shadow, padding 32px 20px. Category label at 14px Sohne weight 400, #979799 (no background, no badge style). Title at 20px Sohne weight 500, #17191c. Body at 16px Sohne weight 400, #17191c, line-height 1.5. Text link below: Sohne 16px weight 400, #17191c, no border-radius, padding 20px 0, with → arrow suffix.
+### Do
+- Ask for tokens, never for a colour. A component that names a hex is a component
+  that will not turn over inside a block.
+- Keep a rule inside the content's own column.
+- Put the verdict in words. Then colour it.
+- Use Big Shoulders only for headings, names, lead sentences and quotations, and
+  Martian Mono for everything else.
+- Keep the first screen to the name, the standfirst, what it is and two controls.
+- Measure contrast against the wall before changing anything on it.
+- Say where a figure came from, and say what it does not show.
 
-4. **AI composer input**: White background #ffffff, border 1px solid #ececec, border-radius 16px, padding 16px, width 480px. Placeholder text Ask anything… at 16px Sohne weight 400, #a3a6af. Left side: two ghost icon buttons (40px circle, no fill). Right side: 40px circular send button with background #17191c, white arrow icon centered.
+### Don't
+- Don't use a radius, a shadow, a card or a tinted band.
+- Don't set text in acid. Don't set text in chalk on the wall.
+- Don't add a third face, or a size between the ends of the scale.
+- Don't paint an opaque background between the root and the content on `/`.
+- Don't put a figure or a line into the lane.
+- Don't put a picture on the wall that is not Finn's, or that he has not supplied.
+- Don't invent a figure to fill a space.
+- Don't link a private repository.
 
-5. **Section with alternating background**: Section background #fafafb (Fog White), padding 80px vertical. Section title at 64px Signifier weight 400, #17191c, letter-spacing -0.96px. Subhead at 18px Sohne weight 430, #777b86. Below: 3-column grid of neutral feature cards (#f2f2f3 background, 24px radius, 20px padding, no shadow) with 24px column gap.
+## File map
 
-## Similar Brands
+| Path | What is in it |
+|---|---|
+| `src/lib/colours.ts` | The four colours, for the places that cannot read a stylesheet |
+| `src/app/globals.css` | The tokens, the type scale, the surfaces and the controls. This is where the system is enforced |
+| `src/app/layout.tsx` | The two faces, the viewport's theme colour, and the chrome |
+| `src/components/section.tsx` | Scored line, label, heading, lead and container |
+| `src/components/hero.tsx` | The name, the standfirst, the controls, the ledger block |
+| `src/components/ledger.tsx` | The reconstruction table, and its phone form |
+| `src/components/project-index.tsx`, `project-entry.tsx` | The work as a listing and as entries |
+| `src/components/bays.tsx` | The five empty bays |
+| `src/components/shiny-button.tsx` | The animated call to action |
+| `src/components/chrome.tsx`, `nav-links.tsx` | Header and footer |
+| `src/components/intro.tsx` | The veil and the boot script for the opening |
+| `src/components/particle-brain-mount.tsx` | Mounts the cloud on `/` and passes it the chalk surface |
+| `src/particles/` | The engine. See `ParticleBrainREADME.md` |
+| `src/app/not-found.tsx` | A bad link, in the same wall |
+| `src/app/manifest.ts`, `og/[card]/route.tsx`, `icon.svg` | The platform surfaces, on the same four colours |
+| `scripts/build-icons.ts` | Generates the icon set from one mark. Run `npm run build:icons` after changing it |
+| `tests/backdrop.spec.ts`, `cloud-overlap.ts`, `crossing.spec.ts` | The cloud never being under a word, and what the cloud is doing: its marks are measured as distance from the flat wall |
+| `tests/a11y.spec.ts`, `print.spec.ts`, `platform.spec.ts` | Contrast (including the call to action's label on its own fill), print, and the platform colours |
+| `tests/performance.spec.ts` | Budgets, and what a late font does to the page |
+| `tests/first-screen.spec.ts` | The name and both controls inside the window at five sizes |
 
-- **Linear** — Same monochrome dark-text-on-white approach with oversized serif-free type and pill-shaped CTAs; Linear's restraint matches Steep's editorial minimalism
-- **Pitch** — Presentation tool that pairs serif display headlines with a warm accent palette and floating UI cards; shares the editorial-product hybrid visual language
-- **Arc** — Browser with a soft warm-toned monochrome interface, generous border-radius on cards, and the same whisper-quiet typography approach
-- **Framer** — Large serif headlines floating over white with minimal chrome and pill controls; shares the magazine-spread page architecture
+## Changing the wall
 
-## Quick Start
+The wall is the one decision everything else is derived from, so it is changed last
+and measured.
 
-### CSS Custom Properties
-
-```css
-:root {
-  /* Colors */
-  --color-ink-black: #17191c;
-  --color-paper-white: #ffffff;
-  --color-mist-gray: #f2f2f3;
-  --color-fog-white: #fafafb;
-  --color-slate-gray: #777b86;
-  --color-ash-gray: #979799;
-  --color-smoke-gray: #a3a6af;
-  --color-blush-peach: #fbe1d1;
-  --color-sienna-brown: #5d2a1a;
-
-  /* Typography — Font Families */
-  --font-signifier: 'Signifier', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-sohne: 'Sohne', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-
-  /* Typography — Scale */
-  --text-caption: 15px;
-  --leading-caption: 1.5;
-  --text-body: 17px;
-  --leading-body: 1.35;
-  --text-body-lg: 20px;
-  --leading-body-lg: 1.35;
-  --text-subheading: 22px;
-  --leading-subheading: 1.5;
-  --text-heading-sm: 26px;
-  --leading-heading-sm: 1.18;
-  --tracking-heading-sm: -0.23px;
-  --text-heading: 44px;
-  --leading-heading: 1.3;
-  --tracking-heading: -0.66px;
-  --text-heading-lg: 64px;
-  --leading-heading-lg: 1.3;
-  --tracking-heading-lg: -0.96px;
-  --text-display: 90px;
-  --leading-display: 1.3;
-  --tracking-display: -2.25px;
-
-  /* Typography — Weights */
-  --font-weight-regular: 400;
-  --font-weight-w430: 430;
-  --font-weight-w450: 450;
-  --font-weight-w480: 480;
-  --font-weight-medium: 500;
-
-  /* Spacing */
-  --spacing-unit: 4px;
-  --spacing-4: 4px;
-  --spacing-8: 8px;
-  --spacing-12: 12px;
-  --spacing-16: 16px;
-  --spacing-20: 20px;
-  --spacing-24: 24px;
-  --spacing-28: 28px;
-  --spacing-32: 32px;
-  --spacing-40: 40px;
-  --spacing-64: 64px;
-  --spacing-80: 80px;
-  --spacing-96: 96px;
-  --spacing-124: 124px;
-  --spacing-128: 128px;
-  --spacing-160: 160px;
-
-  /* Layout */
-  --page-max-width: 1200px;
-  --section-gap: 80px;
-  --card-padding: 20px;
-  --element-gap: 8px;
-
-  /* Border Radius */
-  --radius-sm: 0.01px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
-  --radius-2xl-2: 20px;
-  --radius-3xl: 24px;
-
-  /* Named Radii */
-  --radius-cards: 24px;
-  --radius-images: 12px;
-  --radius-inputs: 16px;
-  --radius-buttons: 9999px;
-  --radius-smallcards: 16px;
-  --radius-elevatedcards: 20px;
-
-  /* Shadows */
-  --shadow-subtle: oklab(0 0 0 / 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.08) 0px 4px 24px 0px;
-  --shadow-subtle-2: oklab(0 0 0 / 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.1) 0px 8px 40px 0px;
-  --shadow-subtle-3: rgba(4, 23, 43, 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.1) 0px 8px 10px -6px;
-
-  /* Surfaces */
-  --surface-canvas: #ffffff;
-  --surface-card-mist: #f2f2f3;
-  --surface-section-fog: #fafafb;
-  --surface-accent-blush: #fbe1d1;
-  --surface-elevated-white: #ffffff;
-}
-```
-
-### Tailwind v4
-
-```css
-@theme {
-  /* Colors */
-  --color-ink-black: #17191c;
-  --color-paper-white: #ffffff;
-  --color-mist-gray: #f2f2f3;
-  --color-fog-white: #fafafb;
-  --color-slate-gray: #777b86;
-  --color-ash-gray: #979799;
-  --color-smoke-gray: #a3a6af;
-  --color-blush-peach: #fbe1d1;
-  --color-sienna-brown: #5d2a1a;
-
-  /* Typography */
-  --font-signifier: 'Signifier', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-sohne: 'Sohne', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-
-  /* Typography — Scale */
-  --text-caption: 15px;
-  --leading-caption: 1.5;
-  --text-body: 17px;
-  --leading-body: 1.35;
-  --text-body-lg: 20px;
-  --leading-body-lg: 1.35;
-  --text-subheading: 22px;
-  --leading-subheading: 1.5;
-  --text-heading-sm: 26px;
-  --leading-heading-sm: 1.18;
-  --tracking-heading-sm: -0.23px;
-  --text-heading: 44px;
-  --leading-heading: 1.3;
-  --tracking-heading: -0.66px;
-  --text-heading-lg: 64px;
-  --leading-heading-lg: 1.3;
-  --tracking-heading-lg: -0.96px;
-  --text-display: 90px;
-  --leading-display: 1.3;
-  --tracking-display: -2.25px;
-
-  /* Spacing */
-  --spacing-4: 4px;
-  --spacing-8: 8px;
-  --spacing-12: 12px;
-  --spacing-16: 16px;
-  --spacing-20: 20px;
-  --spacing-24: 24px;
-  --spacing-28: 28px;
-  --spacing-32: 32px;
-  --spacing-40: 40px;
-  --spacing-64: 64px;
-  --spacing-80: 80px;
-  --spacing-96: 96px;
-  --spacing-124: 124px;
-  --spacing-128: 128px;
-  --spacing-160: 160px;
-
-  /* Border Radius */
-  --radius-sm: 0.01px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
-  --radius-2xl-2: 20px;
-  --radius-3xl: 24px;
-
-  /* Shadows */
-  --shadow-subtle: oklab(0 0 0 / 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.08) 0px 4px 24px 0px;
-  --shadow-subtle-2: oklab(0 0 0 / 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.1) 0px 8px 40px 0px;
-  --shadow-subtle-3: rgba(4, 23, 43, 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.1) 0px 8px 10px -6px;
-}
-```
+1. Change `--wall` in `src/app/globals.css` and `wall` in `src/lib/colours.ts`
+   together, or `tests/platform.spec.ts` fails.
+2. Re-derive the alphas for `--ink-soft`, `--muted` and `--faint` against it, so the
+   lowest text stays above 4.5:1. Carbon on the wall is 7.45 now.
+3. Re-run the contrast walk in `tests/backdrop.spec.ts` and the overlap checks in
+   `tests/cloud-overlap.ts`, which measure how far each region behind a word is from
+   the flat wall.
+4. Look at the brain. Chalk on the wall is 2.25:1 and the cloud is already the
+   quietest it has been. A darker wall reads better in small type and worse in the
+   brain, and a lighter wall does the reverse. If the cloud stops reading as the
+   centrepiece, the answer is a darker pigment for it (soot), decided by looking at
+   it and not switched quietly.

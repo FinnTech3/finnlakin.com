@@ -6,19 +6,26 @@ textures, driven by a spring solver that runs entirely on the graphics card,
 morphing between four shapes as the page scrolls. A phone builds eleven
 thousand.
 
-It is the opening animation, the dark band at the top of the home page, and the
-cloud that goes on travelling down the page beside the writing.
+It is the opening animation, the first screen of the home page, and the cloud
+that goes on travelling down the page beside the writing.
 
 The particles accumulate additively into a float target, which is the only way
-to draw thirty thousand overlapping shards without sorting them, and that
-accumulation is read as emitted light. It only works over black, so the site is
-black: every band paints a translucent surface at most, the cloud sits behind
-all of it at `z-index: -10`, and what keeps it off the words is the lane rather
-than the layer.
+to draw thirty thousand overlapping shards without sorting them. What that
+buffer means is a choice the final pass makes, and there are three (see
+Surfaces). The site is a warm grey wall with chalk dust on it, so it passes the
+`ink` reading: the buffer is how much chalk has been laid down, and the cloud is
+pale marks on a mid grey page. Nothing between the root element and the content
+paints an opaque background, the cloud sits behind all of it at `z-index: -10`,
+and what keeps it off the words is the lane rather than the layer.
 
-There was briefly an ink reading of the same buffer, for when the page below the
-stage was paper. It is gone with the paper, and it is in the history if the
-background ever goes light again.
+The opening animation runs on a carbon veil, which is the one dark thing the
+cloud is ever over, so the words are legible for the seven seconds they are the
+only thing on screen. Chalk over carbon and chalk over the wall are the same
+pigment over two grounds, which is why the engine needs no change between them.
+
+The first reading of the buffer was as emitted light, with bloom and depth of
+field, over a black page. It is still in the engine and still the default for a
+caller that does not ask for anything else, but no page on this site uses it.
 
 ## Why it is written by hand
 
@@ -32,7 +39,7 @@ have roughly tripled the number the site is measured on.
 Written directly against WebGL2, every capability the specification asks for is
 reached: instanced geometry, ping ponged simulation, four morph targets with per
 particle ordering, depth, bloom, depth of field, vignette and grain. The home
-page measures 538KB of JavaScript against a ceiling of 560, and the engine's
+page measures 553KB of JavaScript against a ceiling of 560, and the engine's
 share of that is whatever the home page carries over a route without it, which
 `tests/performance.spec.ts` holds apart by asserting the two separately.
 
@@ -70,17 +77,17 @@ targets. It never calculates where a particle is.
 | `src/particles/brain-shape.ts` | Samples the brain out of the field, and derives the other three shapes from it. |
 | `src/particles/brain-anatomy.ts` | The distance field: the swept profile, the fissure, the regions, the folds. |
 | `src/particles/brain-profile.ts` | The traced outline. Generated; do not edit by hand. |
-| `src/particles/scroll.ts` | The stage's travel in, timeline progress out. |
+| `src/particles/scroll.ts` | The real sections' geometry and the lane's seams in, timeline progress out. |
 | `src/particles/entrance.ts` | Where each particle waits before the opening releases it. |
 | `src/particles/mouse.ts` | A screen position back into the simulation's own space. |
-| `src/particles/words.ts` | Text to particle targets, for the opening animation. |
+| `src/particles/words.ts` | Text to particle targets, for the opening animation, drawn in the page's own headline face (read off its first `h1`). |
 | `src/particles/quality.ts` | What the machine can do, and what to ask of it. |
 | `src/particles/ping-pong.ts` | A pair of targets, one read while the other is written. |
-| `src/particles/palette.ts` | The colours. One file, one edit. |
-| `src/components/particle-brain.tsx` | The canvas, the frame loop and five listeners. |
-| `src/components/particle-brain-mount.tsx` | Loads it, on the home page only. |
-| `src/components/hero.tsx` | The stage: its height, its sticky panel and the two artifacts. |
-| `src/app/globals.css` | The lane the layout leaves empty, the stage's scroll driven motion and the decoration layer's stacking. |
+| `src/particles/palette.ts` | The colours of the light reading, and the parsers for the ink ones. |
+| `src/components/particle-brain.tsx` | The canvas, the frame loop and five listeners, and the wait for the headline face before the opening is drawn. |
+| `src/components/particle-brain-mount.tsx` | Loads it, on the home page only, and says which surface the site uses and in what pigment. |
+| `src/components/hero.tsx` | The first band: where the choreography starts, and the slot a phone's cloud is drawn in. |
+| `src/app/globals.css` | The wall on the root, the lane the layout leaves empty, and the veil over the opening. |
 
 ## The simulation
 
@@ -479,9 +486,17 @@ cloud reaches the clamp where the aperture stops meaning anything.
 
 ## Contrast
 
-`tests/backdrop.spec.ts` hides the page, photographs what is left, and compares
-the brightest background pixel inside each run of text's own box against that
-text's own colour, at eight points down the document.
+`tests/backdrop.spec.ts` hides the page, photographs what is left (the wall and
+the cloud), and asks two questions of every piece of content on screen, at eight
+points down the document. The first is the rule the page is built to: is anything
+but bare wall behind it? That is `markedBehind` in `tests/cloud-overlap.ts`, and it
+is a distance from the wall, because chalk is lighter than the wall and soot would
+be darker, and what they share is that neither is the wall. The second is the
+contrast itself, against the pixels and not the styles: the ratio of each run of
+text's own colour to whatever is nearest its luminance behind it
+(`luminanceRangeIn`). On a flat wall the second is close to redundant, and it stays
+because it reads pixels: it is the one that would notice a block that grew a
+background.
 
 **Nothing is dimmed.** There were three dimmers and a gradient painted over the
 reading column, all doing one job: holding the cloud down so text laid over it
@@ -538,13 +553,11 @@ runs the final pass at the `"minimal"` post level, which skips the bloom and the
 depth of field and keeps the tone map, the mask and the colour conversion. It
 has the real mask.
 
-Two things the suite does not measure here, deliberately. Text on its own opaque
-surface is excluded, because the cloud behind a card or a pill reaches the
-reader not at all; axe covers that case properly, on every route, since it
-resolves an element's own background. And axe in turn cannot model a sticky
-ancestor: with the stage's panel stuck it walks past the white artifact cards
-and reports sixteen elements as dark text on black, so the accessibility scan
-neutralises that one property and touches no colour.
+One thing the suite does not measure here, deliberately. Text on its own opaque
+surface (the block of carbon on the home page, the chalk sheet) is excluded from
+the contrast walk, because the cloud behind it reaches the reader not at all; axe
+covers that case properly, on every route, since it resolves an element's own
+background. Axe cannot read the canvas, which is what the pixel measurement is for.
 
 ## Surfaces
 
@@ -555,15 +568,22 @@ white and the cloud is simply not there. That is arithmetic, not taste, so the
 final pass reads the buffer in one of three ways, chosen by
 `config.surface` (`CloudSurface` in `types.ts`):
 
-- **`light`**, the default and what the home page has always had. The buffer is
-  light, with bloom, depth of field, a vignette and grain. It needs a dark page.
-- **`ink`**, one pigment. The buffer is read as how much ink has been laid down:
+- **`light`**, the default, and what the engine did first. The buffer is light,
+  with bloom, depth of field, a vignette and grain. It needs a dark page, and no
+  page on this site has one now: it stays so the engine still works over black for
+  a caller that wants it, and `scripts/check-dof.ts` and `scripts/check-motion.ts`
+  still guard it.
+- **`ink`**, one pigment, and **what the site uses**. The buffer is read as how
+  much ink has been laid down:
   `coverage = (1 - exp(-mass * gain)) * keep`, so the first particles darken the
   sheet quickly and the hundredth in the same place adds almost nothing, which
   is what ink does and light does not. The pigment runs from `pale` where the
   laydown is thin to `deep` where it is heavy. Dark pigments on a pale page are a
   drawing; pale ones on a mid grey page are chalk, which is why there is no third
-  kind for it.
+  kind for it. The site passes `{ kind: "ink", pale: "#cfccc4", deep: "#f6f4f0",
+  gain: 5.2 }` from `particle-brain-mount.tsx`: chalk on the wall, and the same
+  chalk on the carbon veil for the opening. The output is premultiplied, so it
+  composites over either ground without the pass knowing which one it is.
 - **`riso`**, two pigments, printed one after the other. The second plate samples
   the buffer again at `offset`, a few pixels off, which is the whole character of
   a duplicator, and each plate goes through a halftone screen at its own angle so
@@ -610,10 +630,19 @@ no conversion, and raw additive particles on a pale page are a faint grey haze
 with no picture in it. A page that loses its cloud has lost a decoration; a page
 that gains a haze over its reading has lost more than that.
 
-`tests/looks.spec.ts` measures it. On a dark page the overlap question is
-brightness. Here it is distance from the sheet, which is flat, and the sheet is
-read off the photograph as its commonest colour: `markedBehind` in
-`tests/cloud-overlap.ts`.
+`tests/backdrop.spec.ts` and `tests/crossing.spec.ts` measure it. On a dark page
+the overlap question is brightness. Here it is distance from the wall, which is
+flat, and the wall is read off the photograph as its commonest colour:
+`markedBehind` in `tests/cloud-overlap.ts`.
+
+**How legible the cloud is, is a property of the pigment and the wall, not of the
+engine.** The pigment's ends are 1.57:1 against the wall where the laydown is thin
+and 2.29:1 where it is heaviest, which is the most any pixel of it can be. That is
+quiet by nature: it reads as a presence, not as a figure. The levers are the wall (`--wall` in
+`globals.css`, no darker than text can bear) and the pigment (`pale` and `deep`,
+and `gain`, which is how quickly the laydown saturates). A darker pigment such as
+soot reads harder against the wall and is a different look, so it is a decision
+and not a tuning.
 
 ## Scroll
 
@@ -622,11 +651,11 @@ top reaching the top of the viewport is progress *n*, and between two boundaries
 it is the fraction of the way between them.
 
 This went round a circle. It was the sections; then, while the cloud could only
-be drawn on black, the whole timeline was compressed into the stage's own travel
-so it could be seen at all; and it is the sections again, because the cloud has
-the length of the page to travel down. The ink pass bought that back first, on a
-white page; taking the page black keeps it for a different reason. The change
-back was a deletion both times.
+be drawn on black, the whole timeline was compressed into a pinned stage's own
+travel so it could be seen at all; and it is the sections again, because the
+cloud has the length of the page to travel down. The ink pass bought that back,
+and the wall keeps it. The change back was a deletion both times, and the stage
+is gone.
 
 Two things are different from the first version:
 
@@ -664,12 +693,13 @@ declares `band-lane-left` or `band-lane-right`, and `ScrollController.laneState(
 reports which lanes are where on the screen and where the seams between them are.
 
 **Whether there is a lane at all is one breakpoint, 1100 pixels**, for the bands'
-lane padding, the stage's pinned layout and the engine, which reads it through
-`matchMedia` rather than working it out. It was three: the stage collapsed at
-1024 pixels, the bands at 1100 and the engine at an aspect ratio of 1.22, so at
-1099 by 800 the stage was pinned beside a column the bands had collapsed and the
-cloud was cut to it over a full width column of text. A test asserts all three
-agree either side of the breakpoint.
+lane padding, the hero's two columns and the engine, which reads it through
+`matchMedia` rather than working it out. It was three: a pinned stage collapsed
+at 1024 pixels, the bands at 1100 and the engine at an aspect ratio of 1.22, so
+at 1099 by 800 the stage was pinned beside a column the bands had collapsed and
+the cloud was cut to it over a full width column of text. The stage is gone and
+the number is still one: a test asserts the layout and the engine agree either
+side of the breakpoint.
 
 It was worked out twice, as a stack of ramps in `timeline.ts`, and the two
 disagreed. The ramps were a guess about where each section sits in the progress
@@ -770,18 +800,21 @@ keeps its shape and its place in the lane and only changes its size on screen.
 
 Both cost a working brain and neither is visible in the markup.
 
-**An animated opacity makes a stacking context.** `.stage-decoration` holds the
-black plate, the gradient and the scrim, and animates its own opacity so it can
-fade with the stage. With no position and no z-index of its own it painted in
-the ordinary positioned step, which is after every negative z-index layer in the
-root context, so its black plate painted straight over the cloud at -10 and the
-brain vanished from the page entirely. It is pinned at -20 now. The cloud is
-outside that wrapper, because the opening animation has to lift it above the
-veil and a z-index inside a stacking context cannot escape one.
+**An animated opacity makes a stacking context.** The black stage had a
+decoration layer holding a black plate, a gradient and a scrim, and it animated
+its own opacity so it could fade with the stage. With no position and no z-index
+of its own it painted in the ordinary positioned step, which is after every
+negative z-index layer in the root context, so its black plate painted straight
+over the cloud at -10 and the brain vanished from the page entirely. The layer is
+gone with the stage, and the lesson is why the wall is painted on the root element
+and why nothing between the root and the content may paint a background: anything
+that does is on the cloud's side of the page. The cloud itself is outside every
+wrapper, because the opening animation has to lift it above the veil and a
+z-index inside a stacking context cannot escape one.
 
 **A view timeline whose subject stops being rendered goes inactive**, and Chrome
 then applies the animation's end state. The cloud's fade used to ride the
-stage's view timeline, so anything that hid the page took the cloud to nought
+black stage's view timeline, so anything that hid the page took the cloud to nought
 opacity with it — including the three tests that hide the page precisely so they
 can photograph what is behind the words. All three were photographing an empty
 canvas and calling it a measurement. Nothing whose visibility matters may hang
@@ -796,14 +829,14 @@ Everything in `DEFAULTS` in `src/particles/types.ts`:
 | Particle count | `gridSize`, `gridSizeMobile` (the count is the square) |
 | Brain scale | `factorDesktop`, `factorMobile` |
 | Particle scale | `particleScaleDesktop`, `particleScaleMobile` |
-| Colour palette | `RAMP`, `WARM`, `WARM_SHARE` in `palette.ts` |
+| Colour palette of the light reading, which no page uses now | `RAMP`, `WARM`, `WARM_SHARE` in `palette.ts` |
 | What the cloud is drawn in: light, one ink, two inks | `surface`, a `CloudSurface` in `types.ts`, and see Surfaces |
+| The site's chalk: its two pigments, and how fast it saturates | `surface` in `particle-brain-mount.tsx` |
 | Spring, friction | `spring`, `friction` |
 | Pointer parting | `pointerReach`, `pointerPush`, `pointerSwirl`, `mouseSmoothing` |
 | Entrance | `entryWindow`, `SHOW_SECONDS` in `engine.ts`, the constants in `entrance.ts` |
 | Scroll sensitivity | `scrollEase`, and `MAX_SECTIONS_PER_SECOND` in `scroll.ts` |
 | What progress is measured against | `SECTIONS` and `RANGE` in `scroll.ts` |
-| Stage length | the height on the section in `hero.tsx`, and the ranges in `globals.css` |
 | Morph speed | `morphDelayDesktop`, `morphDelayMobile`, `secondaryMorphDelay` |
 | Explosion | `explosionDelay`, and the multiplier in `targets.ts` |
 | Bloom | `bloomStrength`, `bloomThreshold`, `bloomRadius` |
@@ -863,8 +896,8 @@ The drawing buffer is capped by area rather than by edge, at 2.2 million pixels.
 - A hidden tab stops drawing. On return the clock does not jump.
 - No WebGL2, no float render target, a shader that will not compile or a
   framebuffer the driver refuses: `createParticleBrain` returns null and the page
-  keeps the flat gradient it was already painting.
-- A lost context shows the gradient rather than asking for the GPU back.
+  keeps the bare wall it was already painting.
+- A lost context shows the bare wall rather than asking for the GPU back.
 - Unmounting disposes every program, buffer, texture, framebuffer and listener.
 
 ## Integration
@@ -885,11 +918,11 @@ React state.
 It no longer owns the loop. `src/particles/frame.ts` does, and it is the only
 `requestAnimationFrame` loop on the page.
 
-There were two. This engine ran one and the gradient backdrop in
-`src/components/backdrop.tsx` ran another, each governing itself. Two callbacks
-a frame for one picture, and two independent answers to "am I too slow", so a
-slow machine stepped **the cloud** down while the decoration behind it carried
-on at full cost. The page shed its subject to protect its ornament.
+There were two. This engine ran one and a gradient backdrop, since deleted,
+ran another, each governing itself. Two callbacks a frame for one picture, and
+two independent answers to "am I too slow", so a slow machine stepped **the
+cloud** down while the decoration behind it carried on at full cost. The page
+shed its subject to protect its ornament.
 
 Now clients register with a rank, and the scheduler owns one ladder for the
 whole page, in a stated order:
@@ -924,13 +957,16 @@ The rules that keep it from reacting to the wrong things:
   frames** rather than after a whole window. The run is not reset by a window
   closing, which it was, so a run that straddled a close went unanswered.
 
-The backdrop registers at thirty frames a second, time gated, so it draws
-thirty times a second on a 60, 120 or 144Hz display alike; a cadence of every
-other frame drew it sixty times a second at 120Hz. It does not join the loop at
-all while the opening animation runs: the veil over it is opaque, and while it
-was registered and merely skipping those frames, a struggling entrance had the
-scheduler give up a gradient that was costing nothing before it relieved the
-cloud, which was the cost.
+**Nothing on the site registers as decoration now.** The gradient backdrop was
+the only client of the first two rungs, and it went with the black stage it was a
+background for, so on the site the ladder is one rung: the cloud steps itself
+down. The scheduler keeps the other two, and its tests drive them with a stand-in
+called the backdrop, on purpose: they are the only thing that proves the ordering
+holds, and a decoration that joins the ladder later (it should register at thirty
+frames a second, time gated, so it draws thirty times a second on a 60, 120 or
+144Hz display alike, and should not join the loop at all while the opening
+animation runs, or a struggling entrance would give up the decoration before it
+relieved the cloud) arrives to a ladder that already behaves.
 
 `tests/frame-budget.spec.ts` drives the scheduler with a stand-in display that
 steps frame timestamps, because a frame rate cannot be measured on a machine
