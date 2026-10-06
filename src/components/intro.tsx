@@ -2,7 +2,7 @@
 
 /* The opening animation is no longer a particle system. It is two entries in
    the same target texture the brain lives in, drawn by the same engine, and
-   what remains here is the black it happens against and the decision about
+   what remains here is the carbon it happens against and the decision about
    whether it happens at all.
 
    That is most of the file gone, and the reason is worth keeping: the previous
@@ -34,7 +34,7 @@ export function Intro() {
 export function IntroBoot() {
   /* The timeout is the failsafe. The engine that clears this attribute is
      loaded on demand, and if that request never arrives, the reader is left
-     looking at an opaque black rectangle with the finished page underneath it.
+     looking at an opaque rectangle with the finished page underneath it.
 
      It stands down once the engine has taken the animation over, which the
      engine marks with data-intro-owned. Twelve seconds used to be assumed to be

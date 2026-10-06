@@ -18,8 +18,26 @@ const ParticleBrain = dynamic(
   { ssr: false },
 );
 
+/* The cloud, in chalk.
+
+   The engine draws light: particles accumulate additively, and an accumulation
+   of light is only ever visible over something dark. The wall is mid grey, so
+   the final pass reads the same buffer as a saturating coverage instead and
+   lays it down as pigment. Pale where the cloud is thin and near white where it
+   piles up, over a grey wall, that is chalk dust, which is the one medium that
+   suits a wall. See the Surfaces section of ParticleBrainREADME.md.
+
+   The pigments are not the page's chalk. They are a touch darker at the thin
+   end so a sparse edge sits in the wall instead of floating above it. */
+const surface = {
+  kind: "ink",
+  pale: "#cfccc4",
+  deep: "#f6f4f0",
+  gain: 5.2,
+} as const;
+
 export function ParticleBrainMount() {
   const pathname = usePathname();
   if (pathname !== "/") return null;
-  return <ParticleBrain />;
+  return <ParticleBrain surface={surface} />;
 }

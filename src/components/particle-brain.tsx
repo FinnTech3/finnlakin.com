@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { frameScheduler } from "@/particles/frame";
 import { createParticleBrain } from "@/particles/engine";
@@ -25,17 +25,60 @@ const INTRO_CEILING_MS = 9_000;
 /* Matches the transition in the stylesheet that fades the veil out. */
 const VEIL_FADE_MS = 700;
 
-export function ParticleBrain({
-  className,
-  surface,
-}: {
+/* How long the opening will wait for the headline's typeface before it starts
+   without it. */
+const FACE_PATIENCE_MS = 1_500;
+
+type Props = {
   className?: string;
   /* What the cloud is drawn in. Omitted is light, which is what a dark page
-     wants and what the home page has always had. A page on paper passes its
-     own pigments, and a two ink page passes its sheet as well: see
-     CloudSurface. */
+     wants. A page on a pale wall passes its own pigments, and a two ink page
+     passes its sheet as well: see CloudSurface. */
   surface?: CloudSurface;
-}) {
+};
+
+/* The opening draws its words in the page's own headline face, and a canvas can
+   only draw with a face that has arrived: one still in flight falls back
+   silently to whatever the machine has. The headline asks for its face and the
+   font is preloaded, so on an ordinary connection it is here long before the
+   engine's code has downloaded and the page has hydrated. On a slow one it is
+   not, and the first thing a first visit would see is the name in the wrong
+   typeface.
+
+   So the opening waits for the face, up to a second and a half, and starts
+   without it after that. A late opening in the wrong face is better than no
+   opening, and no opening is better than a page held behind a veil for as long
+   as a font takes. Only when an opening is going to run, so a second page view
+   and a reader who asked for less motion never wait for anything. */
+function headlineFont(): string | null {
+  if (document.documentElement.dataset.intro !== "running") return null;
+  const heading = document.querySelector("h1");
+  if (!heading || !document.fonts?.check) return null;
+  const style = getComputedStyle(heading);
+  const font = `${style.fontWeight} 64px ${style.fontFamily}`;
+  return document.fonts.check(font) ? null : font;
+}
+
+export function ParticleBrain(props: Props) {
+  const [waiting] = useState(headlineFont);
+  const [ready, setReady] = useState(waiting === null);
+
+  useEffect(() => {
+    if (ready || waiting === null) return;
+    let alive = true;
+    const patience = new Promise<void>((resolve) => setTimeout(resolve, FACE_PATIENCE_MS));
+    void Promise.race([document.fonts.load(waiting).catch(() => []), patience]).then(() => {
+      if (alive) setReady(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [ready, waiting]);
+
+  return ready ? <Cloud {...props} /> : null;
+}
+
+function Cloud({ className, surface }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -77,7 +120,7 @@ export function ParticleBrain({
       window.removeEventListener("keydown", skip);
       /* The scroll comes back here rather than when the veil finishes fading,
          because the page underneath is complete and the reader is already
-         looking at it through a dissolving black sheet. */
+         looking at it through a dissolving sheet of carbon. */
       root.removeAttribute("data-intro-locked");
       window.scrollTo(0, 0);
       if (ceiling) clearTimeout(ceiling);
@@ -138,12 +181,12 @@ export function ParticleBrain({
 
     /* Every failure path lands here: no WebGL2, no float render target, a
        shader that would not compile, a driver that refused a framebuffer. The
-       page keeps the flat gradient it was already painting, and nobody is shown
-       a blank rectangle where a picture should be. */
+       page keeps the flat wall it was already painting, and nobody is shown a
+       blank rectangle where a picture should be. */
     if (!engine) {
       host.dataset.brain = "fallback";
       /* No engine means no animation to wait for, and leaving the attribute set
-         would leave the page under an opaque black rectangle for ever. */
+         would leave the page under an opaque rectangle for ever. */
       if (wantsIntro) delete root.dataset.intro;
       return;
     }
@@ -178,11 +221,11 @@ export function ParticleBrain({
     /* Registered with the page's one scheduler rather than owning a loop.
 
        The cloud is rank 0: it is drawn first in a frame and it is the last
-       thing given up when frames run long. The gradient behind it is rank 1 and
-       is thinned, then dropped, before the cloud's own quality levels are
-       touched at all. Two loops used to run here, each governing itself, and
-       the result was that a slow machine shed the subject and kept the
-       decoration. */
+       thing given up when frames run long. Anything decorative behind it would
+       be rank 1, and is thinned, then dropped, before the cloud's own quality
+       levels are touched at all; nothing is today. Two loops used to run here,
+       each governing itself, and the result was that a slow machine shed the
+       subject and kept the decoration. */
     let release: (() => void) | null = null;
     let frame: number | null = null;
 
@@ -314,7 +357,7 @@ export function ParticleBrain({
 
     /* A lost context is the browser reclaiming the GPU, usually under memory
        pressure. Asking for it back tends to lose it again; showing the flat
-       gradient does not. */
+       wall does not. */
     const onContextLost = (event: Event) => {
       event.preventDefault();
       running = false;

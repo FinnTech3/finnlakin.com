@@ -46,6 +46,25 @@ export function introFactor(aspect: number) {
   return WORLD_HALF_HEIGHT * aspect;
 }
 
+/* The face the words are drawn in, and it is the page's own headline's.
+
+   They were drawn in the body's face, which on this site is a wide small
+   monospace and was the right face for a paragraph and the wrong one for a name
+   set at the size of the screen. The name is already on the page in its
+   headline face, enormous, under the veil, and the opening is the same name
+   arriving: it should be recognisably the same letters. So the face is read off
+   the first heading in the document instead of being named here, which keeps
+   this file ignorant of which fonts the site loads, and means a change of
+   typeface on the page is a change of typeface in the opening.
+
+   The canvas can only draw with a face that has arrived. A face still in flight
+   falls back silently to whatever the machine has, which is why the component
+   that creates the engine waits for it first. */
+export function displayFace(): { family: string; weight: string } {
+  const style = getComputedStyle(document.querySelector("h1") ?? document.body);
+  return { family: style.fontFamily || "sans-serif", weight: style.fontWeight || "600" };
+}
+
 /* One line of text, or several, as a shape.
 
    Every particle gets a target, which matters: a word drawn with fewer points
@@ -74,7 +93,7 @@ export function wordShape(
   const ctx = sheet.getContext("2d");
   if (!ctx) return out;
 
-  const family = getComputedStyle(document.body).fontFamily || "sans-serif";
+  const face = displayFace();
   const longest = lines.reduce((a, b) => (a.length > b.length ? a : b), "");
 
   /* The middle third, and no wider than a share of the screen that depends on
@@ -84,7 +103,7 @@ export function wordShape(
   const narrow = width < height;
   const widthShare = narrow ? 0.82 : 0.38;
   let size = Math.floor(height / 3 / (lines.length * 1.18));
-  ctx.font = `600 ${size}px ${family}`;
+  ctx.font = `${face.weight} ${size}px ${face.family}`;
   const measured = ctx.measureText(longest).width;
   const limit = width * widthShare;
   if (measured > limit) size = Math.floor((size * limit) / measured);
@@ -93,7 +112,7 @@ export function wordShape(
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `600 ${size}px ${family}`;
+  ctx.font = `${face.weight} ${size}px ${face.family}`;
 
   const leading = size * 1.18;
   const top = height / 2 - ((lines.length - 1) * leading) / 2;
