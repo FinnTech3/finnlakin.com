@@ -44,7 +44,46 @@ export type ParticleBrainConfig = {
   grainStrength: number;
   noiseAmplitude: number;
   colourFactor: number;
+  /* What the cloud is drawn in. See CloudSurface. */
+  surface: CloudSurface;
 };
+
+/* The medium the final pass draws the cloud in.
+
+   The particles accumulate additively, which is the only way to draw thirty
+   thousand overlapping shards without sorting them, and an accumulation of
+   light can only be seen over something dark. That is a fact about the
+   arithmetic and not a preference: over a pale page the same buffer adds to
+   white and the cloud is not there.
+
+   So the buffer is read differently per surface. "light" is the accumulation
+   as light, which needs a dark page under it. The other two read the same
+   numbers as how much ink has been laid down, which is what a pale page needs,
+   and lay pigment rather than emit light. Every colour here is a display
+   colour, written the way a person picks it. */
+export type CloudSurface =
+  | { kind: "light" }
+  /* One pigment on any page. `pale` is a thin laydown and `deep` a heavy one,
+     `gain` how fast the sheet saturates. Dark pigments read as a drawing on
+     paper; pale ones on a mid grey page read as chalk. */
+  | { kind: "ink"; pale: string; deep: string; gain: number }
+  /* Two pigments, printed one after the other with the second a little out of
+     register and both screened, which is what a risograph does and what gives
+     it its character. `paper` must be the page's own colour: two inks over one
+     another are filters rather than lights, so what the second one filters is
+     the first one over the sheet. */
+  | {
+      kind: "riso";
+      paper: string;
+      inkA: string;
+      inkB: string;
+      gain: number;
+      /* How far the second plate misses, in uv. */
+      offset: readonly [number, number];
+      /* The screen's cell in device pixels, and how deeply it bites. */
+      cell: number;
+      depth: number;
+    };
 
 /* Reference values, taken from the specification rather than invented. Where it
    named a number, that number is here. Where it named a range, the middle of
@@ -161,6 +200,9 @@ export const DEFAULTS: ParticleBrainConfig = {
      brain's bounding box back from 4.1% to 1.8%, against 1.0% before the
      density went up. */
   colourFactor: 0.7,
+  /* Light, because the page this was tuned against is dark. A caller that
+     draws the cloud over a pale page has to say so. */
+  surface: { kind: "light" },
 };
 
 /* Everything the timeline produces and the renderer consumes. Each of these is

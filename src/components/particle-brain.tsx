@@ -6,7 +6,7 @@ import { frameScheduler } from "@/particles/frame";
 import { createParticleBrain } from "@/particles/engine";
 import { debugRequested, forcedLevel } from "@/particles/quality";
 import { STORAGE_KEY } from "@/components/intro";
-import type { ParticleBrain as Engine } from "@/particles/types";
+import type { CloudSurface, ParticleBrain as Engine } from "@/particles/types";
 
 /* The host. It owns a canvas, a frame loop and five listeners, and nothing
    else.
@@ -25,7 +25,17 @@ const INTRO_CEILING_MS = 9_000;
 /* Matches the transition in the stylesheet that fades the veil out. */
 const VEIL_FADE_MS = 700;
 
-export function ParticleBrain({ className }: { className?: string }) {
+export function ParticleBrain({
+  className,
+  surface,
+}: {
+  className?: string;
+  /* What the cloud is drawn in. Omitted is light, which is what a dark page
+     wants and what the home page has always had. A page on paper passes its
+     own pigments, and a two ink page passes its sheet as well: see
+     CloudSurface. */
+  surface?: CloudSurface;
+}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -123,6 +133,7 @@ export function ParticleBrain({ className }: { className?: string }) {
       reducedMotion,
       intro: wantsIntro,
       onIntroEnd: finishIntro,
+      config: surface ? { surface } : undefined,
     });
 
     /* Every failure path lands here: no WebGL2, no float render target, a
@@ -362,6 +373,13 @@ export function ParticleBrain({ className }: { className?: string }) {
       delete (window as unknown as { particleBrain?: Engine }).particleBrain;
       engine.dispose();
     };
+    /* Once, and the surface is deliberately not a dependency. It is the page's
+       medium, fixed for as long as that page is mounted, and it arrives as a
+       fresh object on every render: in the dependency list it would tear down
+       thirty two thousand particles and rebuild them on any parent re-render.
+       A page that wants to change medium without remounting would call the
+       engine's own setConfig. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* Unreachable. pointer-events none is what stops it swallowing a click on a

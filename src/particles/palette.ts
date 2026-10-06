@@ -19,7 +19,13 @@ function srgbToLinear(channel: number) {
   return channel <= 0.04045 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
 }
 
-export function hexToLinear(hex: string): Rgb {
+/* A written colour as three numbers from nought to one, exactly as written.
+
+   Everything above works in linear, and the ink surfaces do not: a pigment and
+   a sheet of paper are named by how they look, they are compared against the
+   page's own colour, and the final pass writes them straight to a canvas that
+   is already in display space. Converting them would print the wrong colour. */
+export function hexToDisplay(hex: string): Rgb {
   const clean = hex.replace("#", "");
   const full =
     clean.length === 3
@@ -29,10 +35,15 @@ export function hexToLinear(hex: string): Rgb {
           .join("")
       : clean;
   return [
-    srgbToLinear(Number.parseInt(full.slice(0, 2), 16) / 255),
-    srgbToLinear(Number.parseInt(full.slice(2, 4), 16) / 255),
-    srgbToLinear(Number.parseInt(full.slice(4, 6), 16) / 255),
+    Number.parseInt(full.slice(0, 2), 16) / 255,
+    Number.parseInt(full.slice(2, 4), 16) / 255,
+    Number.parseInt(full.slice(4, 6), 16) / 255,
   ];
+}
+
+export function hexToLinear(hex: string): Rgb {
+  const [r, g, b] = hexToDisplay(hex);
+  return [srgbToLinear(r), srgbToLinear(g), srgbToLinear(b)];
 }
 
 /* The ramp, darkest to brightest. A particle picks a position along this rather

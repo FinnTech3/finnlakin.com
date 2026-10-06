@@ -7,7 +7,8 @@ import {
   BRIGHT_FRAGMENT,
   FINAL_FRAGMENT,
 } from "./shaders/post";
-import type { CloudMask, ParticleBrainConfig, PostLevel } from "./types";
+import { hexToDisplay } from "./palette";
+import type { CloudMask, CloudSurface, ParticleBrainConfig, PostLevel } from "./types";
 
 /* The chain of framebuffers the particles are drawn into and finished in.
 
@@ -54,6 +55,15 @@ export const BOKEH_APERTURE = 0.000002;
 export const BOKEH_RINGS = 4;
 export const BOKEH_SAMPLES = 6;
 const EXPOSURE = 1;
+
+/* What the final pass calls each surface. The shader compares against numbers
+   because a branch on an integer is all GLSL has; these keep the two ends of
+   that agreement in one place. */
+const SURFACE_CODE: Record<CloudSurface["kind"], number> = {
+  light: 0,
+  ink: 1,
+  riso: 2,
+};
 
 export class PostChain {
   private gl: WebGL2RenderingContext;
@@ -140,6 +150,16 @@ export class PostChain {
       "u_gapHalf",
       "u_gapSoft",
       "u_maskOff",
+      "u_surface",
+      "u_inkPale",
+      "u_inkDeep",
+      "u_inkGain",
+      "u_paper",
+      "u_inkA",
+      "u_inkB",
+      "u_misregister",
+      "u_screenCell",
+      "u_screenDepth",
     ]);
   }
 
@@ -256,7 +276,14 @@ export class PostChain {
 
     let source: Target = this.scene;
 
-    if (level !== "minimal" && this.bloomA.length === BLOOM_LEVELS) {
+    /* A bloom is light spilling past the thing emitting it, so it belongs to
+       the light reading. On a printed surface it would be twelve passes of
+       blur spent on a glow that is then converted into ink, and ink that has
+       spread past the mark is not a bloom, it is a mistake. The saturating
+       laydown already softens an edge. */
+    const lit = config.surface.kind === "light";
+
+    if (lit && level !== "minimal" && this.bloomA.length === BLOOM_LEVELS) {
       this.pass(this.bloomA[0]!, () => {
         gl.useProgram(this.brightProgram);
         bindTexture(gl, 0, this.scene!.texture, this.brightUniforms.t_source ?? null);
@@ -342,6 +369,40 @@ export class PostChain {
       gl.uniform1f(this.finalUniforms.u_gapHalf ?? null, mask.gapHalf);
       gl.uniform1f(this.finalUniforms.u_gapSoft ?? null, mask.gapSoft);
       gl.uniform1f(this.finalUniforms.u_maskOff ?? null, mask.off);
+
+      /* The medium, and the pigments it needs. Every uniform is set on every
+         frame whatever the surface is, because a program keeps whatever was
+         last uploaded: leaving the unused ones alone would mean a switch at
+         runtime printed with the previous surface's inks. */
+      const surface = config.surface;
+      gl.uniform1f(this.finalUniforms.u_surface ?? null, SURFACE_CODE[surface.kind]);
+      const pale = surface.kind === "ink" ? hexToDisplay(surface.pale) : [0, 0, 0];
+      const deep = surface.kind === "ink" ? hexToDisplay(surface.deep) : [0, 0, 0];
+      gl.uniform3f(this.finalUniforms.u_inkPale ?? null, pale[0]!, pale[1]!, pale[2]!);
+      gl.uniform3f(this.finalUniforms.u_inkDeep ?? null, deep[0]!, deep[1]!, deep[2]!);
+      gl.uniform1f(
+        this.finalUniforms.u_inkGain ?? null,
+        surface.kind === "light" ? 0 : surface.gain,
+      );
+      const paper = surface.kind === "riso" ? hexToDisplay(surface.paper) : [0, 0, 0];
+      const inkA = surface.kind === "riso" ? hexToDisplay(surface.inkA) : [0, 0, 0];
+      const inkB = surface.kind === "riso" ? hexToDisplay(surface.inkB) : [0, 0, 0];
+      gl.uniform3f(this.finalUniforms.u_paper ?? null, paper[0]!, paper[1]!, paper[2]!);
+      gl.uniform3f(this.finalUniforms.u_inkA ?? null, inkA[0]!, inkA[1]!, inkA[2]!);
+      gl.uniform3f(this.finalUniforms.u_inkB ?? null, inkB[0]!, inkB[1]!, inkB[2]!);
+      gl.uniform2f(
+        this.finalUniforms.u_misregister ?? null,
+        surface.kind === "riso" ? surface.offset[0] : 0,
+        surface.kind === "riso" ? surface.offset[1] : 0,
+      );
+      gl.uniform1f(
+        this.finalUniforms.u_screenCell ?? null,
+        surface.kind === "riso" ? surface.cell : 1,
+      );
+      gl.uniform1f(
+        this.finalUniforms.u_screenDepth ?? null,
+        surface.kind === "riso" ? surface.depth : 0,
+      );
     });
   }
 

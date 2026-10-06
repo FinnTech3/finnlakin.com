@@ -526,11 +526,17 @@ test requires to 0.00125. It is also the right answer rather than a concession
 to a test. The mask exists to keep the cloud off the reading, and during the
 opening there is no reading.
 
-**The low tier has no final pass**, so it carries the same cut as a CSS clip
-path on the canvas element, from the same numbers. Keeping text clear of the
-cloud is not something to leave to a fallback: the low tier is what a weak
-machine gets, and a weak machine is exactly the one whose reader can least
+**When the post chain cannot be built at all**, no float render target or a
+shader that will not link, there is no final pass to run the mask in, so the
+canvas element carries the same cut as a CSS clip path, from the same numbers.
+Keeping text clear of the cloud is not something to leave to a fallback: a
+machine that cannot build the chain is exactly the one whose reader can least
 afford a paragraph printed over a light source.
+
+This used to be described as what the low tier does, and it is not. The low tier
+runs the final pass at the `"minimal"` post level, which skips the bloom and the
+depth of field and keeps the tone map, the mask and the colour conversion. It
+has the real mask.
 
 Two things the suite does not measure here, deliberately. Text on its own opaque
 surface is excluded, because the cloud behind a card or a pill reaches the
@@ -539,6 +545,75 @@ resolves an element's own background. And axe in turn cannot model a sticky
 ancestor: with the stage's panel stuck it walks past the white artifact cards
 and reports sixteen elements as dark text on black, so the accessibility scan
 neutralises that one property and touches no colour.
+
+## Surfaces
+
+The particles accumulate additively, which is the only way to draw thirty
+thousand overlapping shards without sorting them, and an accumulation of light
+can only be seen over something dark. Over a pale page the same buffer adds to
+white and the cloud is simply not there. That is arithmetic, not taste, so the
+final pass reads the buffer in one of three ways, chosen by
+`config.surface` (`CloudSurface` in `types.ts`):
+
+- **`light`**, the default and what the home page has always had. The buffer is
+  light, with bloom, depth of field, a vignette and grain. It needs a dark page.
+- **`ink`**, one pigment. The buffer is read as how much ink has been laid down:
+  `coverage = (1 - exp(-mass * gain)) * keep`, so the first particles darken the
+  sheet quickly and the hundredth in the same place adds almost nothing, which
+  is what ink does and light does not. The pigment runs from `pale` where the
+  laydown is thin to `deep` where it is heavy. Dark pigments on a pale page are a
+  drawing; pale ones on a mid grey page are chalk, which is why there is no third
+  kind for it.
+- **`riso`**, two pigments, printed one after the other. The second plate samples
+  the buffer again at `offset`, a few pixels off, which is the whole character of
+  a duplicator, and each plate goes through a halftone screen at its own angle so
+  the two do not moire.
+
+**Overprint is arithmetic, not a blend mode.** Two inks over a sheet are filters,
+not lights, so they multiply. With `P` the paper, `A` and `B` the ink colours and
+`cA`, `cB` the two coverages, the colour is
+`P * (1 - cA(1 - A)) * (1 - cB(1 - B))` and the alpha is
+`1 - (1 - cA)(1 - cB)`. The canvas is premultiplied and the page already supplies
+the paper, so the pass writes the colour less `P(1 - alpha)`: only the
+difference. That is always a valid premultiplied pair, and it needs `paper` to
+be the page's own colour.
+
+**Everything is multiplied by the mask, and nothing is added after it.** Every
+term past the laydown, the screen and the grain included, is proportional to it,
+so a pixel the mask excludes carries no ink at all. The canvas covers the whole
+page; anything with an alpha above nought outside the lane is a mark on
+somebody's paragraph.
+
+Bloom and the vignette are off on both ink surfaces. A bloom is light spilling
+past what emits it, and ink that has spread past its mark is a mistake; a
+vignette is a light going off at the edge of a frame, and a printed sheet does
+not do that. The bloom is not computed rather than computed and zeroed, which is
+twelve passes saved.
+
+Colours are display colours, written the way a person picks them, and are not
+converted: a pigment is compared against the page's own colour and written to a
+canvas that is already in display space. `hexToDisplay` in `palette.ts` is the
+parse; `hexToLinear` is for the light path only.
+
+**What a page has to do.**
+
+- **Paint the paper on the root element.** The canvas is fixed at `z-index: -10`,
+  above the root's background and below every block. A wrapper with a
+  background is a lid on it. This is how the first ink reading was lost.
+- Keep the page's own lane, the `band-inner` and `band-lane-*` rules, because
+  that is what the engine reads the mask from.
+- On a phone, provide a `[data-brain-slot]`. Nothing else changes below the
+  breakpoint.
+
+**The clip fallback hides the canvas off-light.** Without a final pass there is
+no conversion, and raw additive particles on a pale page are a faint grey haze
+with no picture in it. A page that loses its cloud has lost a decoration; a page
+that gains a haze over its reading has lost more than that.
+
+`tests/looks.spec.ts` measures it. On a dark page the overlap question is
+brightness. Here it is distance from the sheet, which is flat, and the sheet is
+read off the photograph as its commonest colour: `markedBehind` in
+`tests/cloud-overlap.ts`.
 
 ## Scroll
 
@@ -722,6 +797,7 @@ Everything in `DEFAULTS` in `src/particles/types.ts`:
 | Brain scale | `factorDesktop`, `factorMobile` |
 | Particle scale | `particleScaleDesktop`, `particleScaleMobile` |
 | Colour palette | `RAMP`, `WARM`, `WARM_SHARE` in `palette.ts` |
+| What the cloud is drawn in: light, one ink, two inks | `surface`, a `CloudSurface` in `types.ts`, and see Surfaces |
 | Spring, friction | `spring`, `friction` |
 | Pointer parting | `pointerReach`, `pointerPush`, `pointerSwirl`, `mouseSmoothing` |
 | Entrance | `entryWindow`, `SHOW_SECONDS` in `engine.ts`, the constants in `entrance.ts` |

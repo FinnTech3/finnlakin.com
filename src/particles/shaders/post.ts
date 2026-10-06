@@ -181,8 +181,59 @@ uniform float u_gapHalf;
 uniform float u_gapSoft;
 uniform float u_maskOff;
 
+/* Which medium the cloud is drawn in: 0 light, 1 ink, 2 two inks.
+
+   Light is the original reading and the only one that suits a dark page: the
+   particles accumulate additively, so the canvas carries light and the page
+   behind it supplies the dark. Over a light page that reading adds to white
+   and disappears, which is why the other two exist. They read the same
+   accumulation as how much ink has been laid down, and lay it.
+
+   Everything below is in display space, not linear. These are the colours of a
+   pigment and a sheet of paper as a reader sees them, so they are written the
+   way they are picked, and encode() is for the light path only. */
+uniform float u_surface;
+/* One ink: pale where the laydown is thin, deep where it is heavy, reached at
+   the rate u_inkGain. Chalk on a grey page is this with light pigments. */
+uniform vec3 u_inkPale;
+uniform vec3 u_inkDeep;
+uniform float u_inkGain;
+/* Two inks: the sheet they are printed on, one colour each, how far the second
+   plate is out of register, and how coarse the screen is. The paper is needed
+   because two inks over one another are filters rather than lights, and what
+   the second filters is the first over the sheet. The mask guarantees the
+   cloud only ever reaches bare sheet, so this is the real backdrop and not an
+   approximation of one. */
+uniform vec3 u_paper;
+uniform vec3 u_inkA;
+uniform vec3 u_inkB;
+uniform vec2 u_misregister;
+uniform float u_screenCell;
+uniform float u_screenDepth;
+
 float random(vec2 p) {
   return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+/* A halftone screen: a grid of dots at an angle, as a number from nought to
+   one. Two plates at the same angle would moire against each other, so each
+   gets its own, the way a press does. */
+float screenAt(vec2 frag, float angle, float cell) {
+  float s = sin(angle);
+  float c = cos(angle);
+  vec2 turned = mat2(c, -s, s, c) * frag / max(cell, 1.0);
+  return (sin(turned.x * 6.2831853) * sin(turned.y * 6.2831853)) * 0.5 + 0.5;
+}
+
+/* How much ink a given density of light lays down, saturating: the first
+   particles darken the sheet quickly and the hundredth in the same place adds
+   almost nothing, which is what ink does and light does not. */
+float laydown(float mass, float gain) {
+  return 1.0 - exp(-max(mass, 0.0) * gain);
+}
+
+float luminance(vec3 c) {
+  return dot(c, vec3(0.2126, 0.7152, 0.0722));
 }
 
 /* Linear to sRGB. Out of linear once, here: doing it earlier would have the
@@ -207,11 +258,16 @@ vec3 tonemap(vec3 x) {
 }
 
 void main() {
-  vec3 colour = texture(t_source, v_uv).rgb * u_exposure;
-  colour = tonemap(colour);
+  vec3 colour = tonemap(texture(t_source, v_uv).rgb * u_exposure);
 
-  vec2 offset = (v_uv - 0.5) * u_vignetteOffset;
-  colour = mix(colour, vec3(0.0), clamp(dot(offset, offset) * u_vignetteDarkness, 0.0, 1.0));
+  /* A vignette is a light going off at the edges of a frame, so it belongs to
+     the light reading and to nothing else. On a printed sheet the same term
+     would mean less ink towards the edges of the page, which is not a thing
+     that happens. */
+  if (u_surface < 0.5) {
+    vec2 offset = (v_uv - 0.5) * u_vignetteOffset;
+    colour = mix(colour, vec3(0.0), clamp(dot(offset, offset) * u_vignetteDarkness, 0.0, 1.0));
+  }
 
   /* Cut the cloud to the room it is allowed, and do it here, after the bloom
      has already been composited in.
@@ -267,6 +323,55 @@ void main() {
      inverted. */
   keep = max(keep, u_maskOff);
 
+  /* Ink, on one plate or two.
+
+     Both readings obey the keep-out exactly as the light one does: the laydown
+     is multiplied by it, and every term after that is proportional to the
+     laydown, so a pixel the mask excludes carries no ink, no screen and no
+     grain. That is not a detail. The canvas covers the whole page, so anything
+     with an alpha above nought here is a mark on somebody's paragraph. */
+  if (u_surface >= 0.5) {
+    float mass = luminance(colour);
+    float inked = laydown(mass, u_inkGain) * keep;
+
+    /* One ink. Pale where the cloud is thin and deep where it piles up, which
+       is the same information the light reading carries as brightness, read as
+       a density instead. The pigments decide the medium: dark ones are a
+       drawing on paper, light ones are chalk on a grey wall. */
+    if (u_surface < 1.5) {
+      vec3 pigment = mix(u_inkPale, u_inkDeep, clamp(mass * 1.45, 0.0, 1.0));
+      float speckle = random(gl_FragCoord.xy + fract(u_time) * 100.0) - 0.5;
+      float cov = clamp(inked + speckle * u_grain * inked, 0.0, 1.0);
+      fragColor = vec4(pigment * cov, cov);
+      return;
+    }
+
+    /* Two inks, printed one after the other and slightly out of register,
+       which is the whole character of the process: the second plate lands a
+       fraction of a millimetre off the first, and the edges of everything
+       carry a rim of the other colour. */
+    vec3 shifted = tonemap(texture(t_source, v_uv + u_misregister).rgb * u_exposure);
+    float inkedB = laydown(luminance(shifted), u_inkGain) * keep;
+
+    /* Screened at fifteen and seventy five degrees. Subtracted in proportion
+       to the laydown rather than thresholded against it, so the screen textures
+       the cloud instead of posterising it into dots and, again, cannot put a
+       mark where there was no ink. */
+    inked = clamp(inked - (screenAt(gl_FragCoord.xy, 0.2618, u_screenCell) - 0.5) * u_screenDepth * inked, 0.0, 1.0);
+    inkedB = clamp(inkedB - (screenAt(gl_FragCoord.xy, 1.3090, u_screenCell) - 0.5) * u_screenDepth * inkedB, 0.0, 1.0);
+
+    /* Each ink is a filter over the sheet, not a light on top of it, so they
+       multiply: where both land the result is darker than either, which is the
+       overprint. Then back out of the sheet's own colour, because the page
+       supplies that and this pass must only supply the difference. */
+    float alpha = 1.0 - (1.0 - inked) * (1.0 - inkedB);
+    vec3 printed = u_paper
+      * (1.0 - inked * (1.0 - u_inkA))
+      * (1.0 - inkedB * (1.0 - u_inkB));
+    fragColor = vec4(max(printed - u_paper * (1.0 - alpha), vec3(0.0)), alpha);
+    return;
+  }
+
   colour *= keep;
 
   /* How opaque this pixel is, decided before the grain is added.
@@ -287,15 +392,9 @@ void main() {
   colour += noise * u_grain * presence;
 
   /* The context is premultiplied, which is what additive accumulation already
-     produces: empty space is black and therefore transparent.
-
-     There was briefly a second reading here, for when the page below the stage
-     was paper: the same accumulation read as ink coverage with a dark pigment,
-     because an additive cloud over white adds to white and vanishes. The site
-     is one dark surface now and the cloud is behind the page rather than over
-     it, so there is nothing for an ink to be laid on. It is in the history if
-     the background ever goes light again.
-  */
+     produces: empty space is black and therefore transparent. The two ink
+     readings above return their own premultiplied pairs, worked out rather
+     than inherited, because a pigment is not its own coverage. */
   fragColor = vec4(encode(colour), presence);
 }
 `;

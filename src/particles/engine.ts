@@ -146,7 +146,12 @@ export type EngineOptions = {
 };
 
 
-/* The mask, as a clip path, for the tier that has no final pass to run it in.
+/* The mask, as a clip path, for when the post chain could not be built and there
+   is no final pass to run it in.
+
+   That is not the low tier, which runs the final pass without bloom or depth of
+   field and has the real mask. It is a machine with no float render target, or
+   a shader that will not link.
 
    Percentages rather than pixels, so it needs no resize handler, and the same
    numbers the shader gets rather than a second set: the fallback and the full
@@ -650,8 +655,18 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
          Keeping text clear of the cloud is not something to leave to a fallback
          path. The low tier is what a weak machine gets, and a weak machine is
          exactly the one whose reader can least afford a paragraph printed over
-         a light source. */
-      const clip = clipFor(state.mask, surfaceWidth, surfaceHeight);
+         a light source.
+
+         The ink surfaces are not available here at all, and the canvas is
+         hidden rather than drawn wrong. Their conversion is the final pass, so
+         without it the particles reach the page as raw additive light: over a
+         pale sheet that is a faint grey haze with no picture in it. A page
+         that loses its cloud has lost a decoration; a page that gains a haze
+         over its reading has lost more than that. */
+      const clip =
+        config.surface.kind === "light"
+          ? clipFor(state.mask, surfaceWidth, surfaceHeight)
+          : "inset(50%)";
       if (canvas.style.clipPath !== clip) canvas.style.clipPath = clip;
     }
 
