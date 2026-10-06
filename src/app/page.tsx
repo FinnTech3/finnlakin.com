@@ -192,10 +192,10 @@ export default function HomePage() {
       <Section
         id="contact"
         eyebrow="Contact"
-        title="Open to Summer 2026 conversations"
+        title="Get in touch"
         band
         lane="right"
-        intro={`Available for ${person.seeking}. Happy to talk through any of the methods above, including the parts that did not work.`}
+        intro="Happy to talk through any of the methods above, including the parts that did not work."
       >
         <div className="flex flex-wrap items-center gap-3">
           <a href={`mailto:${contact.email}`} className="pill pill-filled min-h-11">

@@ -93,7 +93,7 @@ export default function CvPage() {
             First-Class Honours, back from an exchange year at {person.exchange}{" "}
             taught in French. I rebuild published financial and economic series
             from primitives and report where the reconstruction disagrees, in
-            Python, R, Rust and TypeScript. Seeking {person.seeking}.
+            Python, R, Rust and TypeScript.
           </p>
         </Block>
 

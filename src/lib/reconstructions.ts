@@ -49,3 +49,16 @@ export const reconstructions: Reconstruction[] = [
     projectSlug: "term-premium",
   },
 ];
+
+/* The two numbers every heading about this table quotes, counted from the table
+   so that nobody can edit a row and leave a heading claiming something else. A
+   heading that says three held beside a table that shows two is the exact
+   failure this site exists to argue against. */
+export const held = reconstructions.filter((row) => row.tone === "pass").length;
+
+const WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
+
+/* How many rows there are, as a word at the head of a sentence. Past ten it
+   falls back to the numeral, which is still true and only a little less
+   graceful. */
+export const rebuiltWord = WORDS[reconstructions.length] ?? String(reconstructions.length);

@@ -30,9 +30,9 @@ test.describe("every route renders cleanly", () => {
    room for it, and on a phone it did not. Below 640 pixels the header stacks
    into more rows than the space kept for it: measured on a Pixel 5 it ended at
    164 pixels while the content started at 104 on the home page, 112 on the CV
-   and 152 everywhere else, so the navigation was drawn through the
-   availability line, the name and the page titles. Measured on every route,
-   because the space is kept in more than one place. */
+   and 152 everywhere else, so the navigation was drawn through the first line
+   of the page, whether that was the name or a page title. Measured on every
+   route, because the space is kept in more than one place. */
 test.describe("the header", () => {
   for (const route of routes) {
     test(`leaves the first line of ${route} clear`, async ({ page }) => {

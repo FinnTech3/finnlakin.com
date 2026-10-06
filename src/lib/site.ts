@@ -20,8 +20,6 @@ export const person = {
   exchange: "Université Paris Dauphine",
   graduation: 2027,
   location: "Oxford, United Kingdom",
-  seeking:
-    "Summer 2026 internships in equity research, quantitative methods and financial technology",
 } as const;
 
 /* Phone number is deliberately absent. Finn asked for it off the site: once a

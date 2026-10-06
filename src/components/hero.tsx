@@ -1,4 +1,4 @@
-import { reconstructions } from "@/lib/reconstructions";
+import { held, rebuiltWord, reconstructions } from "@/lib/reconstructions";
 import { CtaVisibility } from "@/components/cta-visibility";
 import { ShinyButton } from "@/components/shiny-button";
 import { person } from "@/lib/site";
@@ -21,12 +21,6 @@ import { person } from "@/lib/site";
    It is two screens: one of travel with the panel pinned, and a second carrying
    the panel back off the top. */
 export function Hero() {
-  /* Counted rather than written down. A heading that says three held beside a
-     table that shows two is the exact failure this site exists to argue
-     against, and the way that happens is somebody editing one and not the
-     other. */
-  const held = reconstructions.filter((row) => row.tone !== "flag").length;
-
   return (
     <section
       id="hero"
@@ -47,14 +41,6 @@ export function Hero() {
               moves around the brain" the brief asks for: the cloud holds its
               position on the screen while the words travel past it. */}
           <div className="stage-copy max-w-[34rem] lg:max-w-[38rem]">
-            <p className="t-label flex items-center gap-2.5 text-pass">
-              <span
-                aria-hidden="true"
-                className="size-1.5 rounded-full bg-current"
-              />
-              Available Summer 2026
-            </p>
-
             {/* Shrink to fit, so the heading's box is the width of its letters
                 rather than the width of the column. The contrast suite measures
                 the brightest pixel inside a run of text's box, and a block level
@@ -62,7 +48,7 @@ export function Hero() {
                 is behind that empty space: here, the cloud, at a luminance of
                 0.65 against white type. The overlap it was reporting is real
                 where the box is, and there are no letters there. */}
-            <h1 className="t-display-lg mt-6 w-fit text-ink">{person.name}</h1>
+            <h1 className="t-display-lg w-fit text-ink">{person.name}</h1>
 
             <p className="t-sub mt-7 max-w-[26ch] text-pretty text-ink-soft">
               I rebuild published numbers from primitives and report the gap.{" "}
@@ -118,7 +104,9 @@ export function Hero() {
           scans rather than reads. */}
       <div className="stage-panel relative w-full pb-24">
         <div className="max-w-[34rem] lg:max-w-[38rem]">
-          <h2 className="t-h3 text-ink">Four rebuilt. {held} held.</h2>
+          <h2 className="t-h3 text-ink">
+            {rebuiltWord} rebuilt. {held} held.
+          </h2>
           <p className="t-caption mt-8 max-w-[44ch] text-muted">
             {person.course}, {person.university}. Exchange year at{" "}
             {person.exchange}. Class of {person.graduation}.
@@ -144,7 +132,7 @@ export function Hero() {
               room, and it is a table rather than a picture of one. */}
             <figure className="stage-artifact stage-artifact-table shadow-artifact">
               <figcaption className="t-label px-1 pb-3">
-                Four reconstructions, against the published series
+                {rebuiltWord} reconstructions, against the published series
               </figcaption>
               <table className="w-full border-collapse text-left">
                 <thead>
