@@ -1,9 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
-  brightestIn,
   collectContent,
-  litShare,
-  OVERLAP_CEILING,
+  MARK_CEILING,
+  markedBehind,
+  markedShare,
   photographBehind,
 } from "./cloud-overlap";
 
@@ -129,16 +129,16 @@ test.describe("crossing a column", () => {
            open in a column: a crossing that cut it away entirely would go
            over nothing too. */
         expect(
-          await litShare(decoder, shot),
+          await markedShare(decoder, shot),
           `crossing ${crossing.name} with the seam at ${at} of the window, the cloud is not on screen`,
         ).toBeGreaterThan(0.001);
-        const behind = await brightestIn(decoder, shot, content);
+        const behind = await markedBehind(decoder, shot, content);
         content.forEach((box, index) => {
           expect(
             behind[index] ?? 1,
             `crossing ${crossing.name} with the seam at ${at} of the window, ` +
               `"${box.label}" has the cloud behind it`,
-          ).toBeLessThanOrEqual(OVERLAP_CEILING);
+          ).toBeLessThanOrEqual(MARK_CEILING);
         });
       }
     }

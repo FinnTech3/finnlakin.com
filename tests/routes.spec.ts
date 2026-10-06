@@ -93,7 +93,14 @@ test.describe("reduced motion", () => {
     const page = await context.newPage();
     await page.goto("/");
     const row = page.locator(".settle-rows > tr").first();
-    await expect(row).toBeVisible();
+    /* Attached, not visible. Below 720 pixels the table is not shown: each row
+       is a short block in a list instead, because four columns do not fit
+       between the gutters of a phone. The rows are still in the document, the
+       rule that animates them still applies to them and still computes, and what
+       is being asked is whether reduced motion takes the animation off that
+       rule, which does not depend on the screen the page is read on. Without
+       this the phone project reported a failure for a table nobody is shown. */
+    await expect(row).toBeAttached();
     const duration = await row.evaluate((node) => getComputedStyle(node).animationDuration);
     await context.close();
     return Number.parseFloat(duration);

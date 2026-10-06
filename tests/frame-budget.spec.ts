@@ -18,7 +18,14 @@ import { createFrameScheduler } from "../src/particles/frame";
    What can be proven is the structure, and the structure is the fix: how many
    callbacks a frame there are, in what order the two things draw, and what the
    page gives up first when it runs out of time. Those are counts, and a count
-   does not care how fast the machine is. */
+   does not care how fast the machine is.
+
+   The gradient is gone, along with the black stage it was a background for, so
+   nothing on the site registers as decoration today. The scheduler keeps the
+   rung, and these tests keep a stand-in for it called the backdrop, on purpose:
+   the ladder is the contract, and the next thing that animates behind the page
+   will join it at the bottom. A test that dropped the rung would be written
+   again the day it was needed. */
 
 test.describe("the frame scheduler", () => {
   /* Driven by a stand-in display: each step advances the clock by one frame

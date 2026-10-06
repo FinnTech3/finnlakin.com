@@ -13,43 +13,18 @@ async function settle(page: Page) {
      before scanning. */
   await page.evaluate(() => document.fonts.ready);
 
-  /* Unstick the stage's panel before scanning, and only that.
-
-     axe resolves an element's background by walking the elements under it, and
-     it does not model a sticky ancestor: with the stage's panel stuck, the
-     white artifact cards inside it stopped containing their own text as far as
-     axe was concerned, so it walked past them to the page and reported
-     sixteen elements as dark text on black. The cards are white and the text on
-     them is ink; the screenshots say so and so does the computed style.
-     Measured both ways, the only thing that changes the count is this one
-     property: at a width where the cards are not positioned at all the count is
-     zero, and neutralising the sticky at desktop width it is zero too.
-
-     Nothing about colour is touched here, which is the point. The gate keeps
-     every rule at every severity, on every element, including these ones: it is
-     the geometry axe reads them through that is corrected. */
-  await page.addStyleTag({
-    content: ".stage-panel-inner { position: relative !important }",
-  });
-
   await page.evaluate(async () => {
-    /* Time driven animations only.
+    /* Finite, time driven animations only.
 
-       A scroll driven animation is bound to a scroll position rather than to a
-       clock, so it is never finished: its promise stays pending for as long as
-       the element exists, and awaiting it hangs until the test times out. That
-       is not a fault to fix in the animation, it is what a scroll timeline
-       means, and the stage's motion is built out of them. They also cannot be
-       mid-transition in the sense this wait exists for, because at a given
-       scroll position they are exactly where that position puts them.
-
-       Finite ones only, for the same reason stated the other way round. An
-       animation set to run forever has no finish either, so awaiting it hangs
-       exactly as a scroll timeline does: the call to action on the home page
-       turns its border light continuously, and waiting for that to be over
-       timed this gate out at thirty seconds. Neither kind is ever
-       mid-transition in the sense this wait exists for, which is a control
-       caught halfway between two states while axe reads its colours.
+       An animation set to run forever has no finish, so awaiting it hangs until
+       the test times out: the call to action on the home page turns its border
+       light continuously, and waiting for that to be over timed this gate out at
+       thirty seconds. A scroll driven animation is the same thing stated the
+       other way round. It is bound to a scroll position rather than to a clock,
+       so it is never finished either, and the stage this site used to have was
+       built out of them. Neither kind is ever mid-transition in the sense this
+       wait exists for, which is a control caught halfway between two states
+       while axe reads its colours.
 
        This narrows what is waited for and nothing about what is scanned. The
        sweep still runs every rule at every severity over every element. */
@@ -252,4 +227,43 @@ test.describe("the text link", () => {
     await tabOnto(page, cta);
     expect(await decoration(cta), "keyboard focus underlines the call to action").toBe("none");
   });
+});
+
+/* The call to action's label is chalk on a fill that is a gradient layer, and a
+   gradient is the one thing the other two gates cannot take a colour from. axe
+   reports text over a background image as needing review rather than as a
+   failure, and the contrast walk in backdrop.spec.ts photographs the page with
+   its content hidden, so it saw the label as chalk on bare wall, which is 2.2:1,
+   and failed a control that is 16.8:1. So it is asserted here, from the two
+   colours it is made of, and the fill is asserted to be a colour as well as a
+   gradient so that a tool which only reads colours is given the true one. */
+test("the call to action's label clears AA on its own fill", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => document.fonts.ready);
+
+  const measured = await page.locator("a.shiny-cta").first().evaluate((link) => {
+    const numbers = (value: string) => (value.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+    const channel = (value: number) => {
+      const c = value / 255;
+      return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    };
+    const luminance = (rgb: number[]) =>
+      0.2126 * channel(rgb[0]!) + 0.7152 * channel(rgb[1]!) + 0.0722 * channel(rgb[2]!);
+
+    const label = getComputedStyle(link.querySelector("span") ?? link).color;
+    const fill = getComputedStyle(link).backgroundColor;
+    const text = luminance(numbers(label));
+    const ground = luminance(numbers(fill));
+    return {
+      fill,
+      alpha: numbers(fill)[3] ?? 1,
+      ratio: (Math.max(text, ground) + 0.05) / (Math.min(text, ground) + 0.05),
+    };
+  });
+
+  expect(
+    measured.alpha,
+    `the fill is not an opaque colour, it is ${measured.fill}`,
+  ).toBeGreaterThanOrEqual(0.95);
+  expect(measured.ratio, "the call to action's label against its fill").toBeGreaterThanOrEqual(4.5);
 });

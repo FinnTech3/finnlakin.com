@@ -1,6 +1,16 @@
 import { expect, test } from "@playwright/test";
 import { DEFAULTS } from "../src/particles/types";
-import { brightestIn, collectContent, OVERLAP_CEILING, photographBehind } from "./cloud-overlap";
+import {
+  collectContent,
+  countMarks,
+  luminanceRangeIn,
+  MARK_CEILING,
+  markedBehind,
+  markedShare,
+  marksCentroid,
+  marksRadius,
+  photographBehind,
+} from "./cloud-overlap";
 
 type Browser = import("@playwright/test").Browser;
 type Page = import("@playwright/test").Page;
@@ -9,12 +19,18 @@ type Page = import("@playwright/test").Page;
    are not about the intro set it to get straight to the page. */
 const INTRO_KEY = "fl-intro-played";
 
-/* The gradient and the opening animation are the two things the redesign added
-   that can fail in ways nothing else on the site can: a machine with no WebGL,
-   a machine whose WebGL is software and too slow to animate, a reader who has
-   asked for less motion, and a second page view that should not replay an
-   intro. None of those are visible in a screenshot of a working browser, so
-   each one gets an assertion. */
+/* The opening animation and the cloud are the two things on this site that can
+   fail in ways nothing else can: a machine with no WebGL, a machine whose WebGL
+   is software and too slow to animate, a reader who has asked for less motion,
+   and a second page view that should not replay an intro. None of those are
+   visible in a screenshot of a working browser, so each one gets an assertion.
+
+   There used to be a third, a gradient shader behind the whole site, with five
+   tests of its own. It went with the black stage it was a background for, and
+   its tests went with it: they asserted things about an element that no longer
+   exists, and none of them is a property the cloud has. What they were for
+   survives in the frame scheduler's own tests in frame-budget.spec.ts, which
+   keep a stand-in for the next decoration that joins the ladder. */
 
 async function introState(page: Page) {
   return page.evaluate(() => document.documentElement.dataset.intro ?? "none");
@@ -23,204 +39,6 @@ async function introState(page: Page) {
 async function waitForIntroToFinish(page: Page) {
   await expect.poll(() => introState(page), { timeout: 15_000 }).toBe("none");
 }
-
-test.describe("the backdrop", () => {
-  test("paints a gradient without WebGL, and says so", async ({ browser }) => {
-    /* The supplied component returned early when getContext gave it nothing,
-       leaving an empty element: a black rectangle where the design expects a
-       gradient. This asserts the fallback is a real picture rather than the
-       absence of one, and that losing WebGL is silent, because every route is
-       also asserted console clean. */
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    await page.addInitScript(() => {
-      const original = HTMLCanvasElement.prototype.getContext;
-      HTMLCanvasElement.prototype.getContext = function patched(
-        this: HTMLCanvasElement,
-        kind: string,
-        ...rest: unknown[]
-      ) {
-        if (kind === "webgl2" || kind === "webgl") return null;
-        return (original as (...args: unknown[]) => unknown).call(this, kind, ...rest);
-      } as typeof HTMLCanvasElement.prototype.getContext;
-    });
-
-    const errors: string[] = [];
-    page.on("pageerror", (error) => errors.push(error.message));
-    page.on("console", (message) => {
-      if (message.type() === "error") errors.push(message.text());
-    });
-
-    await page.goto("/");
-    const backdrop = page.locator(".backdrop");
-    await expect.poll(() => backdrop.getAttribute("data-backdrop")).toBe("fallback");
-
-    const background = await backdrop.evaluate(
-      (node) => getComputedStyle(node).backgroundImage,
-    );
-    expect(background, "the fallback should be a gradient, not nothing").toContain(
-      "gradient",
-    );
-
-    expect(errors, "a missing GPU must not put anything in the console").toEqual([]);
-    await context.close();
-  });
-
-  test("runs, or stops itself, but never sits in between", async ({ page }) => {
-    /* live means the loop is running. still means it drew and stopped, either
-       because the reader asked for less motion or because the first frames were
-       slow enough that animating was worse than not. Any other value means the
-       effect fell over somewhere new. */
-    await page.goto("/");
-    await expect
-      .poll(() => page.locator(".backdrop").getAttribute("data-backdrop"))
-      .toMatch(/^(live|still|fallback)$/);
-  });
-
-  test("stops animating when the tab is hidden", async ({ page }) => {
-    await page.goto("/");
-    /* Live or still: on a box this slow the page is allowed to give the
-       gradient up within seconds, and both mean it painted. */
-    await expect
-      .poll(() => page.locator(".backdrop").getAttribute("data-backdrop"))
-      .toMatch(/^(live|still)$/);
-
-    const framesWhileHidden = await page.evaluate(async () => {
-      const raf = window.requestAnimationFrame.bind(window);
-      let count = 0;
-      const tick = () => {
-        count += 1;
-        raf(tick);
-      };
-      raf(tick);
-
-      Object.defineProperty(document, "hidden", { value: true, configurable: true });
-      Object.defineProperty(document, "visibilityState", {
-        value: "hidden",
-        configurable: true,
-      });
-      document.dispatchEvent(new Event("visibilitychange"));
-
-      const before = count;
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      /* Our own counter keeps running, so this measures that the page is still
-         ticking while the backdrop has stood down, rather than that everything
-         stopped. */
-      return count - before;
-    });
-
-    expect(framesWhileHidden, "the page should still be animating at all").toBeGreaterThan(
-      0,
-    );
-  });
-
-  test("draws nothing under the opening animation's veil, and picks up when it lifts", async ({
-    page,
-  }) => {
-    /* The veil is opaque black and the gradient is under it, so anything drawn
-       while it is up is a full screen shader nobody can see, spent during the
-       entrance, which is exactly when the cloud needs the card. Counted at the
-       draw call, per canvas, and filed under whichever state the page was in
-       when it happened. */
-    await page.addInitScript(() => {
-      const counts = { underVeil: 0, after: 0 };
-      (window as unknown as { backdropDraws: typeof counts }).backdropDraws = counts;
-      const original = WebGL2RenderingContext.prototype.drawArrays;
-      WebGL2RenderingContext.prototype.drawArrays = function patched(
-        this: WebGL2RenderingContext,
-        ...args: Parameters<WebGL2RenderingContext["drawArrays"]>
-      ) {
-        const canvas = this.canvas as HTMLCanvasElement;
-        if (canvas.closest?.(".backdrop")) {
-          if (document.documentElement.dataset.intro === "running") counts.underVeil += 1;
-          else counts.after += 1;
-        }
-        return original.apply(this, args);
-      };
-    });
-
-    await page.goto("/");
-    expect(await introState(page), "the intro should start on a first view").toBe("running");
-    await waitForIntroToFinish(page);
-    await page.waitForTimeout(1_000);
-
-    const counts = await page.evaluate(
-      () =>
-        (window as unknown as { backdropDraws: { underVeil: number; after: number } })
-          .backdropDraws,
-    );
-    /* The frame it paints when it mounts, so there is a picture to lift the
-       veil onto, and at most one more if the page resizes under it. Animating
-       under the veil is two hundred. */
-    expect(counts.underVeil, "the gradient animated under an opaque veil").toBeLessThanOrEqual(2);
-    expect(counts.after, "the gradient never started once the veil lifted").toBeGreaterThan(0);
-  });
-
-  test("gives the gradient up on a machine that cannot keep up, and keeps it painted", async ({
-    page,
-    browser,
-  }) => {
-    /* A machine that cannot keep up, as the page sees one: frames arriving two
-       hundred milliseconds apart. The scheduler reads the time between frames
-       off the timestamps the browser hands it, and looks the function up at
-       each call, so replacing it before any script runs is the real thing
-       rather than a model of it. */
-    await page.addInitScript((key) => {
-      sessionStorage.setItem(key, "1");
-      const real = window.requestAnimationFrame.bind(window);
-      let clock = 0;
-      window.requestAnimationFrame = (callback: FrameRequestCallback) =>
-        real(() => {
-          clock += 200;
-          callback(clock);
-        });
-    }, INTRO_KEY);
-
-    await page.goto("/?brainQuality=low");
-    await expect
-      .poll(() => page.locator(".backdrop").getAttribute("data-backdrop"), { timeout: 30_000 })
-      .toBe("still");
-
-    /* Resizing a canvas clears it. A gradient that has stopped animating has no
-       next frame coming to put the picture back, so this is where a still
-       gradient used to turn black. */
-    const size = page.viewportSize() ?? { width: 1280, height: 720 };
-    await page.setViewportSize({ width: size.width - 120, height: size.height - 80 });
-    await page.waitForTimeout(600);
-
-    await page.addStyleTag({
-      content:
-        "body > header, body > main, body > footer, [data-brain] { visibility: hidden !important }",
-    });
-    const shot = (await page.screenshot()).toString("base64");
-
-    const decoder = await browser.newPage();
-    const brightest = await decoder.evaluate(async (data: string) => {
-      const image = new Image();
-      image.src = `data:image/png;base64,${data}`;
-      await image.decode();
-      const canvas = document.createElement("canvas");
-      canvas.width = image.width;
-      canvas.height = image.height;
-      const context = canvas.getContext("2d");
-      if (!context) return -1;
-      context.drawImage(image, 0, 0);
-      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-      let max = 0;
-      for (let i = 0; i < pixels.length; i += 4) {
-        max = Math.max(max, pixels[i]!, pixels[i + 1]!, pixels[i + 2]!);
-      }
-      return max;
-    }, shot);
-    await decoder.close();
-
-    /* Under the scrim the gradient's brightest violet is around seventy on a
-       channel. A cleared canvas is nought everywhere. */
-    expect(brightest, "the still gradient turned black when the window was resized").toBeGreaterThan(
-      8,
-    );
-  });
-});
 
 test.describe("the opening animation", () => {
   test("plays once, then not again in the same session", async ({ page }) => {
@@ -253,13 +71,12 @@ test.describe("the opening animation", () => {
     await expect(page.locator(".intro")).toBeHidden();
     await expect(page.locator("h1")).toBeVisible();
 
-    /* And the gradient draws a frame rather than animating one. Given the
-       engine polls' twenty seconds rather than the default five: the page was
-       loaded with waitUntil commit, so this wait includes the whole bundle
-       arriving and hydrating, which on a loaded run of this suite took more
-       than five. */
+    /* And the cloud draws a frame rather than animating one. Given twenty
+       seconds rather than the default five: the page was loaded with waitUntil
+       commit, so this wait includes the whole bundle arriving and hydrating,
+       which on a loaded run of this suite took more than five. */
     await expect
-      .poll(() => page.locator(".backdrop").getAttribute("data-backdrop"), { timeout: 20_000 })
+      .poll(() => page.locator("[data-brain]").getAttribute("data-brain"), { timeout: 20_000 })
       .toBe("still");
     await context.close();
   });
@@ -433,36 +250,41 @@ test.describe("the particle engine", () => {
      to finish arriving at the same answer. */
   test.describe.configure({ timeout: 60_000 });
 
-  /* Counts the pixels the engine has actually painted, by decoding a
-     screenshot of its canvas.
+  /* A page to read photographs in, which is never the page under test.
+
+     Decoding a screenshot in the page that is drawing the cloud puts image work
+     on the thread the cloud is drawn from, and the measuring helpers build a
+     function from a string, which the site's content policy (script-src
+     without unsafe-eval) refuses in a page of its own. A blank page in the same
+     browser has neither problem. */
+  async function decoderFor(page: Page) {
+    return page.context().newPage();
+  }
+
+  /* How many pixels of the cloud's canvas are a mark, which is how many the
+     engine has actually painted.
 
      Not by reading the drawing buffer, which was the first attempt and which
      silently returns nothing: asking an element for a context a second time
      hands back the one it already has and ignores the attributes, so
      preserveDrawingBuffer never took effect and readPixels saw a buffer the
      compositor had already cleared. It reported zero lit pixels for a cloud
-     that was plainly on screen. */
+     that was plainly on screen.
+
+     Nor by counting bright pixels, which was the second. The page is a mid grey
+     wall and every pixel of it is brighter than any threshold that would find
+     a faint cloud over black, so a count that way is the area of the frame, and
+     "the engine drew nothing" read as the whole of it. A mark is a pixel that is
+     not the wall, and the page is hidden for the photograph so that the words
+     and the controls are not counted as marks too. */
   async function painted(page: Page) {
-    const canvas = page.locator("[data-brain] canvas");
-    if ((await canvas.count()) === 0) return -1;
-    const shot = (await canvas.screenshot()).toString("base64");
-    return page.evaluate(async (data: string) => {
-      const image = new Image();
-      image.src = `data:image/png;base64,${data}`;
-      await image.decode();
-      const sheet = document.createElement("canvas");
-      sheet.width = image.width;
-      sheet.height = image.height;
-      const ctx = sheet.getContext("2d");
-      if (!ctx) return -1;
-      ctx.drawImage(image, 0, 0);
-      const pixels = ctx.getImageData(0, 0, sheet.width, sheet.height).data;
-      let lit = 0;
-      for (let i = 0; i < pixels.length; i += 16) {
-        if (pixels[i]! + pixels[i + 1]! + pixels[i + 2]! > 24) lit += 1;
-      }
-      return lit;
-    }, shot);
+    if ((await page.locator("[data-brain] canvas").count()) === 0) return -1;
+    const decoder = await decoderFor(page);
+    try {
+      return await countMarks(decoder, await photographBehind(page));
+    } finally {
+      await decoder.close();
+    }
   }
 
   /* The debug handle the engine hangs on the window when it is asked for one.
@@ -567,37 +389,20 @@ test.describe("the particle engine", () => {
     );
   }
 
-  /* Lit pixels inside a disc, in canvas coordinates. Used to measure the hole
-     the pointer opens, which a count over the whole cloud would miss: particles
+  /* Marks inside a disc, in canvas coordinates. Used to measure the hole the
+     pointer opens, which a count over the whole cloud would miss: particles
      pushed out of the middle land at the edge of the reach and the total barely
-     moves. */
-  async function paintedWithin(page: Page, cx: number, cy: number, radius: number) {
-    const canvas = page.locator("[data-brain] canvas");
-    const shot = (await canvas.screenshot()).toString("base64");
-    return page.evaluate(
-      async ({ data, cx, cy, radius }: { data: string; cx: number; cy: number; radius: number }) => {
-        const image = new Image();
-        image.src = `data:image/png;base64,${data}`;
-        await image.decode();
-        const sheet = document.createElement("canvas");
-        sheet.width = image.width;
-        sheet.height = image.height;
-        const ctx = sheet.getContext("2d");
-        if (!ctx) return -1;
-        ctx.drawImage(image, 0, 0);
-        const pixels = ctx.getImageData(0, 0, sheet.width, sheet.height).data;
-        let lit = 0;
-        for (let y = Math.max(0, cy - radius); y < Math.min(sheet.height, cy + radius); y++) {
-          for (let x = Math.max(0, cx - radius); x < Math.min(sheet.width, cx + radius); x++) {
-            if ((x - cx) ** 2 + (y - cy) ** 2 > radius * radius) continue;
-            const i = (y * sheet.width + x) << 2;
-            if (pixels[i]! + pixels[i + 1]! + pixels[i + 2]! > 150) lit += 1;
-          }
-        }
-        return lit;
-      },
-      { data: shot, cx, cy, radius },
-    );
+     moves. The page has to be hidden already, which the one test that calls it
+     does for its whole length, or the words are counted along with the cloud. */
+  async function paintedWithin(
+    page: Page,
+    decoder: Page,
+    cx: number,
+    cy: number,
+    radius: number,
+  ) {
+    const shot = (await page.locator("[data-brain] canvas").screenshot()).toString("base64");
+    return countMarks(decoder, shot, { within: { x: cx, y: cy, radius } });
   }
 
   async function settled(page: Page) {
@@ -615,14 +420,14 @@ test.describe("the particle engine", () => {
     isMobile,
   }) => {
     test.skip(Boolean(isMobile), "a width test, run on the desktop project");
-    /* Three things decide whether the page has a column for the cloud: the
-       bands' lane padding, the stage's pinned layout and the engine's keep-out.
-       They used to be three breakpoints: the stage at 1024 pixels, the bands at
-       1100 and the engine at an aspect of 1.22. Between 1024 and 1099 pixels
-       wide the engine cut the cloud to a lane the bands had already collapsed,
-       so the cloud sat on a full width column of text, and above 1100 at a
-       squarer aspect it drew the cloud over everything while the bands still
-       kept a lane. */
+    /* Two things decide whether the page has a column for the cloud: the bands'
+       lane padding and the engine's keep-out. There were three once, with a
+       pinned stage as the third, and they were three breakpoints: the stage at
+       1024 pixels, the bands at 1100 and the engine at an aspect of 1.22.
+       Between 1024 and 1099 pixels wide the engine cut the cloud to a lane the
+       bands had already collapsed, so the cloud sat on a full width column of
+       text, and above 1100 at a squarer aspect it drew the cloud over
+       everything while the bands still kept a lane. */
     await page.addInitScript((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
     for (const [width, height] of [
       [1099, 800],
@@ -637,20 +442,18 @@ test.describe("the particle engine", () => {
       const reading = await page.evaluate(() => {
         const inner = document.querySelector<HTMLElement>(".band-lane-right > .band-inner")!;
         const lane = Number.parseFloat(getComputedStyle(inner).paddingRight) > window.innerWidth * 0.3;
-        const panel = document.querySelector<HTMLElement>(".stage-panel-inner")!;
-        const pinned = getComputedStyle(panel).position === "sticky";
         const handle = (
           window as unknown as {
             particleBrain: { inspect: () => { timeline: { mask: { side: number } } } };
           }
         ).particleBrain;
         const column = handle.inspect().timeline.mask.side !== 0;
-        return { lane, pinned, column };
+        return { lane, column };
       });
       expect(
         reading,
-        `at ${width}x${height} the bands, the stage and the engine disagree about the lane`,
-      ).toEqual({ lane: width >= 1100, pinned: width >= 1100, column: width >= 1100 });
+        `at ${width}x${height} the bands and the engine disagree about the lane`,
+      ).toEqual({ lane: width >= 1100, column: width >= 1100 });
     }
   });
 
@@ -712,6 +515,17 @@ test.describe("the particle engine", () => {
     await page.goto("/?brainQuality=low");
     await settled(page);
 
+    /* The page goes first, because it moves too. An element screenshot renders
+       the whole stack over the element, and the first screen has a control whose
+       ring of light turns round all the time, so two shots of the canvas with
+       the page in them differ even when the cloud is frozen solid and the test
+       passes for a reason that has nothing to do with the cloud. With the page
+       hidden the only thing left to change is the thing being asked about. */
+    await page.addStyleTag({
+      content: "body > header, body > main, body > footer { visibility: hidden !important }",
+    });
+    await page.waitForTimeout(400);
+
     /* The simulation is a spring, so a settled cloud still drifts: the pyramids
        rotate on noise and the camera parallaxes. Two frames a second apart must
        not be identical, or nothing is running. */
@@ -750,7 +564,8 @@ test.describe("the particle engine", () => {
        them crossed it between two reads of a canvas that had not been redrawn.
 
        Frames asked for is the honest question. It is stricter than comparing
-       pixels, and it covers the gradient backdrop as well as the cloud. */
+       pixels, and it covers anything else on the page that draws as well as the
+       cloud. */
     const framesRequested = (ms: number) =>
       page.evaluate(
         (windowMs: number) =>
@@ -898,40 +713,6 @@ test.describe("the particle engine", () => {
     ).toBeGreaterThan(200);
   });
 
-  /* The cloud's on-screen radius, as the distance inside which nine tenths of
-     what is lit sits. Not the furthest lit pixel: the cloud has a faint halo of
-     strays and a bloom around it, and a maximum takes the radius of the halo. */
-  async function cloudRadius(page: Page, centre: { x: number; y: number }) {
-    const shot = (await page.locator("[data-brain] canvas").screenshot()).toString("base64");
-    return page.evaluate(
-      async ({ data, at }: { data: string; at: { x: number; y: number } }) => {
-        const image = new Image();
-        image.src = `data:image/png;base64,${data}`;
-        await image.decode();
-        const sheet = document.createElement("canvas");
-        sheet.width = image.width;
-        sheet.height = image.height;
-        const ctx = sheet.getContext("2d");
-        if (!ctx) return 0;
-        ctx.drawImage(image, 0, 0);
-        const pixels = ctx.getImageData(0, 0, sheet.width, sheet.height).data;
-        const distances: number[] = [];
-        for (let y = 0; y < sheet.height; y += 2) {
-          for (let x = 0; x < sheet.width; x += 2) {
-            const i = (y * sheet.width + x) << 2;
-            if (pixels[i]! + pixels[i + 1]! + pixels[i + 2]! > 200) {
-              distances.push(Math.hypot(x - at.x, y - at.y));
-            }
-          }
-        }
-        if (distances.length === 0) return 0;
-        distances.sort((a, b) => a - b);
-        return Math.round(distances[Math.floor(distances.length * 0.9)] ?? 0);
-      },
-      { data: shot, at: centre },
-    );
-  }
-
   /* The cursor parts the cloud, and the cloud closes again.
 
      Worth the machinery, because this is exactly the kind of effect that can be
@@ -967,43 +748,20 @@ test.describe("the particle engine", () => {
     });
     await page.waitForTimeout(400);
 
+    const decoder = await decoderFor(page);
+    const photograph = async () =>
+      (await page.locator("[data-brain] canvas").screenshot()).toString("base64");
+
     /* Found rather than assumed. The cloud's resting place is a function of the
        timeline, the viewport aspect and the camera, and a number copied out of
        any of those into a test is a number that goes stale silently. The
-       centroid of what is lit is the cloud, wherever it is. */
-    const centre = await (async () => {
-      const shot = (await page.locator("[data-brain] canvas").screenshot()).toString("base64");
-      return page.evaluate(async (data: string) => {
-        const image = new Image();
-        image.src = `data:image/png;base64,${data}`;
-        await image.decode();
-        const sheet = document.createElement("canvas");
-        sheet.width = image.width;
-        sheet.height = image.height;
-        const ctx = sheet.getContext("2d");
-        if (!ctx) return { x: 0, y: 0 };
-        ctx.drawImage(image, 0, 0);
-        const pixels = ctx.getImageData(0, 0, sheet.width, sheet.height).data;
-        let sumX = 0;
-        let sumY = 0;
-        let lit = 0;
-        for (let y = 0; y < sheet.height; y += 2) {
-          for (let x = 0; x < sheet.width; x += 2) {
-            const i = (y * sheet.width + x) << 2;
-            if (pixels[i]! + pixels[i + 1]! + pixels[i + 2]! > 200) {
-              sumX += x;
-              sumY += y;
-              lit += 1;
-            }
-          }
-        }
-        return lit > 0 ? { x: Math.round(sumX / lit), y: Math.round(sumY / lit) } : { x: 0, y: 0 };
-      }, shot);
-    })();
+       centroid of the marks is the cloud, wherever it is. */
+    const found = await marksCentroid(decoder, await photograph());
+    const centre = { x: found.x, y: found.y };
 
     const viewport = page.viewportSize();
     expect(viewport).not.toBeNull();
-    expect(centre.x, "could not find the cloud on screen").toBeGreaterThan(0);
+    expect(found.count, "could not find the cloud on screen").toBeGreaterThan(200);
 
     /* The disc is measured against the parting, not against the viewport.
 
@@ -1019,11 +777,11 @@ test.describe("the particle engine", () => {
        measured rather than assumed, because it depends on the timeline, the
        aspect and the camera, and the reach is scaled into pixels by the ratio
        it has to the extent every shape is normalised to. */
-    const spread = await cloudRadius(page, centre);
+    const spread = await marksRadius(decoder, await photograph(), centre);
     expect(spread, "could not measure the cloud on screen").toBeGreaterThan(20);
     const radius = Math.max(24, Math.round((spread * DEFAULTS.pointerReach) / 0.34));
 
-    const before = await paintedWithin(page, centre.x, centre.y, radius);
+    const before = await paintedWithin(page, decoder, centre.x, centre.y, radius);
     expect(before, "nothing painted where the cloud should be").toBeGreaterThan(50);
 
     /* Jiggled rather than parked, because a single move is one event and the
@@ -1045,7 +803,7 @@ test.describe("the particle engine", () => {
             await page.mouse.move(centre.x + (step % 3), centre.y + (step % 2));
             await page.waitForTimeout(100);
           }
-          during = await paintedWithin(page, centre.x, centre.y, radius);
+          during = await paintedWithin(page, decoder, centre.x, centre.y, radius);
           return during;
         },
         { timeout: 120_000, message: "the pointer did not part the cloud" },
@@ -1066,11 +824,15 @@ test.describe("the particle engine", () => {
        that holds the shape, and it has the whole cloud behind it. */
     await page.mouse.move(10, 10);
     await page.waitForTimeout(4_000);
-    const after = await paintedWithin(page, centre.x, centre.y, radius);
+    const after = await paintedWithin(page, decoder, centre.x, centre.y, radius);
 
-    console.log(`pointer hole: ${before} lit, ${during} with the pointer on it, ${after} after`);
+    console.log(
+      `pointer hole: ${before} marked, ${during} with the pointer on it, ${after} after ` +
+        `(disc radius ${radius}px, cloud radius ${spread}px)`,
+    );
 
     expect(after, "the cloud did not close again").toBeGreaterThan(during * 1.05);
+    await decoder.close();
   });
 
   test("flies the opening in from outside the frame", async ({ page }) => {
@@ -1112,12 +874,13 @@ test.describe("the particle engine", () => {
         let last: number | null = null;
         let clock = 0;
         /* Advanced once per real animation frame rather than once per callback.
-           Two things on this page ask for frames, the gradient and the engine,
-           and every callback scheduled for the same frame is handed the same
-           timestamp by the browser: comparing against the last one seen is what
-           makes this a clock rather than a counter of subscribers. Advanced per
-           callback, the engine would see twice the step it was given, past the
-           point where it caps how much catching up one frame may do. */
+           More than one thing on a page can ask for frames (there used to be a
+           gradient beside the engine, and a decoration can come back), and every
+           callback scheduled for the same frame is handed the same timestamp by
+           the browser: comparing against the last one seen is what makes this a
+           clock rather than a counter of subscribers. Advanced per callback, the
+           engine would see twice the step it was given, past the point where it
+           caps how much catching up one frame may do. */
         /* Held at nought until the test starts it.
 
            The engine mounts several frames into the page's life and starts its
@@ -1233,7 +996,7 @@ test.describe("the particle engine", () => {
        top and the contract became a proportion of the stage's own travel. The
        final pass reads the same accumulation as ink on the paper half now, so
        the cloud travels the document again and the section measurement is
-       simply the right one. The stage is section zero.
+       simply the right one. The hero is section zero.
 
        One thing did change. Progress is normalised by the number of gaps rather
        than being the section index itself, so moving a section to its own page
@@ -1320,24 +1083,24 @@ test.describe("the particle engine", () => {
 
 /* The one thing an accessibility scanner cannot check on this site.
 
-   axe reads computed styles. The gradient and the particle cloud both live in
-   canvases it cannot read, so it composites text against the opaque black on
-   <html> and reports a ratio that is only right if nothing decorative is
-   painted between them. This measures the pixels that actually reach a reader.
+   axe reads computed styles. The particle cloud lives in a canvas it cannot
+   read, so it composites text against the wall painted on <html> and reports a
+   ratio that is only right if nothing decorative is painted between them. This
+   measures the pixels that actually reach a reader.
 
-   It used to take the brightest pixel anywhere in the viewport with the content
-   hidden, which was the right test when everything decorative sat under a
-   scrim. It is the wrong test now. The particle cloud is painted above the
-   scrim so that its colours run at full strength, and in the opening screen it
-   occupies the half of the page that has no text in it: a measurement over the
-   whole viewport would fail on pixels no word will ever sit on, and the only
-   way to pass it would be to dim the cloud everywhere.
+   It asks two questions of every piece of content on screen, at eight places
+   down the page, with the page hidden and only the wall and the cloud left to
+   photograph. The first is the rule the page is built to: is anything but bare
+   wall behind it. Nothing goes over the brain and the brain goes over nothing,
+   and a faint enough cloud behind a word is still legible, so contrast alone
+   could not tell. The second is the contrast itself, against the pixels rather
+   than the styles: of every run of text in plain ink, the ratio to whatever is
+   nearest its own luminance behind it.
 
-   So this measures contrast where the text actually is. Every element carrying
-   text is located, the content is hidden, and the brightest background pixel
-   inside each element's own box is compared against that element's own colour.
-   It is a stricter test in the place that matters and it says nothing about the
-   places that do not. */
+   On a flat wall the second is close to redundant, and it stays for that
+   reason. It reads pixels, so it is the one that would notice something
+   unexpected painted behind a word: a mark the first question was told to
+   allow, a block that grew a background, a clip that moved under a caption. */
 
 type TextBox = {
   x: number;
@@ -1349,14 +1112,11 @@ type TextBox = {
   label: string;
 };
 
-/* Eight samples across the six section timeline. The cloud moves, disperses,
-   reforms and changes brightness as the page scrolls, so one position proves
-   nothing about the others. */
 /* Where down the document to stand and look. Fractions of the whole scroll
-   rather than section indices: the timeline is no longer mapped to sections,
-   and what this test needs to cover is every position a reader can stop at,
-   which is the document. The first four land inside the stage, where the cloud
-   is behind the words; the rest land on the paper below it, where it is not. */
+   rather than section indices: what this test needs to cover is every position
+   a reader can stop at, which is the document. The cloud moves, disperses,
+   reforms and changes composition as the page scrolls, so one position proves
+   nothing about the others. */
 const SAMPLE_POINTS = [0, 0.04, 0.09, 0.15, 0.24, 0.4, 0.6, 0.85];
 
 function relativeLuminance(rgb: [number, number, number]) {
@@ -1374,18 +1134,12 @@ test.describe("contrast where the words actually are", () => {
      page to eight scroll positions, and at each one it hides the page, takes a
      full page screenshot, restores it, and then walks every run of text on the
      page measuring the composited pixels behind it. On a box with no GPU, where
-     a thirty two thousand particle cloud and a full screen shader are both
-     rasterised in software, that measures 72 seconds run on its own.
-
-     `test.slow()` triples the default thirty, which is ninety, and 72 against
-     90 is not a margin: it went over as soon as the run shared the machine with
-     other workers. The frame scheduler added a little to it as well, because
-     the backdrop now runs until the scheduler gives it up rather than stopping
-     itself after twenty frames.
+     a thirty two thousand particle cloud is rasterised in software, that
+     measured 72 seconds run on its own, and it went over ninety as soon as the
+     run shared the machine with other workers.
 
      Nothing is skipped and no assertion is relaxed. A slow machine is allowed
-     longer to arrive at the same answer, and the answer is the one that matters
-     on this page: no run of text is over a lit background. */
+     longer to arrive at the same answer. */
   test.describe.configure({ timeout: 180_000 });
 
   test("every run of text clears AA, and nothing is drawn over the cloud", async ({
@@ -1396,15 +1150,16 @@ test.describe("contrast where the words actually are", () => {
     await page.evaluate((key) => sessionStorage.setItem(key, "1"), INTRO_KEY);
     await page.reload();
     await page.evaluate(() => document.fonts.ready);
-    /* Live or still, and either way painted: the scheduler is allowed to give
-       the gradient up on a machine this slow, and it keeps its last frame. */
+    /* Drawing, and not merely mounted: a walk over a cloud that never started
+       would pass for the wrong reason. */
     await expect
-      .poll(() => page.locator(".backdrop").getAttribute("data-backdrop"))
-      .toMatch(/^(live|still)$/);
+      .poll(() => page.locator("[data-brain]").getAttribute("data-brain"), { timeout: 30_000 })
+      .toBe("live");
 
     const decoder = await browser.newPage();
     const worst: { ratio: number; label: string; at: number }[] = [];
     let found = 0;
+    let cloudSeen = 0;
 
     for (const point of SAMPLE_POINTS) {
       await page.evaluate((target) => {
@@ -1436,21 +1191,17 @@ test.describe("contrast where the words actually are", () => {
 
           /* Text on a surface of its own is not this test's business.
 
-             The measurement below hides the page and screenshots what is left,
+             The measurement below hides the page and photographs what is left,
              which is the only honest way to ask what a reader sees behind a
-             word when there is nothing between the word and the moving cloud.
-             It assumes there is nothing between them, and on the site this was
-             written for there never was: that design had no cards, no panels
-             and no filled controls, so every glyph sat directly on the
-             backdrop.
-
-             This one has all three. A label on a filled pill or inside a card
-             sits on an opaque surface, the cloud behind it reaches the reader
-             not at all, and measuring it against the cloud reports a white
-             button's dark text against black and calls it 1.1:1. Those
-             elements are not unmeasured: axe resolves an element's own
-             background and checks exactly this case, on every route, in
-             a11y.spec.ts. What is left here is what only this test can do. */
+             word when there is nothing between the word and the cloud. It
+             assumes there is nothing between them. A word inside the block of
+             carbon, or on a filled control, sits on an opaque surface, the
+             cloud behind it reaches the reader not at all, and measuring it
+             against the wall would report chalk type against grey and call it
+             a failure. Those elements are not unmeasured: axe resolves an
+             element's own background and checks exactly this case, on every
+             route, in a11y.spec.ts. What is left here is what only this test
+             can do. */
           let opaque = false;
           for (
             let node: HTMLElement | null = element;
@@ -1471,6 +1222,13 @@ test.describe("contrast where the words actually are", () => {
           const box = element.getBoundingClientRect();
           if (box.width < 4 || box.height < 4) continue;
           if (box.bottom <= 0 || box.top >= view.height) continue;
+          /* Nor past either side. The index scrolls inside itself on a phone, so
+             its right-hand columns are in the document and not on the screen,
+             and a cell that is scrolled out of sight is not something a reader
+             is looking at. It would clamp to an empty region of the photograph,
+             and an empty region reads as the worst case, so it failed as text on
+             a background that does not exist. */
+          if (box.right <= 0 || box.left >= view.width) continue;
 
           const match = style.color.match(/-?\d+(\.\d+)?/g);
           if (!match || match.length < 3) continue;
@@ -1479,6 +1237,10 @@ test.describe("contrast where the words actually are", () => {
             Number(match[1]),
             Number(match[2]),
           ];
+          /* Type that is not fully opaque is the quiet steps of the ink, which
+             are carbon at an alpha. Their ratio depends on the wall they are
+             blended with, so it is axe's to measure from the styles, and it
+             does, on every route. */
           if (match.length > 3 && Number(match[3]) < 0.95) continue;
 
           const size = Number.parseFloat(style.fontSize);
@@ -1499,42 +1261,35 @@ test.describe("contrast where the words actually are", () => {
         return found;
       });
 
-      /* Not every stop has text over the backdrop, and that is a correct
-         answer rather than a broken selector. Deep into the stage the copy has
-         faded out and the only words left on screen are inside the artifact
-         cards, which sit on their own opaque surface and are excluded above; on
-         the paper below, everything is on a surface. What has to hold is that
-         the selector finds text somewhere, which is asserted once at the end
-         over the whole walk. */
       found += boxes.length;
 
       /* Every piece of content on screen, whatever it sits on, for the stricter
-         question below. Contrast asks whether text stays legible over the
-         cloud; this asks whether the cloud is behind anything at all, which is
-         the rule the page is built to: nothing goes over the brain and the
-         brain goes over nothing. The contrast measurement passed on a phone
-         while the brain sat behind the controls and the table, because a dim
-         enough cloud behind a word is still legible. The measurement is shared
-         with the crossing test, in cloud-overlap.ts. */
+         question: whether the cloud is behind anything at all. The measurement
+         is shared with the crossing test, in cloud-overlap.ts. */
       const content = await collectContent(page);
       const shot = await photographBehind(page);
-      const brightest = await brightestIn(decoder, shot, [...boxes, ...content]);
+      const marked = await markedBehind(decoder, shot, content);
+      const range = await luminanceRangeIn(decoder, shot, boxes);
+      cloudSeen = Math.max(cloudSeen, await markedShare(decoder, shot));
 
       content.forEach((box, index) => {
-        const behind = brightest[boxes.length + index] ?? 1;
+        const behind = marked[index] ?? 1;
         expect(
           behind,
           `"${box.label}" at section progress ${point} has the cloud behind it, ` +
-            `at luminance ${behind.toFixed(4)}`,
-        ).toBeLessThanOrEqual(OVERLAP_CEILING);
+            `${behind.toFixed(4)} from bare wall`,
+        ).toBeLessThanOrEqual(MARK_CEILING);
       });
 
       boxes.forEach((box, index) => {
-        const background = brightest[index] ?? 1;
         const text = relativeLuminance(box.colour);
-        const lighter = Math.max(text, background);
-        const darker = Math.min(text, background);
-        const ratio = (lighter + 0.05) / (darker + 0.05);
+        const { min, max } = range[index] ?? { min: 0, max: 1 };
+        /* Against whichever pixel behind the box is nearest the text's own
+           luminance. Dark type is worst off against the darkest thing behind
+           it, light type against the lightest, and type between the two is at
+           one to one with something. */
+        const against = text < min ? min : text > max ? max : text;
+        const ratio = (Math.max(text, against) + 0.05) / (Math.min(text, against) + 0.05);
         const floor = box.large ? 3 : 4.5;
 
         if (ratio < floor + 1.5) {
@@ -1543,24 +1298,29 @@ test.describe("contrast where the words actually are", () => {
 
         expect(
           ratio,
-          `"${box.label}" at section progress ${point} sits on background ` +
-            `luminance ${background.toFixed(4)}`,
+          `"${box.label}" at section progress ${point} sits on pixels from ` +
+            `luminance ${min.toFixed(4)} to ${max.toFixed(4)}`,
         ).toBeGreaterThanOrEqual(floor);
       });
     }
 
     /* Five, not a round twenty: the number is small by design and the bar has
        to be set from what the page actually has rather than from what feels
-       like a lot. Almost every word on this site now sits on a card, a pill or
-       a band, and text on its own surface is excluded above because the cloud
-       behind it reaches the reader not at all. What is left is the stage's own
-       copy, which is eleven runs at the top of a desktop and fifteen across the
-       whole walk on a phone. The assertion is here to catch the selector
-       silently matching nothing, and five does that. */
+       like a lot. Type on its own surface is excluded above, and so is type at
+       an alpha, which leaves the headlines and the plain ink. The assertion is
+       here to catch the selector silently matching nothing, and five does
+       that. */
+    expect(found, "no text was measured anywhere on the page, so this proves nothing").toBeGreaterThan(
+      5,
+    );
+
+    /* And the cloud was on screen somewhere in the walk. A page that failed to
+       draw it would go over nothing, and the first question would pass for the
+       wrong reason. */
     expect(
-      found,
-      "no text was measured anywhere on the page, so this proves nothing",
-    ).toBeGreaterThan(5);
+      cloudSeen,
+      "the cloud was never on screen in the walk, so nothing was proven about it",
+    ).toBeGreaterThan(0.001);
 
     await decoder.close();
 
