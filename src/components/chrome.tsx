@@ -3,64 +3,35 @@ import { NavLinks } from "@/components/nav-links";
 import { PaletteTrigger } from "@/components/palette-trigger";
 import { contact, person } from "@/lib/site";
 
-/* The same triangle, in whatever ink the bar is sitting on. It used to be
-   stroked in the old brand violet, which is not a colour this system has: the
-   brief's logo mark is the one dark value and nothing else. Taking
-   currentColor also means it comes out white over the stage and ink on paper
-   without the header having to say so twice. */
-function Mark() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 12 12"
-      className="size-3 shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.4"
-    >
-      <polygon points="6,1.4 10.6,10 1.4,10" />
-    </svg>
-  );
-}
+/* In the flow, above the page, and nothing else.
 
-/* Transparent, no border, no shadow, no separator: the brief calls its own
-   navigation whisper-quiet and this is that.
+   It used to be laid over the top of the page, because the home page opened on
+   a full height black stage and a header in the flow would have put a strip of
+   something else above it. There is no stage. The wall runs from the top of the
+   window to the bottom, so the header is an ordinary block and every page
+   starts below it without keeping room for it.
 
-   Laid over the top of the page rather than stacked above it. The home page
-   opens on the dark stage, and a header in the flow would have put a white
-   strip above it. It is not sticky, so it scrolls away with the stage and
-   never has to change colour halfway down a page; site-header in the
-   stylesheet gives it the stage's ink on any page that has one. */
+   The name is the one headline-face thing in it. The navigation is labels, in
+   the terminal's voice, and the search is a ruled box. There is no rule under
+   the bar: a line across the full width would run through the lane the cloud
+   travels down, and the cloud goes over nothing. */
 export function SiteHeader() {
   return (
     <header className="site-header shell flex w-full flex-wrap items-center justify-between gap-x-8 gap-y-3 py-6">
-      <Link
-        href="/"
-        className="flex items-center gap-2.5 text-[15px] font-normal tracking-[-0.01em] text-ink"
-      >
-        <Mark />
+      <Link href="/" className="t-h3 text-ink hover:bg-accent-soft">
         {person.name}
       </Link>
 
-      {/* Centred, which is the brief's arrangement, and only on a screen wide
-          enough for three columns: below that the links sit beside the trigger
-          rather than under the logo. */}
+      {/* Centred in the space between the name and the search on a screen wide
+          enough for three columns. Below that the links sit on a row of their
+          own, under the name. */}
       <nav
         aria-label="Main"
-        className="order-last w-full sm:order-none sm:w-auto sm:flex sm:flex-1 sm:justify-center"
+        className="order-last w-full sm:order-none sm:flex sm:w-auto sm:flex-1 sm:justify-center"
       >
         <NavLinks />
       </nav>
 
-      {/* The brief pairs a text link with a filled pill here, and this header
-          has the trigger and nothing else on purpose.
-
-          Its navigation is not sticky: it scrolls away with the stage, so it is
-          only ever on screen at the very top of the page, where the hero's own
-          "Get in touch" pill is already visible a couple of inches below it. A
-          second identical control that close to the first is not what the brief
-          is asking for, it is what copying a sticky header's affordance into one
-          that scrolls away produces. */}
       <PaletteTrigger />
     </header>
   );
@@ -70,29 +41,29 @@ export function SiteFooter() {
   return (
     <footer className="site-footer mt-auto w-full">
       <div className="shell pt-10 pb-14">
-      <div className="border-t border-rule pt-8">
-        <div className="flex flex-wrap gap-x-8 gap-y-3">
-          <a href={`mailto:${contact.email}`} className="link-arrow text-[15px]">
-            {contact.email}
-          </a>
-          <a href={contact.linkedin} className="link-arrow text-[15px]">
-            LinkedIn
-          </a>
-          <a href={contact.github} className="link-arrow text-[15px]">
-            GitHub
-          </a>
-          <a href="/feed.xml" className="text-[15px] text-muted hover:text-ink">
-            Feed
-          </a>
-          <Link href="/privacy" className="text-[15px] text-muted hover:text-ink">
-            Privacy
-          </Link>
-        </div>
-        <p className="measure mt-6 text-[15px] leading-relaxed text-muted">
-          Nothing on this site is financial advice. Results labelled simulated or
-          illustrative are model output over historical or user-supplied inputs,
-          not a record of trading. © {new Date().getFullYear()} {person.name}.
-        </p>
+        <div className="scored pt-6">
+          <div className="flex flex-wrap gap-x-8 gap-y-3">
+            <a href={`mailto:${contact.email}`} className="link-arrow t-label text-ink">
+              {contact.email}
+            </a>
+            <a href={contact.linkedin} className="link-arrow t-label text-ink">
+              LinkedIn
+            </a>
+            <a href={contact.github} className="link-arrow t-label text-ink">
+              GitHub
+            </a>
+            <a href="/feed.xml" className="link-arrow t-label text-ink">
+              Feed
+            </a>
+            <Link href="/privacy" className="link-arrow t-label text-ink">
+              Privacy
+            </Link>
+          </div>
+          <p className="measure t-caption mt-6 text-muted">
+            Nothing on this site is financial advice. Results labelled simulated or
+            illustrative are model output over historical or user-supplied inputs,
+            not a record of trading. © {new Date().getFullYear()} {person.name}.
+          </p>
         </div>
       </div>
     </footer>

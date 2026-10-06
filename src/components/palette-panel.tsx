@@ -145,7 +145,7 @@ export default function PalettePanel({
           aria-activedescendant={active >= 0 ? optionId(active) : undefined}
           autoComplete="off"
           spellCheck={false}
-          className="border-b border-rule bg-transparent px-5 py-4 text-[16px] outline-none placeholder:text-muted"
+          className="border-b-2 border-rule-strong bg-transparent px-5 py-4 text-[0.9375rem] outline-none placeholder:text-muted"
         />
 
         {/* Announces the count as the query narrows, so a screen reader user

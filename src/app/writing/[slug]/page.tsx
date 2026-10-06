@@ -65,11 +65,11 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
             </time>
           </div>
 
-          <h1 className="t-hlg mt-6 max-w-[18ch] text-pretty text-ink">
+          <h1 className="t-hlg mt-6 max-w-[8.8em] text-pretty text-ink">
             {piece.title}
           </h1>
 
-          <p className="measure t-body-lg mt-7 text-muted">
+          <p className="measure t-body-lg mt-7 text-ink-soft">
             {piece.dek}
           </p>
 
@@ -79,7 +79,7 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
                 <a
                   key={link.href}
                   href={link.href}
-                  className="link-arrow text-[16px]"
+                  className="link-arrow text-[0.875rem]"
                 >
                   {link.label} <span aria-hidden="true">&rarr;</span>
                 </a>
@@ -89,15 +89,23 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
       </header>
 
       <div className="shell w-full pb-20">
-        <div className="longform">
-          <Body />
+        {/* The piece is read on a sheet of chalk, a poster pasted on the wall.
+            Twenty minutes of prose is the one thing on this site that is read
+            rather than scanned, and carbon on chalk is 16.8:1 where carbon on
+            the wall is 7.5. It is a block with an opaque ground, which is
+            allowed here and nowhere on the home page: this route has no cloud
+            behind it. */}
+        <div className="sheet max-w-[60rem]">
+          <div className="longform">
+            <Body />
+          </div>
         </div>
 
         {/* Somewhere to go at the end. Without this the only way on from the
             foot of a piece is the back button. */}
         <nav
           aria-label="More writing"
-          className="mt-14 flex flex-col gap-6 border-t border-rule-strong pt-6 print:hidden"
+          className="scored mt-14 flex flex-col gap-6 pt-6 print:hidden"
         >
           <div className="grid gap-6 sm:grid-cols-2">
             {previous ? (
@@ -106,7 +114,7 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
                 className="group flex flex-col gap-1.5 no-underline"
               >
                 <span className="t-label">Previous</span>
-                <span className="t-h3 max-w-[28ch] text-ink group-hover:underline">
+                <span className="t-h3 max-w-[13.2em] text-ink group-hover:bg-accent-soft">
                   {previous.title}
                 </span>
               </Link>
@@ -119,17 +127,14 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
                 className="group flex flex-col gap-1.5 no-underline sm:items-end sm:text-right"
               >
                 <span className="t-label">Next</span>
-                <span className="t-h3 max-w-[28ch] text-ink group-hover:underline">
+                <span className="t-h3 max-w-[13.2em] text-ink group-hover:bg-accent-soft">
                   {next.title}
                 </span>
               </Link>
             ) : null}
           </div>
 
-          <Link
-            href="/writing"
-            className="t-label text-accent hover:underline"
-          >
+          <Link href="/writing" className="link-arrow t-label self-start text-ink">
             All write-ups
           </Link>
         </nav>

@@ -17,10 +17,10 @@ function timelineList(Heading: "h2" | "h3") {
       {timeline.map((entry) => (
         <li
           key={entry.id}
-          className="grid gap-x-12 gap-y-4 border-t border-rule py-10 first:border-t-0 first:pt-0 sm:grid-cols-[12rem_minmax(0,1fr)]"
+          className="scored grid gap-x-12 gap-y-4 py-10 first:pt-6 sm:grid-cols-[12rem_minmax(0,1fr)]"
         >
           <div className="flex flex-col gap-1.5">
-            <span className="tnum text-[15px] text-ink-soft">
+            <span className="tnum t-caption text-ink-soft">
               {entry.start} – {entry.end}
             </span>
             <span className="t-label">
@@ -30,21 +30,21 @@ function timelineList(Heading: "h2" | "h3") {
 
           <div className="flex flex-col gap-3">
             <Heading className="t-h3 text-ink">{entry.title}</Heading>
-            <p className="text-[15px] text-muted">
+            <p className="t-caption text-muted">
               {entry.org} · {entry.location}
             </p>
             <ul className="mt-2 flex flex-col gap-3">
               {entry.points.map((point) => (
                 <li
                   key={point}
-                  className="measure border-l border-rule pl-5 text-[16px] leading-relaxed text-ink-soft"
+                  className="measure border-l-2 border-rule pl-5 text-[0.875rem] leading-relaxed text-ink-soft"
                 >
                   {point}
                 </li>
               ))}
             </ul>
             {entry.aside ? (
-              <p className="measure mt-3 border-l-2 border-action pl-5 text-[14px] leading-relaxed text-muted">
+              <p className="measure mt-3 border-l-2 border-carbon pl-5 t-caption leading-relaxed text-muted">
                 <span className="t-label">
                   About the setting.{" "}
                 </span>

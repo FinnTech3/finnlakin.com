@@ -21,7 +21,7 @@ export default function WritingIndexPage() {
     >
       <ul className="flex flex-col">
         {writing.map((piece) => (
-          <li key={piece.slug} className="row-hover border-t border-rule py-10 first:border-t-0 first:pt-0">
+          <li key={piece.slug} className="row-hover scored-thin py-10 first:pt-6">
             <article className="flex flex-col gap-4">
               <time
                 dateTime={piece.published}
@@ -37,12 +37,12 @@ export default function WritingIndexPage() {
                   so an h3 here skipped a level. axe rates heading-order as
                   moderate and the gate only fails on serious and critical,
                   which is why it shipped. */}
-              <h2 className="t-hsm max-w-[20ch] text-pretty text-ink">
-                <Link href={`/writing/${piece.slug}`} className="hover:underline">
+              <h2 className="t-hsm max-w-[9.5em] text-pretty text-ink">
+                <Link href={`/writing/${piece.slug}`} className="hover:bg-accent-soft">
                   {piece.title}
                 </Link>
               </h2>
-              <p className="measure text-[17px] leading-relaxed text-ink-soft">
+              <p className="measure text-[0.9375rem] leading-relaxed text-ink-soft">
                 {piece.dek}
               </p>
             </article>

@@ -6,14 +6,18 @@
    and draws them against a common axis, which is the one thing a list of
    statistics cannot do: show that one of them is thirty one times another.
 
-   Plain SVG and plain arithmetic, like charts.tsx beside it. No chart library,
+   Plain HTML and plain arithmetic, like charts.tsx beside it. No chart library,
    because a scale factory and a layout engine are a great deal of bytes to
    compute max() and a percentage, and this renders on the server so a page
    without a figure ships none of it.
 
    The drawing is aria-hidden and the caption carries the comparison in words.
    A bar chart read out as a list of paths is worse than useless, and the
-   numbers themselves are already in the statistics list beside it. */
+   numbers themselves are already in the statistics list beside it.
+
+   A bar that did not hold is acid with a carbon edge, and one that did is
+   carbon. Colour never carries it alone: the figure above each bar is the
+   number, and the word beside it says which kind it is. */
 export type CompareRow = {
   label: string;
   value: number;
@@ -39,7 +43,7 @@ export function CompareFigure({
   const largest = Math.max(...rows.map((row) => row.value), 0);
 
   return (
-    <figure className="m-0 flex flex-col gap-5 rounded-[--radius-card] bg-card px-6 py-7 sm:px-9 sm:py-9">
+    <figure className="m-0 flex flex-col gap-5 scored pt-5">
       <figcaption className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
         <span className="t-label">{caption}</span>
         <span className="t-label">{axisLabel}</span>
@@ -49,40 +53,34 @@ export function CompareFigure({
         {rows.map((row) => {
           /* A share of the largest bar, floored so that a genuine nought is
              still a visible mark rather than an absence that reads as a
-             rendering fault. The floor is two pixels of a track, and the label
-             beside it says nought. */
+             rendering fault. The floor is a little over half a rem of a track,
+             and the label beside it says nought. */
           const share = largest > 0 ? (row.value / largest) * 100 : 0;
           return (
             <div key={row.label} className="flex flex-col gap-2">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-                <span className="text-[15px] text-ink">{row.label}</span>
-                <span
-                  className={`tnum text-[17px] ${
-                    row.tone === "flag"
-                      ? "font-medium text-flag"
-                      : row.tone === "pass"
-                        ? "text-pass"
-                        : "text-ink"
-                  }`}
-                >
-                  {row.display}
+                <span className="text-[0.8125rem] text-ink">{row.label}</span>
+                <span className="tnum text-[1rem]">
+                  {row.tone === "flag" ? (
+                    <span className="flag">{row.display}</span>
+                  ) : (
+                    <span className={row.tone === "pass" ? "held" : "text-ink"}>{row.display}</span>
+                  )}
                 </span>
               </div>
-              <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-rule">
+              <div className="relative h-3 w-full overflow-hidden border-2 border-carbon bg-rule">
                 <div
-                  className={`h-full rounded-full ${
-                    row.tone === "flag" ? "bg-flag" : row.tone === "pass" ? "bg-pass" : "bg-ink"
-                  }`}
+                  className={`h-full ${row.tone === "flag" ? "bg-flag" : "bg-carbon"}`}
                   style={{ width: `max(0.5rem, ${share}%)` }}
                 />
               </div>
-              {row.note ? <p className="text-[13px] text-muted">{row.note}</p> : null}
+              {row.note ? <p className="t-caption text-muted">{row.note}</p> : null}
             </div>
           );
         })}
       </div>
 
-      <p className="measure text-[15px] leading-relaxed text-muted">{reading}</p>
+      <p className="measure t-caption leading-relaxed text-muted">{reading}</p>
     </figure>
   );
 }

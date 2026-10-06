@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 
 function BarList({ rows, unit }: { rows: Row[]; unit?: string }) {
   if (rows.length === 0) {
-    return <p className="text-sm text-muted">Nothing recorded yet.</p>;
+    return <p className="t-caption text-muted">Nothing recorded yet.</p>;
   }
   const max = Math.max(...rows.map((row) => row.count), 1);
 
@@ -33,15 +33,15 @@ function BarList({ rows, unit }: { rows: Row[]; unit?: string }) {
       {rows.map((row) => (
         <li key={row.label} className="flex flex-col gap-1">
           <div className="flex items-baseline justify-between gap-4">
-            <span className="truncate text-sm">{row.label}</span>
-            <span className="tnum shrink-0 text-[15px] text-muted">
+            <span className="truncate text-[0.8125rem]">{row.label}</span>
+            <span className="tnum t-caption shrink-0 text-muted">
               {row.count.toLocaleString("en-GB")}
               {unit ? ` ${unit}` : ""}
             </span>
           </div>
-          <div className="h-1 bg-rule">
+          <div className="h-1.5 bg-rule">
             <div
-              className="h-1 bg-accent"
+              className="h-1.5 bg-carbon"
               style={{ width: `${Math.max((row.count / max) * 100, 1)}%` }}
             />
           </div>
@@ -53,7 +53,7 @@ function BarList({ rows, unit }: { rows: Row[]; unit?: string }) {
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="border-t border-rule pt-6">
+    <section className="scored pt-4">
       <h2 className="t-label mb-5 text-ink">
         {title}
       </h2>
@@ -75,12 +75,9 @@ function SignIn() {
           type="password"
           autoComplete="current-password"
           required
-          className="border border-rule bg-black px-4 py-3 text-[16px] outline-none focus:border-action"
+          className="border-2 border-carbon bg-chalk px-4 py-3 text-[0.9375rem] text-carbon outline-none focus:bg-accent-soft"
         />
-        <button
-          type="submit"
-          className="t-label inline-flex min-h-11 items-center justify-center rounded-full bg-action px-6 text-action-ink hover:opacity-90"
-        >
+        <button type="submit" className="pill pill-filled min-h-11">
           Sign in
         </button>
       </form>
@@ -91,14 +88,14 @@ function SignIn() {
 function Dashboard({ data, days }: { data: Dashboard; days: number }) {
   return (
     <div className="shell w-full py-14">
-      <header className="flex flex-wrap items-baseline justify-between gap-4 border-b border-rule pb-6">
+      <header className="scored flex flex-wrap items-baseline justify-between gap-4 pt-4 pb-6">
         <h1 className="t-h text-ink">Analytics</h1>
         <nav className="t-label flex gap-4">
           {[7, 30, 90].map((option) => (
             <a
               key={option}
               href={`/admin/analytics?days=${option}`}
-              className={option === days ? "text-ink underline" : "text-muted hover:text-ink"}
+              className={option === days ? "text-ink underline decoration-2" : "text-muted hover:text-ink"}
             >
               {option}d
             </a>
@@ -109,7 +106,7 @@ function Dashboard({ data, days }: { data: Dashboard; days: number }) {
       <dl className="mt-8 grid grid-cols-2 gap-6 sm:grid-cols-4">
         <div className="flex flex-col gap-1">
           <dt className="t-label">Views</dt>
-          <dd className="tnum text-[2rem] tracking-[-0.03em]">
+          <dd className="font-display text-[3rem] leading-none font-bold">
             {data.totals.views.toLocaleString("en-GB")}
           </dd>
         </div>
@@ -117,30 +114,30 @@ function Dashboard({ data, days }: { data: Dashboard; days: number }) {
           <dt className="t-label">
             Visitors
           </dt>
-          <dd className="tnum text-[2rem] tracking-[-0.03em]">
+          <dd className="font-display text-[3rem] leading-none font-bold">
             {data.totals.visitors.toLocaleString("en-GB")}
           </dd>
         </div>
         <div className="flex flex-col gap-1">
           <dt className="t-label">Window</dt>
-          <dd className="tnum text-[2rem] tracking-[-0.03em]">{days}d</dd>
+          <dd className="font-display text-[3rem] leading-none font-bold">{days}d</dd>
         </div>
         <div className="flex flex-col gap-1">
           <dt className="t-label">
             Retention
           </dt>
-          <dd className="tnum text-[2rem] tracking-[-0.03em]">{RETENTION_DAYS}d</dd>
+          <dd className="font-display text-[3rem] leading-none font-bold">{RETENTION_DAYS}d</dd>
         </div>
       </dl>
 
-      <p className="mt-3 text-xs text-muted">
+      <p className="t-caption mt-3 text-muted">
         Visitors are counted per UTC day and cannot be matched across days, so the
         figure above is the sum of daily uniques rather than distinct people.
         Rows older than {RETENTION_DAYS} days are deleted after this request,
         in batches, rather than while the page is being rendered.
       </p>
 
-      <div className="mt-8 grid gap-5 sm:grid-cols-2">
+      <div className="mt-8 grid gap-8 sm:grid-cols-2">
         <Panel title="Pages">
           <BarList rows={data.paths} />
         </Panel>
@@ -166,7 +163,7 @@ function Dashboard({ data, days }: { data: Dashboard; days: number }) {
 
       <form method="post" action="/api/admin/session" className="mt-8 flex items-baseline gap-4">
         <input type="hidden" name="action" value="sign-out" />
-        <button type="submit" className="t-label text-accent underline">
+        <button type="submit" className="link-arrow t-label underline decoration-2">
           Sign out
         </button>
         <span className="t-label text-muted">
@@ -225,7 +222,7 @@ export default async function AnalyticsPage({
     return (
       <div className="shell w-full py-14">
         <h1 className="t-h text-ink">Analytics</h1>
-        <p className="mt-4 max-w-[60ch] text-sm text-muted">
+        <p className="t-caption mt-4 max-w-[60ch] text-muted">
           The database is not reachable. Collection keeps returning 204 to
           visitors regardless, so nothing on the public site is affected.
         </p>

@@ -19,18 +19,18 @@ function Entries({ entries }: { entries: typeof timeline }) {
         <li key={entry.id} className="flex flex-col gap-2">
           <div className="flex flex-wrap items-baseline justify-between gap-x-6">
             <h3 className="t-h3 text-ink">{entry.title}</h3>
-            <span className="tnum text-[15px] text-muted">
+            <span className="tnum t-caption text-muted">
               {entry.start} – {entry.end}
             </span>
           </div>
-          <p className="text-[15px] text-muted">
+          <p className="t-caption text-muted">
             {entry.org} · {entry.location}
           </p>
           <ul className="mt-2 flex list-disc flex-col gap-2 pl-5">
             {entry.points.map((point) => (
               <li
                 key={point}
-                className="max-w-[72ch] text-[16px] leading-relaxed text-ink-soft"
+                className="max-w-[72ch] text-[0.875rem] leading-relaxed text-ink-soft"
               >
                 {point}
               </li>
@@ -49,7 +49,7 @@ function Entries({ entries }: { entries: typeof timeline }) {
    column on paper, where a floating label would be wasted margin. */
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="grid gap-x-16 gap-y-5 border-t border-rule pt-8 lg:grid-cols-[14rem_minmax(0,1fr)] print:block">
+    <section className="scored grid gap-x-16 gap-y-5 pt-6 lg:grid-cols-[14rem_minmax(0,1fr)] print:block">
       <h2 className="t-label">{title}</h2>
       <div>{children}</div>
     </section>
@@ -60,18 +60,18 @@ export default function CvPage() {
   return (
     <div className="cv-print shell w-full pt-6 pb-24 sm:pt-12">
       <header className="flex flex-col gap-5 pb-14">
-        <h1 className="t-hlg max-w-[12ch] text-ink">{person.name}</h1>
-        <p className="text-[18px] text-ink-soft">
+        <h1 className="t-hlg max-w-[5.9em] text-ink">{person.name}</h1>
+        <p className="text-[0.9375rem] text-ink-soft">
           {person.course} · {person.university} · Class of {person.graduation}
         </p>
         <div className="flex flex-wrap gap-x-7 gap-y-2">
-          <a href={`mailto:${contact.email}`} className="text-[15px] text-accent hover:underline">
+          <a href={`mailto:${contact.email}`} className="link-arrow t-caption">
             {contact.email}
           </a>
-          <a href={contact.linkedin} className="text-[15px] text-accent hover:underline">
+          <a href={contact.linkedin} className="link-arrow t-caption">
             linkedin.com/in/finnlakin
           </a>
-          <a href={contact.github} className="text-[15px] text-accent hover:underline">
+          <a href={contact.github} className="link-arrow t-caption">
             github.com/FinnTech3
           </a>
         </div>
@@ -88,7 +88,7 @@ export default function CvPage() {
 
       <div className="flex flex-col gap-12">
         <Block title="Profile">
-          <p className="max-w-[72ch] text-[17px] leading-relaxed text-ink-soft">
+          <p className="max-w-[72ch] text-[0.9375rem] leading-relaxed text-ink-soft">
             Final-year {person.course} student at {person.university}, on track for
             First-Class Honours, back from an exchange year at {person.exchange}{" "}
             taught in French. I rebuild published financial and economic series
@@ -112,7 +112,7 @@ export default function CvPage() {
                 <dt className="t-label min-w-36">
                   {group.label}
                 </dt>
-                <dd className="text-[16px] text-ink-soft">
+                <dd className="text-[0.875rem] text-ink-soft">
                   {group.items.join(" · ")}
                 </dd>
               </div>
@@ -121,7 +121,7 @@ export default function CvPage() {
               <dt className="t-label min-w-36">
                 Languages
               </dt>
-              <dd className="text-[16px] text-ink-soft">
+              <dd className="text-[0.875rem] text-ink-soft">
                 {languages
                   .map((language) => `${language.name}, ${language.level.toLowerCase()}`)
                   .join(" · ")}

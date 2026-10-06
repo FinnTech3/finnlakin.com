@@ -1,12 +1,15 @@
 import Link from "next/link";
+import { Bays } from "@/components/bays";
 import { CompareFigure } from "@/components/compare-figure";
 import { Endorsements } from "@/components/endorsements";
 import { Hero } from "@/components/hero";
-import { ProjectCard, ProvenanceLegend } from "@/components/project-card";
+import { ProjectIndex } from "@/components/project-index";
+import { ProjectEntry, ProvenanceLegend } from "@/components/project-entry";
 import { Section } from "@/components/section";
 import { Skills } from "@/components/skills";
 import { PersonSchema } from "@/components/structured-data";
 import { buildMetadata } from "@/lib/metadata";
+import { numberWord } from "@/lib/numbers";
 import { projects } from "@/lib/projects";
 import { contact, person } from "@/lib/site";
 import { timeline } from "@/lib/timeline";
@@ -19,35 +22,39 @@ export default function HomePage() {
       <PersonSchema />
       <Hero />
 
-      {/* The lanes run in pairs: right for the work and the about band, left for
-          the path and the tools, right again for the references and the
-          contact. Not alternating, which is what this was.
+      {/* The lanes run in pairs: right for the opening, the work and the about
+          band, left for the path and the tools, right again for the references
+          and the contact. Not alternating, which is what this was.
 
           Alternating guarantees a collision. Two sections share the viewport for
           most of a scroll through the boundary between them, so if their lanes
           differ one of them has its content where the cloud is, whichever side
-          the cloud picks and whenever it crosses. In pairs, four of the five
+          the cloud picks and whenever it crosses. In pairs, most of the
           boundaries have both sections on the same side and the cloud simply
-          stays put; the two crossings that are left happen once each and are
-          dimmed and shrunk while they do. */}
+          stays put; the two crossings that are left happen once each, through the
+          seam between two sections, and the cloud gathers itself up to fit it. */}
       <Section
         id="work"
         lane="right"
         eyebrow="Selected work"
-        title="Ten projects, strongest evidence first"
-        intro="Ordered by how much of each result you can check for yourself, rather than by how large the number is. Every project states what it does not show."
+        title="Index"
+        intro={`${numberWord(projects.length, { capital: true })} projects, strongest evidence first. Ordered by how much of each result you can check for yourself, rather than by how large the number is. Every project states what it does not show.`}
       >
-        <ProvenanceLegend />
+        <ProjectIndex />
+
+        <div className="mt-16">
+          <ProvenanceLegend />
+        </div>
 
         {/* Two of the numbers below, drawn rather than listed.
 
-            Both are already on this page as text in the cards underneath, and
+            Both are already on this page as text in the entries underneath, and
             both are the kind of claim a list of statistics states and cannot
             show: that one figure is thirty one times another from the same
             model, and that a scan which found eleven and a half thousand
             violations in one surface found none at all in the one beside it.
-            Nothing here is sourced from anywhere the cards are not. */}
-        <div className="mt-10 grid gap-6 @4xl:grid-cols-2">
+            Nothing here is sourced from anywhere the entries are not. */}
+        <div className="mt-16 grid gap-12 @4xl:grid-cols-2">
           <CompareFigure
             caption="Deribit, the same scan on two surfaces"
             axisLabel="Static arbitrage violations"
@@ -93,20 +100,20 @@ export default function HomePage() {
           />
         </div>
 
-        <div className="mt-10 flex flex-col gap-6">
+        <div className="mt-20 flex flex-col">
           {projects.map((project, index) => (
-            <ProjectCard
+            <ProjectEntry
               key={project.slug}
               project={project}
               index={index}
-              accent={index === 0}
+              strongest={index === 0}
             />
           ))}
         </div>
       </Section>
 
-      <Section id="about" eyebrow="About" title="Why this way" band lane="right">
-        <div className="measure flex flex-col gap-6 text-[17px] leading-[1.6] text-ink">
+      <Section id="about" eyebrow="About" title="Why this way" lane="right">
+        <div className="longform">
           <p>
             I read {person.course} at {person.university}, and I have just come
             back from an exchange year at {person.exchange}, taught in French.
@@ -138,11 +145,11 @@ export default function HomePage() {
         </div>
       </Section>
 
-      {/* The history itself is a page of its own now, and this is the door to
-          it. It keeps the id the scroll controller measures the timeline
-          against, so the choreography still has a boundary here; what it does
-          not keep is eight hundred words of dates in the middle of a page whose
-          job is the work. */}
+      {/* The history itself is a page of its own, and this is the door to it.
+          It keeps the id the scroll controller measures the timeline against,
+          so the choreography still has a boundary here; what it does not keep is
+          eight hundred words of dates in the middle of a page whose job is the
+          work. */}
       <Section
         id="path"
         eyebrow="Path"
@@ -150,18 +157,20 @@ export default function HomePage() {
         lane="left"
         intro="Four years of it, with what each place was actually for."
       >
-        <div className="flex flex-col gap-8">
-          <ol className="flex flex-col gap-0">
+        <div className="flex flex-col gap-10">
+          <ol className="flex flex-col">
             {timeline.slice(0, 3).map((entry) => (
               <li
                 key={entry.id}
-                className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-t border-rule py-5 first:border-t-0 first:pt-0"
+                className="scored-thin grid gap-2 py-5 first:border-t-0 first:pt-0 md:grid-cols-[10rem_minmax(0,1fr)] md:gap-8"
               >
-                <span className="tnum w-32 shrink-0 text-[15px] text-muted">
+                <span className="tnum t-caption text-muted">
                   {entry.start} – {entry.end}
                 </span>
-                <span className="text-[17px] text-ink">{entry.title}</span>
-                <span className="text-[15px] text-muted">{entry.org}</span>
+                <div>
+                  <span className="index-name block text-ink">{entry.title}</span>
+                  <span className="t-label mt-1.5 block">{entry.org}</span>
+                </div>
               </li>
             ))}
           </ol>
@@ -176,15 +185,17 @@ export default function HomePage() {
         </div>
       </Section>
 
-      <Section id="skills" eyebrow="Tools" title="What I actually use" band lane="left">
+      <Section id="skills" eyebrow="Tools" title="What I actually use" lane="left">
         <Skills />
+        <Bays />
       </Section>
 
       <Section
         id="endorsements"
         eyebrow="References"
-        title="From people who have worked alongside me"
+        title="On record"
         lane="right"
+        intro="From people who have worked alongside me."
       >
         <Endorsements />
       </Section>
@@ -193,7 +204,6 @@ export default function HomePage() {
         id="contact"
         eyebrow="Contact"
         title="Get in touch"
-        band
         lane="right"
         intro="Happy to talk through any of the methods above, including the parts that did not work."
       >
@@ -209,11 +219,11 @@ export default function HomePage() {
           </a>
         </div>
 
-        <dl className="mt-10 flex flex-wrap gap-x-16 gap-y-6">
+        <dl className="scored mt-12 flex flex-wrap gap-x-16 gap-y-6 pt-6">
           <div className="flex flex-col gap-1.5">
             <dt className="t-label">Email</dt>
             <dd>
-              <a href={`mailto:${contact.email}`} className="link-arrow text-[17px]">
+              <a href={`mailto:${contact.email}`} className="link-arrow text-[0.9375rem]">
                 {contact.email}
               </a>
             </dd>
@@ -221,7 +231,7 @@ export default function HomePage() {
           <div className="flex flex-col gap-1.5">
             <dt className="t-label">LinkedIn</dt>
             <dd>
-              <a href={contact.linkedin} className="link-arrow text-[17px]">
+              <a href={contact.linkedin} className="link-arrow text-[0.9375rem]">
                 /in/finnlakin
               </a>
             </dd>
@@ -229,7 +239,7 @@ export default function HomePage() {
           <div className="flex flex-col gap-1.5">
             <dt className="t-label">GitHub</dt>
             <dd>
-              <a href={contact.github} className="link-arrow text-[17px]">
+              <a href={contact.github} className="link-arrow text-[0.9375rem]">
                 FinnTech3
               </a>
             </dd>

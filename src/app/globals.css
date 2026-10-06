@@ -1,152 +1,86 @@
 @import "tailwindcss";
 
-/* The Dala palette, taken from the supplied design reference. Brand values sit
-   here under their own names so every colour on the site can be traced back to
-   that document, and @theme below maps them onto the roles the components ask
-   for. The indirection is the point: changing the brand means editing seven
-   values in this file rather than four hundred class names.
+/* Concrete.
 
-   Three roles must never merge:
+   One wall, and everything written on it is one of four colours: carbon for
+   type and rules, chalk for the two surfaces that are not wall, and acid for
+   the one thing that is allowed to shout. Nothing floats. There are no cards,
+   no radius, no shadow and no gradient, so the only depth on the site is a
+   scored line and a block of a different material.
+
+   Two families, each at one end of the scale and nowhere in between: Big
+   Shoulders, condensed and upper case, for anything that is a headline, and
+   Martian Mono, wide and small, for everything that is read. DESIGN.md has the
+   whole system and this file is where it is enforced.
+
+   Three roles must never merge, and they are tokens so that a block of another
+   material can turn them over in one place:
      --accent  interactive text: links, and nothing else.
      --action  the one filled control per view. Never text.
-     --pass / --flag  measurement verdicts only.
-   A red figure must never read as "clickable", and a link must never read as
-   "this failed". */
-
-/* Steep. The brief is DESIGN.md at the root of this repository, and every
-   brand value below is lifted from its token tables so any colour on the site
-   can be traced back to a row in that document. @theme maps them onto the
-   roles the components ask for; the indirection is the point.
-
-   Three roles must never merge:
-     --accent  interactive text: links, and nothing else.
-     --action  the one filled control per view. Never text.
-     --pass / --flag  measurement verdicts only.
-   A red figure must never read as "clickable", and a link must never read as
-   "this failed". */
+     --pass / --flag  measurement verdicts only. A verdict is never carried by
+                      its colour alone: the word and the weight say it too. */
 
 :root {
   color-scheme: light;
 
-  /* Steep, from DESIGN.md's colour table. */
-  --ink-black: #17191c;
-  --paper-white: #ffffff;
-  --mist-gray: #f2f2f3;
-  --fog-white: #fafafb;
-  --blush-peach: #fbe1d1;
-  --sienna-brown: #5d2a1a;
-  --hairline: #ececec;
+  /* The four colours. src/lib/colours.ts holds the same four for the places
+     that cannot read a stylesheet (the viewport, the manifest, the share cards
+     and the icons), and tests/platform.spec.ts asserts the wall is the same in
+     both. */
+  --wall: #a7a39b;
+  --carbon: #121212;
+  --chalk: #f4f2ee;
+  --acid: #d4ff3a;
 
-  /* The brief's three greys, darkened, and the reason is measured rather than
-     stylistic. Slate Gray #777b86 is 4.23:1 on paper white, Ash Gray #979799
-     is 2.92 and Smoke Gray #a3a6af is 2.43, against the 4.5 that AA asks of
-     text at these sizes; on the mist card surface each is lower again. The
-     brief is a visual reference and does not claim to have been checked, and
-     this site does not ship text a reader cannot read.
+  /* The page, and what is written on it.
 
-     Two steps are kept rather than three, because three cannot be fitted
-     between 4.5:1 and the point where a grey stops looking quiet. Both clear
-     AA on paper, on mist and on fog: 6.02 and 5.26 on paper, 5.38 and 4.70 on
-     the mist card, which is the tightest surface either sits on.
+     Carbon at an alpha rather than a set of greys, because the wall is one flat
+     colour and any grey that is not the wall's own would be a fifth colour. The
+     ratios are worked out against the wall: ink 7.45:1, ink-soft 6.64, and the
+     two quiet steps 5.32. Small text needs 4.5. The first version of this wall
+     had its labels at 0.66, which axe measured at 3.9. */
+  --paper: var(--wall);
+  --ink: var(--carbon);
+  --ink-soft: rgb(18 18 18 / 0.92);
+  --muted: rgb(18 18 18 / 0.8);
+  --faint: rgb(18 18 18 / 0.8);
 
-     The lighter of the two was 0.4% darker than this and measured 4.495 on
-     mist, which rounds to the bar in a report and fails it in the arithmetic,
-     on thirty two elements. A token that needs the rounding to go its way is
-     not chosen, it is lucky. */
-  --slate: #5f636c;
-  --smoke: #686c76;
+  /* A rule is scored into the wall, not drawn on it: the thin one is the
+     carbon at a quarter, the strong one is the carbon itself. */
+  --rule: rgb(18 18 18 / 0.28);
+  --rule-strong: var(--carbon);
 
-  /* Page surfaces. The site is one dark surface now, and these are stated as
-     translucent white rather than as opaque greys on purpose: a shader
-     background is coming that will sit behind all of it, and over a shader
-     these read as glass where an opaque grey would read as a hole punched in
-     it. Over the flat black that stands in for it, they are the greys they
-     replace. */
-  --paper: #000000;
-  /* Smoked glass rather than a lift of white, and the difference is load
-     bearing. The particle cloud is drawn behind the page, so a card at four
-     percent white lets it straight through: measured, the provenance label on a
-     card sat on a background of 0.0559 and came out at 3.79:1, because the
-     cloud's bloom was behind the words. At these values a card is its own
-     surface and the cloud shows between the cards and in the lane, which is
-     where it is supposed to be.
+  /* Links are carbon like the type around them and carry an arrow, with an
+     underline and an acid highlight on hover and on keyboard focus. The filled
+     control is carbon with chalk on it. */
+  --accent: var(--carbon);
+  --accent-soft: var(--acid);
+  --action: var(--carbon);
+  --action-ink: var(--chalk);
+  --action-soft: rgb(18 18 18 / 0.12);
 
-     Opaque, not translucent, and the last eight percent is what matters. A card
-     at 0.88 still let enough of the cloud's bloom through to put a grey label
-     at 4.30:1, and it is also the wrong answer for the animated background that
-     is coming: text at 88% over something that is moving shimmers. Opaque, the
-     card is a real surface, which is what the contrast suite's own exclusion
-     assumes and what axe then measures properly on every route. */
-  --card: #0d0d11;
-  --band: rgb(255 255 255 / 0.022);
-  --panel: rgb(8 8 10 / 0.94);
+  /* Held is plain. Not held is a swatch of acid with carbon on it: acid type on
+     the wall is 2.2:1 and cannot be read at any size this site uses, however
+     loud it is. */
+  --pass: var(--carbon);
+  --flag: var(--acid);
 
-  --ink: #ffffff;
-  --ink-soft: #c8c8cb;
-  /* Lifted from #9ea0a6. The quietest grey on the site has to clear 4.5:1
-     against a background that is no longer guaranteed to be black: the cloud is
-     behind the page now, and a card only holds most of it down. */
-  --muted: #a9abb1;
-  --faint: #a9abb1;
+  /* There are no cards and no tinted bands, so these are nothing. They stay as
+     tokens so that a component that asks for a surface gets none rather than
+     an opaque box laid over the cloud. */
+  --card: transparent;
+  --band: transparent;
 
-  /* Hairlines, not rules. The brief asks for 1px #ececec, which is right on
-     paper and invisible on black: a hairline on a dark surface needs a lifted
-     alpha to carry the same weight. */
-  --rule: rgb(255 255 255 / 0.13);
-  --rule-strong: rgb(255 255 255 / 0.28);
+  /* The two surfaces that are not wall. A dialog is chalk. The veil over the
+     opening animation is carbon, so the cloud is chalk on a slate for the
+     seven seconds it is the only thing on the screen. */
+  --panel: var(--chalk);
+  --veil: var(--carbon);
 
-  /* Links carry the arrow suffix as their affordance, and the brief is explicit
-     that nothing is underlined at rest; the underline appears on hover and
-     focus, which is the only version of this that survives a reader who cannot
-     read the arrow as a signal.
-
-     Amber rather than the brief's ink, and the measurement is the reason: the
-     violet this replaced drops to 3.5:1 once anything is drawn behind it, where
-     amber holds 9.4:1 against what a reader actually sees. */
-  --accent: #ffb829;
-  --accent-soft: rgb(255 184 41 / 0.16);
-
-  /* The filled pill, which is the system's single action. Inverted from the
-     brief: on paper it is ink on white, and here the same control has to be
-     white on ink or it disappears into the surface it is meant to stand out
-     from. */
-  --action: #ffffff;
-  --action-ink: #17191c;
-  --action-soft: rgb(255 255 255 / 0.14);
-
-  /* The editorial accent and its ink, unchanged. It is a light surface on a
-     dark page, which is what it was on the stage, and it still carries the one
-     callout per page the brief rations it to. */
-  --accent-warm: var(--blush-peach);
-  --accent-warm-ink: var(--sienna-brown);
-
-  /* Verdicts stay their own pair, and this is a considered departure from the
-     brief's "no chromatic colour beyond the peach and brown".
-
-     The brief is written for a product page where colour is decoration. Half of
-     this site is reconstructions of published figures, and whether one held is
-     the single thing a reader is here to find out. The brief's own principle is
-     that colour is rationed to functional emphasis, and there is no more
-     functional emphasis on this site than this. This is the pair tuned for
-     black: 11.0:1 and 8.25:1 on it, where the pair chosen for paper measures
-     1.7 and 2.2 here and disappears. Print renders both as black and separates
-     them by weight. */
-  --pass: #4fd1a5;
-  --flag: #ff7a6b;
-
-}
-
-/* The stage keeps its name and loses its colours.
-
-   It used to be a dark scope inside a paper site: the one band that stayed the
-   site it was, so the particle cloud had somewhere it could be seen at all. The
-   whole site is that surface now, so every token it redefined is already the
-   token, and nothing is left here but the declaration that it paints no
-   background of its own. Its layout and its motion are further down; the
-   artifact cards inside it still declare a light scope, which is deliberate,
-   because they are paper fragments floating over the dark. */
-.stage {
-  background: transparent;
+  --text-label: 0.6875rem;
+  --text-caption: 0.75rem;
+  --text-body: 0.875rem;
+  --text-body-lg: 1rem;
 }
 
 @theme inline {
@@ -162,42 +96,28 @@
   --color-rule-strong: var(--rule-strong);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
-  --color-accent-warm: var(--accent-warm);
-  --color-accent-warm-ink: var(--accent-warm-ink);
   --color-action: var(--action);
   --color-action-ink: var(--action-ink);
   --color-action-soft: var(--action-soft);
   --color-pass: var(--pass);
   --color-flag: var(--flag);
 
-  /* Two families, where the black site had one. The brief names Signifier for
-     display and Sohne for everything else, and names the substitutes it is
-     happy with: Source Serif 4 and Inter, both of which are on Google Fonts
-     as variable faces.
+  /* The four, by name, for the few places that mean a colour rather than a
+     role: a control that is carbon whatever surface it sits on. */
+  --color-wall: var(--wall);
+  --color-carbon: var(--carbon);
+  --color-chalk: var(--chalk);
+  --color-acid: var(--acid);
 
-     The serif is the whole signature and it is used for nothing but headings,
-     at weight 400 at every size. Its italic is a real optical italic rather
-     than a slant, which matters because the brief's hero sets one phrase of
-     the headline in it. */
-  --font-serif: var(--font-source-serif), ui-serif, Georgia, serif;
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  --font-display: var(--font-shoulders), "Shoulders Fallback", "Arial Narrow", ui-sans-serif, sans-serif;
+  --font-mono: var(--font-martian), ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  /* There is no third face. These two names exist so that a class asking for
+     the default sans or serif gets one of the two that are here, instead of
+     the browser's. */
+  --font-sans: var(--font-martian), ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  --font-serif: var(--font-shoulders), "Shoulders Fallback", "Arial Narrow", ui-sans-serif, sans-serif;
 
-  /* The brief's scale, to the pixel, in rem so it still answers to a reader
-     who has changed their browser's text size. */
-  --text-caption: 0.9375rem;
-  --text-nav: 1rem;
-  --text-body: 1.0625rem;
-  --text-body-lg: 1.25rem;
-  --text-sub: 1.375rem;
-  --text-hsm: 1.625rem;
-  --text-h: 2.75rem;
-  --text-hlg: 4rem;
-  --text-display: 5.625rem;
-
-  /* The brief's layout block: a 1200px measure, 80px between sections, and a
-     4px base unit underneath both. */
-  --container-page: 75rem;
+  --container-page: 90rem;
   /* How much of the screen is given over to the lane the brain travels down,
      as a share of the viewport rather than of a container.
 
@@ -212,123 +132,147 @@
      opening factor: a narrower lane has it overlapping the column at every
      scroll position rather than at the crossings only. */
   --lane: 40vw;
-  --spacing-section: 5rem;
-
-  --radius-card: 24px;
-  --radius-card-sm: 16px;
-  --radius-artifact: 20px;
-  --radius-image: 12px;
-  --radius-input: 16px;
 }
 
-/* The header lies over the top of the page rather than above it, so the dark
-   stage reaches the top of the window. It is not sticky: it leaves with the
-   stage, which is what spares it having to change colour mid-scroll.
+/* What each face is stood in for while it arrives.
 
-   On a page that has a stage it takes the stage's ink. :has() is doing real
-   work here rather than being clever: the header is in the shared layout and
-   cannot know which route it is on, and the alternative was threading a prop
-   through the layout for a purely visual fact that the document already
-   states. */
+   next/font makes a stand-in of its own for each face and they are wrong for
+   this pair, so these are made by hand, from the real faces and not from a
+   guess. For Big Shoulders it cannot make one (the build says "Failed to find
+   font override values" and carries on). For Martian Mono it makes Arial at 157
+   percent, and the stand-in is a monospace in this one on any machine without
+   Arial and Arial on any machine with it. Measured with Liberation Sans, which
+   is metric compatible with Arial, standing in for it, that one is 6 percent
+   narrow across a paragraph and 21 to 24 percent wide across the labels, which
+   are set wider and tracked out: a hero whose two labels fit on one line in the
+   stand-in and not in the real face.
+
+   Measured on a phone with the fonts two and a half seconds late, and without
+   the fixes below, the page moved by 0.195 when they landed, against a budget
+   of 0.05: the two labels at the top of the hero started on one line and
+   wrapped onto two, the standfirst lost a line, and everything under them moved.
+
+   Big Shoulders is condensed, so its stand-in is Arial scaled down. The scale is
+   how wide it is against Arial over the 2,576 characters the site sets in it,
+   measured in a browser: 0.667 at weight 500, 0.689 at 600 and 0.769 at 700, and
+   the two rules are the two groups of weight those fall into.
+
+   Martian Mono is monospaced, which makes the arithmetic exact instead of
+   statistical: every character is 0.714 of the size across, a plain monospace is
+   0.6, and so scaling one by 119 percent puts every character where the real
+   face will. That is true of the labels too, which are set wider (a width axis
+   the stand-in does not have): scaled the same, a label and the navigation row
+   come out the same width in the stand-in as in the real face, to the pixel
+   (301 and 215 pixels, measured), against 366 and 267 in the one next/font
+   makes. The exception is the call to action, whose labels are set at a heavier
+   weight and are about ten percent narrower in the stand-in, which moves one
+   button's edge and nothing else.
+
+   The Martian rule is named for the face next/font generates, "Martian Mono
+   Fallback", which is already the second name in --font-martian. The option
+   that turns the generated one off is not honoured by this bundler, so the
+   generated rule is replaced instead: two rules for one name with the same
+   descriptors, and the later one wins. That relies on this file coming after
+   the generated rules in the stylesheet, which it does in a production build
+   and which tests/performance.spec.ts asserts, so a change in either the name
+   or the order fails there instead of going unnoticed.
+
+   The ascent and descent are the real face's, divided by the scale because the
+   overrides are applied after it, so the baseline is where it will be once the
+   face is in. If none of the local faces in a rule exists, the rule does nothing
+   and the stack falls through to the next name, which is where it was before.
+   Re-measure if the faces or the headlines change a great deal. */
+@font-face {
+  font-family: "Shoulders Fallback";
+  src: local("Arial"), local("Helvetica Neue"), local("Helvetica"), local("Liberation Sans");
+  font-weight: 100 650;
+  size-adjust: 68.5%;
+  ascent-override: 143.9%;
+  descent-override: 31.4%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Shoulders Fallback";
+  src: local("Arial"), local("Helvetica Neue"), local("Helvetica"), local("Liberation Sans");
+  font-weight: 651 900;
+  size-adjust: 76.5%;
+  ascent-override: 128.9%;
+  descent-override: 28.1%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Martian Mono Fallback";
+  src: local("Menlo"), local("DejaVu Sans Mono"), local("Courier New"), local("Liberation Mono");
+  size-adjust: 119%;
+  ascent-override: 84%;
+  descent-override: 16.8%;
+  line-gap-override: 0%;
+}
+
+/* The wall goes on the root element, and it has to. The cloud's canvas is fixed
+   at a negative z-index, which paints above the root's background and below
+   every block in the page, so a wrapper carrying the wall colour would cover
+   the cloud completely. Nothing between the root and the content may paint an
+   opaque background, which is also why the body is transparent. */
+html {
+  background: var(--wall);
+}
+
+body {
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+/* The header is in the flow now, above the content, where it used to be laid
+   over a full height black stage. */
 .site-header {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
+  position: relative;
   z-index: 40;
 }
 
-/* The header used to lighten its own tokens, because it lay over the dark
-   stage while the rest of the site was paper. There is no rest-of-the-site to
-   differ from now. Removing it also removed a fault it caused: it lightened the
-   text tokens and not the surface ones, so a control that took a background
-   from --card rendered near-white text on a near-white pill at 2.3:1. */
-
-
-/* The stage's own layout and motion.
-
-   Everything below is scroll driven, and all of it is CSS. The reference site
-   this is measured against ships about nine hundred kilobytes of animation and
-   3D libraries to do the equivalent; scroll-driven animations do it with no
-   JavaScript at all, which also means it cannot jank against the particle
-   engine's own frame loop, because it is not competing for one.
-
-   The timeline is declared on the stage and referenced by its descendants. Its
-   contain range is exactly the stretch where the inner panel is pinned: from
-   the stage's top meeting the top of the viewport to its bottom meeting the
-   bottom, which for a block this tall is the whole sticky period. */
-.stage {
-  view-timeline-name: --stage;
-}
-
-/* The decoration layer is a sibling of the stage, not a descendant, so the
-   timeline has to be lifted to their common ancestor to be visible to both. */
-.stage-host {
-  timeline-scope: --stage;
-}
-
-/* The artifacts are paper, on a dark stage. Re-declaring the roles here rather
-   than giving them their own names means the table inside one is the same
-   markup as a table anywhere else on the site: it asks for --ink and gets ink
-   on paper, because it is on paper. */
-.stage-artifact {
-  color-scheme: light;
-
-  --paper: var(--paper-white);
-  --card: var(--mist-gray);
-  --ink: var(--ink-black);
-  --ink-soft: var(--ink-black);
-  --muted: var(--slate);
-  --faint: var(--smoke);
-  --rule: var(--hairline);
-  --rule-strong: #d8d8da;
-  --pass: #0d6b53;
-  --flag: #a3201a;
-
-  border-radius: var(--radius-artifact);
-  background: var(--paper-white);
-  color: var(--ink-black);
-  padding: 1rem 1.25rem 0.75rem 0.75rem;
-}
-
-/* Out of the flow on a wide screen, where there is room beside the copy, and
-   back into it on a narrow one, where there is not. A phone gets the stage's
-   words and the cloud, and meets the numbers as ordinary blocks underneath. */
-/* A phone has no room beside the cloud, so the stage puts the words at the top
-   and leaves the lower half of the screen for it.
-
-   Not sticky, and not a viewport tall. A phone's stage has to hold the copy and
-   the reconstruction table one under the other, and pinning that to a single
-   screen either clipped the table or left no room for the cloud; the cloud is
-   fixed behind all of it anyway, so it stays put while the words scroll past.
-
-   The top padding is for the header, which is laid over the page rather than
-   above it. Centred in a full height panel the copy cleared it by accident; at
-   the top of the panel the headline was drawn straight through the navigation,
-   which is the sort of fault that only shows up at one width.
-
-   The breakpoint is 1100 pixels, the same as the bands' lane and the engine's
-   keep-out, and it has to be. It was 1024 here while the bands collapsed at
-   1100 and the engine went by aspect ratio, so between the two the stage
-   pinned its copy beside a column the rest of the page no longer had.
-
-   The copy sits at the top and the slot under it takes the rest of the
-   screen, which is the cloud's space: see hero.tsx. */
-@media (max-width: 1099px) {
-  .stage-panel-inner {
-    position: static;
-    height: auto;
-    min-height: 100vh;
-    flex-direction: column;
-    align-items: stretch;
-    padding-top: 6.5rem;
-    padding-bottom: 4rem;
+/* The footer is on every page and in no band, so it has no lane of its own. On
+   the home page the cloud's last composition sits just above it, and a rule
+   running the full width of the window would run under the cloud, which is the
+   brain over a line. The home page is the one with a hero, and the footer stops
+   where the lane starts. */
+@media (min-width: 1100px) {
+  body:has(#hero) .site-footer .shell {
+    padding-right: var(--lane);
   }
+}
 
-  .stage-panel-inner > .stage-panel {
-    display: flex;
-    flex: 1 1 auto;
-    flex-direction: column;
+/* The particle canvas, behind the page.
+
+   Fixed to the window and explicitly behind every block. Nothing opaque may sit
+   between it and the wall, so the cloud is behind the page everywhere, which
+   is where it belongs. What keeps it off the words is the lane, not the
+   layer. */
+.brain-host {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: -10;
+}
+
+/* Below the breakpoint the canvas covers the first screen of the page rather
+   than the window, and scrolls with it. The cloud is drawn only inside the
+   slot under the hero's controls, and a canvas fixed to the window would have
+   to chase that slot from script a frame behind the compositor. During the
+   opening animation the page is held at the top, so the first screen is the
+   whole window and the entrance is unchanged. */
+@media (max-width: 1099px) {
+  .brain-host {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 100vh;
+    height: 100lvh;
   }
 }
 
@@ -356,343 +300,27 @@
   }
 }
 
-/* Below 640 pixels the header stacks, name and search on one row and the
-   navigation under them, and a stacked header is taller than any fixed amount
-   of room the page could keep for it. Measured on a Pixel 5 it ended at 164
-   pixels with the page's first line at 104, and at 152 on every other route.
-   So on a phone it is in the flow and the page starts after it, whatever its
-   height turns out to be. */
-@media (max-width: 639px) {
-  .site-header {
-    position: relative;
-    padding-block: 1rem;
-    row-gap: 0.5rem;
-  }
-
-  body:not(:has(.stage)) main {
-    padding-top: 0;
-  }
-
-  .stage-panel-inner {
-    padding-top: 1.25rem;
-  }
-}
-
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    /* The copy rises and fades as the stage is scrolled. The cloud holds its
-       place on the screen while this happens, so what a reader sees is the
-       text travelling around it rather than the two moving together. */
-    .stage-copy {
-      animation: stage-copy linear both;
-      animation-timeline: --stage;
-      animation-range: contain 0% contain 44%;
-      will-change: transform, opacity;
-    }
-
-  }
-}
-
-@keyframes stage-copy {
-  0% {
-    transform: none;
-    opacity: 1;
-  }
-  62% {
-    opacity: 1;
-  }
-  100% {
-    transform: translate3d(0, -16vh, 0);
-    opacity: 0;
-  }
-}
-
-/* The table is on screen from the first frame: it is the evidence the page is
-   built on, and a reader who never scrolls should still see it. It rises and
-   leaves once the stat card beside it has arrived to take over.
-
-   In viewport heights rather than percentages of the card. A percentage in a
-   transform is a percentage of the element, which was correct while the cards
-   were positioned against the middle of the panel and became nonsense the
-   moment they were anchored to its bottom. */
-/* The fixed decoration layer: the gradient, its scrim and the particle canvas.
-   All three belong to the stage, so they are pinned behind it and dissolve as
-   it ends. Without this the cloud would carry on over the paper below, adding
-   its colours to white and showing as nothing but a faint grey haze, and the
-   gradient would wash the whole editorial half of the page.
-
-   Opacity is driven here rather than from the engine because it has to be
-   right before any script runs. A reader who lands deep in the page on a
-   reload, or one with JavaScript off, gets the same answer. That reasoning
-   holds for the gradient and the plate, which exist without JavaScript, and it
-   does not hold for the cloud, which does not: the cloud fades itself, from the
-   timeline, in timeline.ts. The reason is a sharp edge rather than a
-   preference. A view timeline whose subject stops being rendered goes
-   inactive, and Chrome then applies the animation's end state, so anything
-   that hides the stage takes the cloud to nought opacity with it. Three tests
-   hide the page to photograph what is behind the words, which is the only
-   honest way to measure it, and all three were photographing an empty canvas
-   and calling the result a measurement. */
-/* Fixed and explicitly behind the cloud.
-
-   The wrapper groups the black plate, the gradient and its scrim, and with a
-   position and a z-index of its own it is a stacking context that paints
-   before the cloud at -10. Without the z-index it painted in the ordinary
-   positioned step, after every negative layer in the root context, and the
-   black plate inside it covered the cloud entirely. It was invisible as a
-   fault from the markup, because nothing in the wrapper says "on top" and the
-   elements inside it all carry negative z-indices of their own, which only
-   order them against each other. */
-.stage-decoration {
-  position: fixed;
-  inset: 0;
-  z-index: -20;
-  pointer-events: none;
-}
-
-/* The particle canvas, behind the page.
-
-   It briefly had a variable layer, because while the site below the stage was
-   paper every band carried an opaque background and painted straight over a
-   negative layer: the cloud rendered perfectly and showed nothing. The site is
-   one dark surface now and the bands paint nothing opaque, so the cloud is
-   behind the page everywhere, which is where it belongs. What keeps it off the
-   words is the lane, not the layer. */
-.brain-host {
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: -10;
-}
-
-/* Below the breakpoint the canvas covers the first screen of the page rather
-   than the window, and scrolls with it. The cloud is drawn only inside the
-   slot under the hero's controls, and a canvas fixed to the window would have
-   to chase that slot from script a frame behind the compositor. During the
-   opening animation the page is held at the top, so the first screen is the
-   whole window and the entrance is unchanged. */
-@media (max-width: 1099px) {
-  .brain-host {
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 100vh;
-    height: 100lvh;
-  }
-}
-
-/* The black the stage is made of. Fixed and behind everything, including the
-   gradient and the cloud, so it is the surface all three are composited onto,
-   and it fades out with them: the dark stage does not end at a seam, it
-   dissolves into the paper underneath. */
-.stage-plate {
-  position: fixed;
-  inset: 0;
-  z-index: -40;
-  background: #000000;
-  pointer-events: none;
-}
-
-/* Kept on every route. It used to be hidden away from the home page, because
-   the gradient belonged to the stage and every other page was paper; they are
-   all the same surface now, and the gradient is the atmosphere behind all of
-   them. The particle canvas inside it is still mounted on the home page only,
-   which is a separate decision and is in particle-brain-mount.tsx. */
-
-/* The header is laid over the page, so a page without a full-height stage
-   under it has to leave room for it rather than starting underneath it. */
-body:not(:has(.stage)) main {
-  padding-top: 5.5rem;
-}
-
-/* The decoration layer used to fade out as the stage ended, because the page
-   below it was paper and a dark gradient over white is a stain. There is no
-   paper to hand over to, so it stays, and both the @supports block that drove
-   the fade and its keyframes are gone with it. */
-
-/* Testimonials, on a surface of their own.
-
-   Each card declares its two colours and everything inside reads them, so a
-   third tint is four lines rather than a rewrite. The measurements are in
-   endorsements.tsx, on the surfaces these actually land on. */
 @layer components {
-  .quote-card {
-    position: relative;
-    border-radius: var(--radius-card);
-    padding: 2.25rem 2rem 2rem;
-    background: var(--quote-surface);
-    overflow: hidden;
-  }
-
-  .quote-peach {
-    --quote-surface: var(--blush-peach);
-    --quote-ink: var(--sienna-brown);
-    --quote-soft: #6b4436;
-  }
-
-  .quote-ice {
-    /* Drawn from the cloud's own pigments: the pale ink it lays down where it
-       is thin, and the deep indigo it pools to where it is thick. */
-    --quote-surface: #e4eaf5;
-    --quote-ink: #23345c;
-    --quote-soft: #41506f;
-  }
-
-  /* Large, and behind the words rather than above them. At a tenth of an
-     opacity it is a texture on the card; at full strength it is a punctuation
-     mark the size of a headline, which is a thing design blogs do and readers
-     do not thank them for. */
-  .quote-mark {
-    position: absolute;
-    top: -0.35em;
-    right: 0.35em;
-    font-family: var(--font-serif);
-    font-size: 9rem;
-    line-height: 1;
-    color: var(--quote-ink);
-    opacity: 0.1;
-    pointer-events: none;
-    user-select: none;
-  }
-
-  .quote-body {
-    position: relative;
-    font-family: var(--font-serif);
-    font-size: 1.3125rem;
-    line-height: 1.45;
-    color: var(--quote-ink);
-  }
-
-  .quote-name {
-    color: var(--quote-ink);
-  }
-
-  .quote-role,
-  .quote-note {
-    color: var(--quote-soft);
-  }
-
-  /* .t-label sets a colour of its own and is declared further down this layer,
-     so on an element carrying both it wins: neither specificity nor layering
-     separates two class rules in the same layer, source order does. The "Cut."
-     label came out as the page's light grey on the peach card at about 1.5:1,
-     which axe caught and a screenshot would not have.
-
-     This is the third time this file has been bitten by cascade order. The
-     first cost a download button 3.5:1 on its own fill. A descendant selector
-     is the smallest thing that settles it, and scoping it to the card means it
-     cannot reach any other label on the site. */
-  .quote-card .t-label {
-    color: var(--quote-soft);
-  }
-
-  /* The initials. A photograph would be better and there is not one, so this
-     is the honest version of the same affordance: it says a person said this
-     without inventing a face for them. */
-  .quote-disc {
-    display: grid;
-    place-items: center;
-    width: 2.75rem;
-    height: 2.75rem;
-    flex: none;
-    border-radius: 9999px;
-    background: var(--quote-ink);
-    color: var(--quote-surface);
-    font-size: 0.875rem;
-    letter-spacing: 0.02em;
-  }
-}
-
-/* The gradient that holds a caption off a moving picture. Stronger at the
-   bottom, where the words are, and gone by halfway up so the clip is not
-   dimmed for the sake of two lines. */
-.clip-scrim {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    to top,
-    rgb(0 0 0 / 0.92) 0%,
-    rgb(0 0 0 / 0.72) 22%,
-    rgb(0 0 0 / 0.25) 46%,
-    rgb(0 0 0 / 0) 68%
-  );
-}
-
-/* The one elevation in the system. The brief gives it exactly, and is equally
-   explicit that content cards never get it: only the product fragments that
-   float over the page earn a shadow, and only at a tenth of an opacity. */
-@utility shadow-artifact {
-  box-shadow:
-    0 0 0 1px rgb(4 23 43 / 0.05),
-    0 20px 25px -5px rgb(0 0 0 / 0.1),
-    0 8px 10px -6px rgb(0 0 0 / 0.1);
-}
-
-html {
-  background: #000000;
-}
-
-
-/* Transparent on purpose: the backdrop is fixed behind it and this is what
-   lets the gradient through. html above carries the opaque black, so a
-   contrast checker walking up from a paragraph still lands on a real colour
-   rather than running off the end of the tree. */
-body {
-  background: transparent;
-  color: var(--ink);
-  font-family: var(--font-sans);
-  font-size: var(--text-body);
-  /* Weight 400, where the black site ran 200.
-
-     Ultra-light is a choice that only works on a backlit dark page, where the
-     strokes bloom and a heavier weight reads as shouting. On paper the same
-     weight is a grey suggestion of a letterform: the stems thin out below the
-     rendering engine's stem-darkening threshold and the text looks faded
-     rather than quiet. The brief's own lightest body weight is 400 and its
-     hierarchy comes from the half steps above it. */
-  font-weight: 400;
-  line-height: 1.5;
-  font-feature-settings: "ss01" on;
-}
-
-/* In the components layer on purpose.
-
-   An unlayered rule beats every layered one, whatever the specificity, and
-   Tailwind's utilities live in @layer utilities. So while these sat outside a
-   layer, .t-label quietly won against text-action-ink on the one element that
-   used both, and the CV's download button rendered grey text on its own near
-   black fill at 3.5:1. Nothing about the markup suggested that was possible.
-   In the components layer the ordinary rule applies again: the class sets a
-   default and a utility beside it overrides. */
-@layer components {
-  /* The brief's page model: a 1200px measure, centred, with a gutter that never
-     lets content touch the edge of a phone. The black site was full bleed, which
-     was right for a landing page made of headlines and wrong for one made of
-     editorial sections. */
+  /* A page that has no lane: the same left edge as the bands, so the name,
+     the headings and the first word of every route start where the home page's
+     do. It is not centred. A wall has a left edge and the work hangs from it. */
   .shell {
-    margin-inline: auto;
+    width: 100%;
     max-width: var(--container-page);
-    padding-inline: clamp(1.25rem, 4vw, 2.5rem);
+    padding-inline: clamp(1.25rem, 5vw, 7rem);
   }
 
-  /* A band's own container: the wide measure, and asymmetric.
+  /* A band's own container.
 
-     The paper half of the home page is laid out around the lane. The content of
-     each band sits to one side of it and the cloud travels down the other,
-     changing sides at the band boundaries, so the two are beside each other all
-     the way down the page rather than on top of each other.
+     The home page is laid out around the lane. The content of each band sits to
+     one side of it and the cloud travels down the other, changing sides at the
+     band boundaries, so the two are beside each other all the way down the page
+     rather than on top of each other. That is the only arrangement that works:
+     the cloud is about 370 pixels across, so there is nowhere for it to be
+     that is not over somebody's paragraph unless the page leaves it a column.
 
-     That is not decoration, it is the only arrangement that works. The cloud is
-     about 370 pixels across and the old 1200px column left 120 pixels of gutter
-     on a 1440px screen, so there was nowhere for it to be that was not over
-     somebody's paragraph: the first build of the ink pass put a dispersed brain
-     straight across the deflated-sharpe write-up.
-
-     Below the breakpoint the lane collapses and the band is an ordinary centred
-     column, because a phone has no width to give away. The cloud is behind the
-     reading there and the timeline holds it right down, which is what it
-     already did. */
+     Below the breakpoint the lane collapses and the band is an ordinary column,
+     because a phone has no width to give away. */
   .band-inner {
     width: 100%;
     padding-inline: clamp(1.25rem, 5vw, 7rem);
@@ -708,156 +336,233 @@ body {
     }
   }
 
-  /* There is deliberately no escape from the lane here.
+  /* There is deliberately no escape from the lane here. A class that pulled a
+     figure out into it was written and then taken out again: the cloud is in
+     one lane or the other at every scroll position on the home page, so a
+     figure that reaches into either is a figure with a brain drawn over it.
+     The same goes for a scored line. A rule belongs to the block it is inside,
+     never to the band, or it would run through the lane under the cloud. */
 
-     A class that pulled a figure out into the lane was written and then taken
-     out again, because on this page there is nowhere for it to go: the cloud is
-     in one lane or the other at every scroll position on the home page, so a
-     figure that reaches into either is a figure with a brain drawn over it,
-     which is the fault this layout exists to fix. Figures use the band, and the
-     band grows with the screen. */
-
-  /* Kept for the stage, which still reaches the edges. */
-  .gutter {
-    padding-inline: clamp(1.25rem, 4vw, 5rem);
+  /* The space above and below a section's content. It is also the seam: the
+     engine reads each section's first child's padding as the room the cloud has
+     to change columns in, so this is a measurement as well as a margin. */
+  .section-pad {
+    padding-block: clamp(3.5rem, 8vw, 7rem);
   }
 
   .measure {
-    max-width: 66ch;
+    max-width: 58ch;
   }
 
   .measure-tight {
-    max-width: 54ch;
+    max-width: 48ch;
   }
 
-  /* Display type. Serif, weight 400 at every size, which the brief calls its
-     signature and means literally: hierarchy comes from scale and tracking, and
-     a bold serif headline here would be a different design. The tracking values
-     are the brief's own, converted from its pixel figures to em so they hold at
-     the clamped sizes a narrow screen actually renders.
+  /* Headlines are Big Shoulders, upper case, at a few sizes that are nowhere
+     near the body's. The hierarchy is the gap, not the steps.
 
-     Every one of these clamps down. The brief is written for a desktop spread
-     and its 90px display is 25% of a phone's width per character. */
-  /* One step above the display size, for the name and nothing else. The
-     brief's display size is set against a centred column; anchored to the
-     gutter with the whole left half of the screen to itself, the same size
-     reads small. */
+     A measure on headline text is written in em, never ch. A ch is the width of
+     a zero in whatever face is being used, and while this one is arriving the
+     page is set in the stand-in below, whose zero is wider than its letters are
+     by a different proportion: a box sized in ch is a different width in the two
+     faces, so the same words wrap differently, and the page moves when the real
+     face lands. An em is the same in both. The numbers are the old ch measures
+     worked out in the real face. */
+
+  /* The name, and nothing else. Set at the size of the wall.
+
+     Sized by the shorter of the window's width and its height. The width alone
+     is right for a phone and wrong for a laptop: at 1440 by 900 it put two
+     lines of 240 pixel type, the standfirst and its controls past the bottom of
+     the first screen, and a first screen that has to be scrolled to reach the
+     controls is not carrying them. A quarter of the window's height leaves room
+     for all of it. */
   .t-display-lg {
-    font-family: var(--font-serif);
-    font-weight: 400;
-    font-size: clamp(3.25rem, 11vw, 7.75rem);
-    line-height: 0.92;
-    letter-spacing: -0.03em;
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: clamp(4.5rem, min(17vw, 24svh), 15rem);
+    /* Tight, and no tighter. At 0.78 the two lines overlapped by a few pixels
+       and the legs of FINN fused into the top of LAKIN, which is carbon on
+       carbon. */
+    line-height: 0.86;
+    letter-spacing: -0.02em;
   }
 
-  /* The hero's own container: hard against the left gutter rather than centred
-     in the measure, so the name starts where the page starts and the cloud has
-     the right of the screen rather than a sliver of it. */
-  .stage-panel {
-    padding-inline: clamp(1.25rem, 5vw, 7rem);
-  }
-
-  .t-display {
-    font-family: var(--font-serif);
-    font-size: clamp(2.75rem, 8vw, var(--text-display));
-    font-weight: 400;
-    line-height: 1.12;
-    letter-spacing: -0.025em;
-  }
-
+  /* A page's own title, where the page is not the home page. */
   .t-hlg {
-    font-family: var(--font-serif);
-    font-size: clamp(2.25rem, 6vw, var(--text-hlg));
-    font-weight: 400;
-    line-height: 1.16;
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: clamp(3rem, 8vw, 6.5rem);
+    line-height: 0.88;
     letter-spacing: -0.015em;
   }
 
+  /* A section's heading. */
   .t-h {
-    font-family: var(--font-serif);
-    font-size: clamp(2rem, 4.5vw, var(--text-h));
-    font-weight: 400;
-    line-height: 1.22;
-    letter-spacing: -0.015em;
+    font-family: var(--font-display);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: clamp(2.25rem, 6vw, 4.5rem);
+    line-height: 0.9;
+    letter-spacing: -0.01em;
   }
 
-  /* Below the serif sizes the brief hands over to the sans, and the half step
-     weights start doing the work. 26px at 450 is its subhead. */
+  /* An entry's name. */
   .t-hsm {
-    font-family: var(--font-sans);
-    font-size: var(--text-hsm);
-    font-weight: 450;
-    line-height: 1.18;
-    letter-spacing: -0.009em;
+    font-family: var(--font-display);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: clamp(1.875rem, 3.6vw, 2.75rem);
+    line-height: 0.95;
+    letter-spacing: -0.005em;
   }
 
+  /* The one sentence a section leads with. */
   .t-sub {
-    font-family: var(--font-sans);
-    font-size: var(--text-sub);
-    font-weight: 430;
-    line-height: 1.5;
+    font-family: var(--font-display);
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: clamp(1.25rem, 2.6vw, 2rem);
+    line-height: 1.05;
   }
 
-  /* The brief's card title: 20px at weight 500. The smallest thing on the site
-     that is still a heading, and the level at which the serif hands over to the
-     sans entirely. */
+  /* The smallest thing that is still a heading. */
   .t-h3 {
-    font-family: var(--font-sans);
-    font-size: var(--text-body-lg);
-    font-weight: 500;
-    line-height: 1.3;
-    letter-spacing: -0.009em;
+    font-family: var(--font-display);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 1.375rem;
+    line-height: 1.05;
+    letter-spacing: 0;
   }
 
   .t-body-lg {
     font-size: var(--text-body-lg);
     font-weight: 400;
-    line-height: 1.35;
+    line-height: 1.6;
   }
 
-  /* Category tags: Marketing, Finance, Sales in the brief, Reconstruction and
-     Provenance here. Typographic rather than a badge, which is the brief's
-     instruction and the reason there is no background or border on them.
-
-     Not uppercase, and not tracked out. The black site set these as spaced small
-     caps because that was the only way to make a label read as a label without a
-     surface behind it; on paper the grey does that on its own, and the brief's
-     own tags are sentence case. */
+  /* The terminal's own voice: wide, spaced out, small and upper case. Every
+     label on the site is this, whether it names a material or a data source. */
   .t-label {
-    font-family: var(--font-sans);
-    font-size: var(--text-caption);
+    font-family: var(--font-mono);
+    font-variation-settings: "wdth" 112;
+    font-size: var(--text-label);
     font-weight: 400;
-    line-height: 1.2;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    line-height: 1.35;
     color: var(--faint);
   }
 
   .t-caption {
     font-size: var(--text-caption);
     font-weight: 400;
-    line-height: 1.5;
+    line-height: 1.55;
   }
 
   /* Figures that get compared down a column have to line up. */
   .tnum {
     font-variant-numeric: tabular-nums;
-    font-weight: 450;
+    font-weight: 600;
   }
 
-  /* The two controls the brief describes, as a matched pair on one baseline.
-     Fully rounded, 16px label, 20px of horizontal padding, and no shadow on
-     either: the brief is explicit that only floating artifacts get elevation. */
+  /* A line scored into the wall. */
+  .scored {
+    border-top: 2px solid var(--rule-strong);
+  }
+
+  .scored-thin {
+    border-top: 1px solid var(--rule);
+  }
+
+  /* A result that did not hold: the words on a swatch of acid, set on the words
+     themselves and not on a table cell. On a cell, the swatch stretches down
+     the whole height of a row with a paragraph in it and reads as a rendering
+     fault. Carbon is stated here, on the swatch, because a block that turns the
+     text chalk would otherwise put chalk on acid, which is 1.03:1. */
+  .flag {
+    color: var(--carbon);
+    background: var(--acid);
+    padding: 0.1rem 0.4rem;
+    font-weight: 700;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  /* A result that did. Plain, and a word says so. Its own class so that paper
+     can tell the two apart by weight when there is no colour to do it with. */
+  .held {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* A block of carbon on the wall, and the one inverted surface on the site. It
+     is used where something has to be read before anything else. The tokens turn
+     over inside it, so the same markup that is carbon on the wall is chalk on
+     carbon here without restating a single rule. */
+  .chalk-block,
+  .on-carbon {
+    --paper: var(--carbon);
+    --ink: var(--chalk);
+    --ink-soft: rgb(244 242 238 / 0.9);
+    --muted: rgb(244 242 238 / 0.7);
+    --faint: rgb(244 242 238 / 0.7);
+    --rule: rgb(244 242 238 / 0.24);
+    --rule-strong: var(--chalk);
+    --accent: var(--chalk);
+    --action: var(--chalk);
+    --action-ink: var(--carbon);
+    --action-soft: rgb(244 242 238 / 0.14);
+    color: var(--chalk);
+  }
+
+  .chalk-block {
+    background: var(--carbon);
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+  }
+
+  /* The other surface: a sheet of chalk pasted on the wall, for anything that is
+     read for a long time. Mid grey is not the most legible setting for twenty
+     minutes of prose, and a poster on a wall is the most natural thing in the
+     world. */
+  .sheet,
+  .palette {
+    --paper: var(--chalk);
+    --ink: var(--carbon);
+    --ink-soft: rgb(18 18 18 / 0.88);
+    --muted: rgb(18 18 18 / 0.72);
+    --faint: rgb(18 18 18 / 0.72);
+    --rule: rgb(18 18 18 / 0.24);
+    --rule-strong: var(--carbon);
+    color: var(--carbon);
+  }
+
+  .sheet {
+    background: var(--chalk);
+    border: 2px solid var(--carbon);
+    padding: clamp(1.25rem, 4vw, 3.5rem);
+  }
+
+  /* A control. Square, ruled, and set in the terminal's voice. The filled one is
+     carbon with chalk on it and there is one per view. */
   .pill {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    border-radius: 9999px;
-    padding: 0.6875rem 1.25rem;
-    font-family: var(--font-sans);
-    font-size: var(--text-nav);
-    font-weight: 450;
+    min-height: 2.75rem;
+    padding: 0.75rem 1.25rem;
+    border: 2px solid var(--carbon);
+    font-family: var(--font-mono);
+    font-variation-settings: "wdth" 112;
+    font-size: var(--text-caption);
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
     line-height: 1;
-    border: 1px solid transparent;
   }
 
   .pill-filled {
@@ -867,7 +572,9 @@ body {
   }
 
   .pill-filled:hover {
-    opacity: 0.86;
+    background: var(--acid);
+    border-color: var(--carbon);
+    color: var(--carbon);
   }
 
   .pill-ghost {
@@ -877,16 +584,15 @@ body {
   }
 
   .pill-ghost:hover {
-    background: var(--accent-soft);
+    background: var(--acid);
+    color: var(--carbon);
   }
 
-  /* The lowest emphasis interactive element in the system. The arrow is part of
-     the label rather than an icon, and the underline appears only on hover,
-     which is the brief's rule.
-
-     The arrow alone cannot carry the affordance for everyone, so the underline
-     is on focus as well as hover, and the arrow is marked decorative so it is
-     not read out as a word. */
+  /* The lowest emphasis interactive element: a link with an arrow after it.
+     Carbon like everything else, no underline at rest, and an underline with an
+     acid highlight on hover and on keyboard focus, so a reader who cannot hover
+     has the same signal. The arrow is part of the label and is marked
+     decorative so it is not read out as a word. */
   .link-arrow {
     color: var(--accent);
     text-decoration: none;
@@ -895,23 +601,132 @@ body {
   .link-arrow:hover,
   .link-arrow:focus-visible {
     text-decoration: underline;
+    text-decoration-thickness: 2px;
     text-underline-offset: 3px;
+    background: var(--accent-soft);
+    color: var(--carbon);
+  }
+
+  /* A table is as wide as what is in it, and the page is not allowed to be. It
+     scrolls inside itself, and the wrapper is focusable so a keyboard can reach
+     what is off the edge: a region that can scroll has to be reachable without a
+     pointer, or a keyboard user at phone width cannot read its right-hand
+     columns. */
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  /* A terminal's listing: everything aligned, nothing decorated. */
+  .index-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .index-table th {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-variation-settings: "wdth" 112;
+    font-size: var(--text-label);
+    font-weight: 400;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
+    /* Room on the right of every column, or two headings read as one word. */
+    padding: 0 1.25rem 0.6rem 0;
+    border-bottom: 2px solid var(--rule-strong);
+  }
+
+  .index-table td {
+    padding: 0.8rem 1.25rem 0.8rem 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+
+  @media (max-width: 719px) {
+    .index-table th,
+    .index-table td {
+      padding-right: 0.75rem;
+    }
+  }
+
+  /* Only a number column. It was every table's first cell once, which put
+     nowrap on the reconstruction table's quantity column and pushed it out of
+     the side of the block it sits in. */
+  .index-table .num {
+    color: var(--faint);
+    white-space: nowrap;
+  }
+
+  .index-table .figure {
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .index-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 1.375rem;
+    line-height: 1;
+  }
+
+  /* A bay cut into the wall, empty, and saying so. */
+  .bay {
+    border: 2px solid var(--rule-strong);
+    aspect-ratio: 1 / 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 0.75rem;
+  }
+
+  .bay-no {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 2.5rem;
+    line-height: 0.8;
+    /* Large type, so three to one is the bar, and this is 3.9. It was the
+       colour of a scored line, which is a line and not a number somebody has to
+       read. */
+    color: rgb(18 18 18 / 0.66);
+  }
+
+  /* Somebody else speaking, which is why it changes voice: the headline face,
+     upper case, with no quotation marks drawn for it. */
+  .quote {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(1.125rem, 2.1vw, 1.5rem);
+    line-height: 1.2;
+    text-transform: uppercase;
+    max-width: 14.5em;
+    margin: 0;
   }
 }
 
 :focus-visible {
-  outline: 2px solid var(--action);
+  outline: 2px solid var(--carbon);
   outline-offset: 3px;
-  border-radius: 1px;
+}
+
+/* Carbon on carbon is nothing, so anything that is carbon turns the ring to
+   acid. The call to action is carbon on the wall and its ring sits outside it
+   at an offset, so it keeps the carbon one. */
+.chalk-block :focus-visible,
+.on-carbon :focus-visible {
+  outline-color: var(--acid);
 }
 
 ::selection {
-  background: var(--accent-soft);
+  background: var(--acid);
+  color: var(--carbon);
 }
 
 /* A jump to #work should not put the heading hard against the top edge. */
 :target,
 section[id],
+article[id],
 main[id] {
   scroll-margin-top: 2rem;
 }
@@ -919,15 +734,14 @@ main[id] {
 /* Long-form body. Element styles rather than a utility on every tag, so the
    essays stay readable as prose in the source too.
 
-   Weight 400 and ink, not 300 and a soft grey. Both of those were right for
-   two thousand words on pure black, where a full-weight body at full contrast
-   is exhausting to read; on paper they are the two things that make a long
-   piece look like a draft. Essays are the part of this site somebody reads for
-   twenty minutes, so they get the most legible setting it has. */
+   Weight 400 and ink, at a size and a line height chosen for reading rather
+   than for listing: the essays are the part of this site somebody reads for
+   twenty minutes, so they get the most legible setting it has. They are set on
+   a sheet of chalk, which is where the contrast comes from. */
 .longform {
-  font-size: var(--text-body);
+  font-size: 0.9375rem;
   font-weight: 400;
-  line-height: 1.65;
+  line-height: 1.75;
   color: var(--ink);
 }
 
@@ -939,23 +753,31 @@ main[id] {
    components (WrongFirst, Marginal, Limits) style themselves with utilities,
    and a descendant selector here outranks those and silently resets them. */
 .longform > p {
-  max-width: 66ch;
+  max-width: 62ch;
+}
+
+/* The room above a heading separates it from what came before, and the first
+   heading has nothing before it: on a page that opens with one, the sheet had a
+   hundred pixels of bare chalk above its first line. */
+.longform > h2:first-child {
+  margin-top: 0;
 }
 
 .longform > h2 {
   margin-top: 2.6em;
-  max-width: 24ch;
-  font-family: var(--font-serif);
-  font-size: clamp(1.75rem, 3.6vw, var(--text-h));
-  font-weight: 400;
-  line-height: 1.22;
-  letter-spacing: -0.015em;
+  max-width: 10.4em;
+  font-family: var(--font-display);
+  font-size: clamp(1.875rem, 3.6vw, 2.75rem);
+  font-weight: 600;
+  line-height: 0.95;
+  letter-spacing: -0.005em;
+  text-transform: uppercase;
   color: var(--ink);
   text-wrap: balance;
 }
 
 .longform strong {
-  font-weight: 500;
+  font-weight: 700;
   color: var(--ink);
 }
 
@@ -963,26 +785,28 @@ main[id] {
   font-style: italic;
 }
 
-/* The one place the brief's "never underline at rest" gives way, and it has to:
-   a link inside a paragraph has no arrow suffix to carry the affordance and no
-   colour of its own to signal with, since links here are ink like the text
+/* A link inside a paragraph has no arrow suffix to carry the affordance and no
+   colour of its own to signal with, since links here are carbon like the text
    around them. An underline is what is left, and it is the right answer for
    running prose anyway. */
 .longform > p a,
 .longform > ul a {
   color: var(--ink);
   text-decoration: underline;
-  text-decoration-color: var(--rule-strong);
+  text-decoration-thickness: 2px;
+  text-decoration-color: var(--rule);
   text-underline-offset: 3px;
 }
 
 .longform > p a:hover,
 .longform > ul a:hover {
   text-decoration-color: currentColor;
+  background: var(--acid);
+  color: var(--carbon);
 }
 
 .longform > ul {
-  max-width: 66ch;
+  max-width: 62ch;
   padding-left: 1.1em;
   list-style: disc;
 }
@@ -993,7 +817,7 @@ main[id] {
 
 .longform code {
   font-family: var(--font-mono);
-  font-size: 0.87em;
+  font-size: 0.9em;
   font-weight: 400;
 }
 
@@ -1042,12 +866,10 @@ main[id] {
 .settle-rows > tr:nth-child(3) { animation-delay: 200ms; }
 .settle-rows > tr:nth-child(4) { animation-delay: 270ms; }
 
-/* There are no cards in this system, so there is nothing to raise on hover.
-   A row lights its own rule and its own text instead. */
+/* There are no cards, so there is nothing to raise on hover. A row lights its
+   own rule instead. */
 .row-hover {
-  transition:
-    border-color 180ms ease,
-    color 180ms ease;
+  transition: border-color 180ms ease;
 }
 .row-hover:hover {
   border-color: var(--rule-strong);
@@ -1062,21 +884,37 @@ button {
     opacity 140ms ease;
 }
 
+/* The search dialog: a square sheet of chalk with a carbon edge and no blur
+   behind it. The wall behind is dimmed by a flat carbon at a little over half. */
 .palette {
   margin: 0 auto;
   margin-top: min(12vh, 7rem);
   width: min(38rem, calc(100vw - 2rem));
   max-height: 80vh;
   padding: 0;
-  border: 1px solid var(--rule-strong);
-  border-radius: 12px;
+  border: 2px solid var(--carbon);
+  border-radius: 0;
   background: var(--panel);
-  color: var(--ink);
-  backdrop-filter: blur(20px);
 }
 
 .palette::backdrop {
-  background: rgb(0 0 0 / 0.62);
+  background: rgb(18 18 18 / 0.62);
+}
+
+/* A caption over a moving picture needs a known surface between the two, and
+   this is it: carbon, strongest where the words are and gone by two thirds of
+   the way up, so the clip is not dimmed for the sake of two lines. */
+.clip-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    rgb(18 18 18 / 0.92) 0%,
+    rgb(18 18 18 / 0.72) 22%,
+    rgb(18 18 18 / 0.25) 46%,
+    rgb(18 18 18 / 0) 68%
+  );
 }
 
 /* The opening animation. The markup is server rendered and hidden by this
@@ -1085,21 +923,21 @@ button {
    doing it that way rather than mounting the overlay from React:
 
    a reader with no JavaScript never sees it, because nothing sets the
-   attribute; there is no frame where the site is visible before the black
+   attribute; there is no frame where the site is visible before the veil
    covers it, because the attribute is set before anything paints; and the page
    underneath is never hidden, only covered, so largest contentful paint still
    happens on the real content at its normal time rather than waiting out the
    animation.
 
    Opacity during the dissolve is driven from JavaScript rather than by a
-   transition here, so the intro adds nothing to document.getAnimations(). */
-/* The page is held still while the opening animation runs.
+   transition here, so the intro adds nothing to document.getAnimations().
 
-   Both properties, because they do different jobs: overflow stops a wheel or a
-   drag moving the document, and overscroll-behavior stops the gesture being
-   handed to the browser as a pull to refresh on a phone. The scroll bar's width
-   is not compensated for, because the page underneath is covered by an opaque
-   black sheet and there is nothing to see shift.
+   The page is held still while it runs. Both properties, because they do
+   different jobs: overflow stops a wheel or a drag moving the document, and
+   overscroll-behavior stops the gesture being handed to the browser as a pull
+   to refresh on a phone. The scroll bar's width is not compensated for,
+   because the page underneath is covered by an opaque sheet and there is
+   nothing to see shift.
 
    Released at the hand-over rather than when the veil has finished fading: by
    then the reader is looking at the finished page through a dissolving sheet
@@ -1115,7 +953,7 @@ html[data-intro-locked] {
   z-index: 58;
   visibility: hidden;
   opacity: 0;
-  background: #000000;
+  background: var(--veil);
 }
 
 html[data-intro="running"] .intro,
@@ -1155,14 +993,14 @@ html[data-intro="ending"] [data-brain] {
 }
 
 /* Print. The CV is the page somebody will actually put on paper or save as a
-   PDF from the browser, and until now it printed the site chrome, a navigation
-   bar that cannot be clicked, and body text in a grey that renders as a weak
-   wash on a laser printer. Long-form gets the same treatment because a reader
-   who prints an essay wants the essay.
+   PDF from the browser, and without this it would print the site chrome, a
+   navigation bar that cannot be clicked, and a full page of wall. Long-form
+   gets the same treatment because a reader who prints an essay wants the
+   essay.
 
    Colours are forced to ink on white rather than left to the tokens. The site
-   is black now, with no light theme at all, so without this block every print
-   would be a full page of toner. */
+   is a grey wall with carbon on it, with no light theme at all, so without
+   this block every print would be a full page of toner. */
 @media print {
   :root {
     --paper: #ffffff;
@@ -1170,30 +1008,37 @@ html[data-intro="ending"] [data-brain] {
     --ink: #000000;
     --ink-soft: #1a1a1a;
     --muted: #3a3a3a;
+    --faint: #3a3a3a;
     --rule: #bbbbbb;
     --rule-strong: #888888;
     --accent: #000000;
     --action: #000000;
     --action-ink: #ffffff;
     --pass: #000000;
-    --flag: #000000;
+    --flag: #ffffff;
   }
 
   /* Pass and flag are verdicts, not decoration: one says a reconstruction held
-     and the other says it did not. Forcing both to black above makes them
-     identical on paper, so the distinction has to come back some other way.
+     and the other says it did not. A swatch of acid prints as a pale grey
+     behind the words, which says nothing, so the distinction has to come back
+     some other way.
 
-     Weight, not a second grey. A lighter grey for flag would read as less
-     important, which is backwards, and hue cannot be relied on either: a
-     colour printer would show green and red, while a monochrome one renders
-     both as a mid grey fainter than the body text around them. Weight survives
-     both, and it is already the site's own device, since the hero sets a
-     flagged deviation in a heavier weight alongside the colour.
+     Weight, and a box. A lighter grey for the flag would read as less
+     important, which is backwards, and hue cannot be relied on either: a colour
+     printer would show a pale green, while a monochrome one renders it as
+     nothing at all. Weight and an outline survive both. Only the flag moves.
+     Forcing a weight on the passing figure as well would drop it below the
+     untoned ones beside it, which would say something untrue about it. */
+  .flag {
+    background: none;
+    color: #000000;
+    font-weight: 700;
+    outline: 1.5px solid #000000;
+    outline-offset: 1px;
+  }
 
-     Only flag moves. Forcing a weight on pass as well would drop it below the
-     untoned figures beside it, which would say something untrue about it. */
-  .text-flag {
-    font-weight: 600;
+  .held {
+    color: #000000;
   }
 
   html,
@@ -1202,16 +1047,29 @@ html[data-intro="ending"] [data-brain] {
     color: #000000;
   }
 
-  /* Body copy is weight 200 on screen, which is a design choice that only
-     works on a backlit black page. On paper an ultra-light face at 11pt breaks
-     up under a laser printer, so print gets a normal weight. */
+  /* The wall's own weight is for a screen. */
   body,
   .longform {
     font-weight: 400;
   }
 
+  /* A block of carbon or chalk is a screen idea. On paper it is a page with a
+     border round it. */
+  .chalk-block,
+  .sheet {
+    background: #ffffff;
+    color: #000000;
+    border: 1px solid #000000;
+    padding: 1rem;
+    --ink: #000000;
+    --ink-soft: #1a1a1a;
+    --muted: #3a3a3a;
+    --faint: #3a3a3a;
+    --rule: #bbbbbb;
+    --rule-strong: #888888;
+  }
+
   /* Nothing behind the text on paper. */
-  .backdrop,
   .intro {
     display: none !important;
   }
@@ -1257,7 +1115,7 @@ html[data-intro="ending"] [data-brain] {
 
 /* The animated call to action, from the component Finn supplied.
 
-   Four things changed on the way in, and each is a fault the original would
+   Five things changed on the way in, and each is a fault the original would
    have shipped into this codebase rather than a matter of taste.
 
    It arrived as styled-jsx. Every other control on this site is a class in this
@@ -1265,19 +1123,21 @@ html[data-intro="ending"] [data-brain] {
    rules that never change, plus a runtime, to style two links.
 
    It arrived with `@import url(...)` for Inter from Google Fonts. This site
-   already loads Inter through next/font, subset and self hosted, specifically
-   so that no reader's address is handed to a third party to render a
-   paragraph. That import would have been a second copy of a font already
-   present, fetched from someone else, blocking the render. The button inherits
-   the page's sans instead.
+   loads its faces through next/font, subset and self hosted, specifically so
+   that no reader's address is handed to a third party to render a paragraph.
+   That import would have been a second copy of a font from someone else,
+   blocking the render. The button inherits the page's face instead.
 
    Its highlight was the CSS keyword `blue` with `#8484ff` behind it. Those are
-   nobody's colours. The two here are lifted from the particle cloud's own ramp
-   in palette.ts, so the light running round the border is the light the brain
-   beside it is made of.
+   nobody's colours. On the wall the light running round the border is acid,
+   which is the one colour on this site that means look here.
 
-   And it animated unconditionally. Anyone who has asked their system for less
-   motion now gets the border and the label and none of the movement. */
+   It animated unconditionally. Anyone who has asked their system for less
+   motion now gets the border and the label and none of the movement.
+
+   And it was a pill with a glow. The wall has no radius and no shadow, so it is
+   a square now, and the glow inside it is gone. The light and the dot field are
+   what is left, and they are the part that was worth keeping. */
 @property --shiny-angle {
   syntax: "<angle>";
   initial-value: 0deg;
@@ -1304,10 +1164,10 @@ html[data-intro="ending"] [data-brain] {
 
 @layer components {
   .shiny-cta {
-    --shiny-bg: #000000;
-    --shiny-bg-subtle: #14161b;
-    --shiny-highlight: #2f6bdc;
-    --shiny-highlight-subtle: #6ea3f2;
+    --shiny-bg: var(--carbon);
+    --shiny-bg-subtle: #2b2b2b;
+    --shiny-highlight: var(--acid);
+    --shiny-highlight-subtle: #eeffa8;
     --shiny-duration: 3s;
     --shiny-shadow: 2px;
     --shiny-transition: 800ms cubic-bezier(0.25, 1, 0.5, 1);
@@ -1323,22 +1183,27 @@ html[data-intro="ending"] [data-brain] {
     /* min-height rather than padding alone, so the control is a real touch
        target at every font size the page might be rendered at. */
     min-height: 2.75rem;
-    padding: 1rem 2.25rem;
-    font-size: 1.0625rem;
+    /* Narrow enough that the pair sits on one line in the left half of the
+       first screen: at two rem a side they were 195 pixels each and stacked. */
+    padding: 1rem 1.5rem;
+    font-family: var(--font-mono);
+    font-variation-settings: "wdth" 112;
+    font-size: var(--text-caption);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
     line-height: 1.2;
     font-weight: 500;
 
-    /* Two to a row on a phone. At the desktop padding the pair measured 175
-       and 185 pixels, which is more than the 353 a Pixel 5 has between its
-       gutters, so they stacked, and the second row was sixty five pixels the
-       phone's first screen needed for the brain. */
+    /* Two to a row on a phone. At the desktop padding the pair did not fit
+       between the gutters of a Pixel 5, so they stacked, and the second row was
+       sixty five pixels the phone's first screen needed for the brain. */
     @media (max-width: 639px) {
-      padding: 0.875rem 1.5rem;
-      font-size: 1rem;
+      padding: 0.875rem 1.25rem;
+      letter-spacing: 0.1em;
     }
-    border: 1px solid transparent;
-    border-radius: 360px;
-    color: var(--ink);
+    border: 2px solid transparent;
+    border-radius: 0;
+    color: var(--chalk);
     text-decoration: none;
     /* The border is the gradient. The fill is painted into the padding box and
        the conic sweep into the border box, so the ring of light is the border
@@ -1354,14 +1219,19 @@ html[data-intro="ending"] [data-brain] {
           transparent calc(var(--shiny-percent) * 4)
         )
         border-box;
+    /* The fill is a gradient layer, which a tool that reads computed colours
+       cannot see: to axe and to the contrast walk the label is chalk on
+       nothing, and on the wall behind it that is 2.2:1. The same carbon again
+       as a colour, after the shorthand so it is not reset by it, says what is
+       under the label. Where the ring of light is clear, the edge of the border
+       box is carbon too, which is the control being as big as it looks. */
+    background-color: var(--shiny-bg);
     box-shadow: inset 0 0 0 1px var(--shiny-bg-subtle);
     transition: var(--shiny-transition);
     transition-property: --shiny-offset, --shiny-percent, --shiny-shine;
   }
 
-  .shiny-cta::before,
-  .shiny-cta::after,
-  .shiny-cta > span::before {
+  .shiny-cta::before {
     content: "";
     pointer-events: none;
     position: absolute;
@@ -1384,7 +1254,7 @@ html[data-intro="ending"] [data-brain] {
     height: var(--size);
     background: radial-gradient(
         circle at var(--position) var(--position),
-        #ffffff calc(var(--position) / 4),
+        var(--chalk) calc(var(--position) / 4),
         transparent 0
       )
       padding-box;
@@ -1396,32 +1266,19 @@ html[data-intro="ending"] [data-brain] {
       transparent 10% 90%,
       black
     );
-    border-radius: inherit;
     opacity: 0.4;
     z-index: -1;
   }
 
-  /* The shimmer that turns inside it. */
-  .shiny-cta::after {
-    width: 100%;
-    aspect-ratio: 1;
-    background: linear-gradient(-50deg, transparent, var(--shiny-highlight), transparent);
-    mask-image: radial-gradient(circle at bottom, transparent 40%, black);
-    opacity: 0.6;
-  }
+  /* There was a shimmer that turned inside the control as well, a soft acid
+     wash masked to its lower edge. Acid over carbon at any strength worth
+     seeing goes to olive, which is a colour that is nobody's, and a wash is a
+     gradient, and the wall has none. The ring of light and the dots are what is
+     left. */
 
   .shiny-cta > span {
     position: relative;
     z-index: 1;
-  }
-
-  .shiny-cta > span::before {
-    --size: calc(100% + 1rem);
-    width: var(--size);
-    height: var(--size);
-    box-shadow: inset 0 -1ex 2rem 4px var(--shiny-highlight);
-    opacity: 0;
-    transition: opacity var(--shiny-transition);
   }
 
   /* Paused unless the control is on screen, which is not a nicety.
@@ -1433,7 +1290,7 @@ html[data-intro="ending"] [data-brain] {
      the hero the reader cannot see them and the machine was still painting
      them sixty times a second.
 
-     `.stage` carries `data-cta` from the hero's own observer. Paused rather
+     The root carries `data-cta` from the hero's own observer. Paused rather
      than removed so the border keeps the colour it stopped on instead of
      snapping back to its initial angle. */
   .shiny-cta,
@@ -1441,14 +1298,8 @@ html[data-intro="ending"] [data-brain] {
     animation: shiny-angle var(--shiny-duration) linear infinite;
   }
 
-  .shiny-cta::after {
-    animation: shiny-turn var(--shiny-duration) linear infinite;
-  }
-
   :root[data-cta="off"] .shiny-cta,
-  :root[data-cta="off"] .shiny-cta::before,
-  :root[data-cta="off"] .shiny-cta::after,
-  :root[data-cta="off"] .shiny-cta > span::before {
+  :root[data-cta="off"] .shiny-cta::before {
     animation-play-state: paused;
   }
 
@@ -1458,23 +1309,15 @@ html[data-intro="ending"] [data-brain] {
     --shiny-shine: var(--shiny-highlight-subtle);
   }
 
-  .shiny-cta:is(:hover, :focus-visible) > span::before {
-    opacity: 1;
-    animation: calc(var(--shiny-duration) * 1.5) shiny-breathe linear infinite;
-  }
-
   /* Asked for less motion, given less motion: the border keeps its colour and
      nothing on the control moves. */
   @media (prefers-reduced-motion: reduce) {
     .shiny-cta,
-    .shiny-cta::before,
-    .shiny-cta::after,
-    .shiny-cta > span::before {
+    .shiny-cta::before {
       animation: none;
     }
 
-    .shiny-cta::before,
-    .shiny-cta::after {
+    .shiny-cta::before {
       display: none;
     }
   }
@@ -1485,56 +1328,3 @@ html[data-intro="ending"] [data-brain] {
     --shiny-angle: 360deg;
   }
 }
-
-@keyframes shiny-turn {
-  to {
-    rotate: 360deg;
-  }
-}
-
-@keyframes shiny-breathe {
-  from,
-  to {
-    scale: 1;
-  }
-  50% {
-    scale: 1.2;
-  }
-}
-
-/* The design directions, at /looks.
-
-   Three whole surfaces, each with its own paper, its own type and its own way
-   of drawing the cloud, built to be looked at one at a time while one of them
-   is chosen. Everything the site itself supplies is unmounted around them by
-   SiteOnly: no black plate, no gradient, no header and no footer.
-
-   The paper goes on the root element and it has to. The cloud's canvas is
-   fixed at z-index -10, which paints above the root's background and below
-   every block in the page, so a page wrapper carrying the paper colour would
-   cover the cloud completely. That is not a hypothetical: it is how the ink
-   reading was lost the first time it was built on this site. Nothing between
-   the root and the content may paint an opaque background. */
-html:has([data-look="index"]),
-html:has([data-look="archive"]) {
-  background: #edeae3;
-}
-
-html:has([data-look="print"]) {
-  background: #f2eee4;
-}
-
-html:has([data-look="concrete"]) {
-  background: #a7a39b;
-}
-
-/* The header is gone on these routes, so the room left for it is not wanted.
-   After the rule that adds it, because the two are the same specificity. */
-body:has([data-look]) main {
-  padding-top: 0;
-}
-
-/* Each direction keeps the site's own .band-inner and .band-lane-* rule for the
-   lane, deliberately rather than inventing its own spacing: the engine reads
-   which side the cloud travels on off those class names, and the width it masks
-   to is --lane. */

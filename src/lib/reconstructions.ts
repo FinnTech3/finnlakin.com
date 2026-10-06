@@ -1,3 +1,5 @@
+import { numberWord } from "./numbers";
+
 /* The hero table. Four published quantities, rebuilt independently, with the
    deviation reported. The fourth row is the point of the table: the same model
    that nails the yield curve cannot pin down the premium it draws from it. */
@@ -56,9 +58,5 @@ export const reconstructions: Reconstruction[] = [
    failure this site exists to argue against. */
 export const held = reconstructions.filter((row) => row.tone === "pass").length;
 
-const WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
-
-/* How many rows there are, as a word at the head of a sentence. Past ten it
-   falls back to the numeral, which is still true and only a little less
-   graceful. */
-export const rebuiltWord = WORDS[reconstructions.length] ?? String(reconstructions.length);
+/* How many rows there are, as a word at the head of a sentence. */
+export const rebuiltWord = numberWord(reconstructions.length, { capital: true });

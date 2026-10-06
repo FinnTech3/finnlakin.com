@@ -1,37 +1,45 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Source_Serif_4 } from "next/font/google";
-import { Backdrop, Scrim } from "@/components/backdrop";
+import { Big_Shoulders, Martian_Mono } from "next/font/google";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { Intro, IntroBoot } from "@/components/intro";
 import { ParticleBrainMount } from "@/components/particle-brain-mount";
-import { SiteOnly } from "@/components/site-only";
+import { wall } from "@/lib/colours";
 import { ogImageUrl } from "@/lib/metadata";
 import { siteDescription, siteTitle, siteUrl } from "@/lib/site";
 import "./globals.css";
 
-/* Two families, and DESIGN.md names both substitutes itself: Source Serif 4
-   for Signifier, Inter for Sohne.
+/* Two families, each at one end of the scale and nowhere between.
+
+   Big Shoulders is the headline face: condensed, upper case, and on the home
+   page enormous enough to be cropped by the edge of the screen. Martian Mono is
+   everything that is read: wide, small and spaced, the way a terminal prints a
+   listing. A third face would be a step in the middle of a scale whose whole
+   point is that it has none.
 
    No weight array on either, which gets the variable font: one file covering
-   the whole axis rather than a static face per weight. That matters more here
-   than it usually does, because the brief's body hierarchy is built out of
-   half steps (430, 450, 480) that simply do not exist as static faces.
+   the whole axis rather than a static face per weight. The mono also loads its
+   width axis, because the labels are set wider than the body.
 
-   The serif is loaded with its italic, which is the one place this costs a
-   second file. The brief's hero sets a phrase of the headline in italic, and
-   Source Serif's italic is drawn rather than slanted: a synthesised oblique of
-   a serif at ninety pixels looks like a mistake. */
-const inter = Inter({
-  variable: "--font-inter",
+   The stand-ins for the faces while they arrive are made by hand in
+   globals.css, from measurements of the real faces, because the ones next/font
+   makes are wrong for this pair. For Big Shoulders it cannot make one (the
+   build says so and carries on), and the one it makes for Martian Mono is
+   Arial scaled, which is the wrong width for the labels on any machine that has
+   Arial. There is no option here to turn them off: adjustFontFallback is
+   passed on and this version of the bundler makes them anyway, which is
+   checked in the built stylesheet and asserted in the tests. The hand made one
+   takes the generated one's place by name instead. */
+const shoulders = Big_Shoulders({
+  variable: "--font-shoulders",
   subsets: ["latin"],
   display: "swap",
 });
 
-const sourceSerif = Source_Serif_4({
-  variable: "--font-source-serif",
+const martian = Martian_Mono({
+  variable: "--font-martian",
   subsets: ["latin"],
-  style: ["normal", "italic"],
   display: "swap",
+  axes: ["wdth"],
 });
 
 /* Metadata merges per key, not per field: a page that declares openGraph
@@ -68,12 +76,10 @@ export const metadata: Metadata = {
   },
 };
 
-/* Black, because the top of every page is the dark stage and the browser
-   chrome should meet it rather than flash paper above it. The page below the
-   stage is white, but a reader only sees the chrome against what is at the
-   top of the document. */
+/* The wall, because every page is the wall and the browser's own chrome should
+   meet it rather than flash a different grey above it. */
 export const viewport: Viewport = {
-  themeColor: "#000000",
+  themeColor: wall,
   colorScheme: "light",
 };
 
@@ -81,43 +87,24 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en-GB"
-      className={`${inter.variable} ${sourceSerif.variable} h-full antialiased`}
+      className={`${shoulders.variable} ${martian.variable} h-full antialiased`}
     >
-      <body className="stage-host flex min-h-full flex-col">
+      <body className="flex min-h-full flex-col">
         {/* First thing in the document, so the decision about the opening
             animation is made before anything paints. It sets one attribute.
             See the note in components/intro.tsx. */}
         <IntroBoot />
 
-        {/* Behind everything, in this order: the black plate, the shader, and
-            the scrim that holds it down. All three are decoration and none can
-            be reached by a pointer or a screen reader. Grouped in one fixed
-            layer so that they stack behind the particle cloud as a unit. */}
-        <SiteOnly>
-          <div className="stage-decoration">
-            {/* The surface the other two are composited onto. See the note in
-                globals.css: the stage cannot carry its own background, because
-                the gradient and the cloud are both behind it. */}
-            <div aria-hidden="true" className="stage-plate" />
-            <Backdrop />
-            <Scrim />
-          </div>
-        </SiteOnly>
+        {/* The cloud has no layer of its own to sit on. The wall is painted on
+            the root element, the canvas is fixed behind everything at a
+            negative z-index, and every block in the page is transparent, so
+            the cloud shows through to the wall and never over a word. That is
+            a rule about the whole page: nothing between the root and the
+            content may paint an opaque background, or the cloud is covered.
 
-        {/* Outside that wrapper, and it has to be.
-
-            The wrapper is a stacking context, which traps every z-index inside
-            it. The opening animation depends on exactly one thing escaping:
-            the cloud is lifted above the black veil so that the words are the
-            only thing on the screen, and inside the wrapper that lift was
-            relative to the wrapper and did nothing. The veil covered the cloud
-            instead, and the entrance measured zero lit pixels in the whole
-            frame.
-
-            Above the scrim, so its colours run at full strength, and below
-            everything that carries words. It is kept off the words by the
-            final pass cutting it to the space the layout leaves for it, not by
-            being dimmed. It mounts itself only on the home page. */}
+            It is kept off the words by the final pass cutting it to the space
+            the layout leaves for it, not by being dimmed. It mounts itself only
+            on the home page. */}
         <ParticleBrainMount />
 
         {/* First focusable element on the page. Visually hidden until it takes
@@ -125,19 +112,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             through the whole header on every navigation. */}
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-70 focus:border focus:border-action focus:bg-black focus:px-4 focus:py-2.5 focus:t-label focus:text-ink"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-70 focus:border-2 focus:border-carbon focus:bg-chalk focus:px-4 focus:py-2.5 focus:t-label focus:text-carbon"
         >
           Skip to content
         </a>
-        <SiteOnly>
-          <SiteHeader />
-        </SiteOnly>
+        <SiteHeader />
         <main id="main" tabIndex={-1} className="flex-1 outline-none">
           {children}
         </main>
-        <SiteOnly>
-          <SiteFooter />
-        </SiteOnly>
+        <SiteFooter />
         <Intro />
         {/* Static and deferred rather than a React component, so a page view
             is recorded as soon as the document is parsed instead of waiting

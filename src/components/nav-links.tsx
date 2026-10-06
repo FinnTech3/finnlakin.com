@@ -6,7 +6,10 @@ import { nav } from "@/lib/site";
 
 /* Only the link list is a client component, not the whole header. It needs the
    pathname and nothing else does, so the rest of the header stays server
-   rendered. */
+   rendered.
+
+   The current page is underlined, because on a wall the only things that can
+   say where you are are weight and a line. */
 export function NavLinks() {
   const pathname = usePathname();
 
@@ -21,7 +24,9 @@ export function NavLinks() {
             <Link
               href={item.href}
               aria-current={current ? "page" : undefined}
-              className={`t-label hover:text-ink ${current ? "text-ink" : "text-muted"}`}
+              className={`t-label hover:bg-accent-soft hover:text-carbon ${
+                current ? "text-ink underline decoration-2 underline-offset-4" : "text-muted"
+              }`}
             >
               {item.label}
             </Link>

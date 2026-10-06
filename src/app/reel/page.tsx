@@ -31,11 +31,13 @@ export default function ReelPage() {
   return (
     <div className="flex w-full flex-col">
       <header className="band-inner py-16 sm:py-24">
-        <p className="t-label">Reel</p>
-        <h1 className="t-h mt-4 max-w-[18ch] text-ink text-balance">
+        <div className="scored pt-3">
+          <p className="t-label">Reel</p>
+        </div>
+        <h1 className="t-h mt-8 max-w-[8.5em] text-ink text-balance">
           Things that are easier to show than to say
         </h1>
-        <p className="measure-tight t-body-lg mt-6 text-muted">
+        <p className="measure-tight t-body-lg mt-6 text-ink-soft">
           One clip a screen. None of this is my own footage yet, and every frame
           says where it came from, which is the same rule the numbers on this
           site follow.
@@ -50,18 +52,20 @@ export default function ReelPage() {
             <figure className="relative m-0 h-[70svh] w-full overflow-hidden sm:h-[88svh]">
               <ClipPlayer clip={clip} full />
 
-              {/* The scrim is not decoration. A caption in white over a bright
+              {/* The scrim is not decoration. A caption in chalk over a bright
                 frame of a clip is a caption whose contrast changes every frame,
                 and the only honest way to hold it is to put a known surface
-                between the two. */}
+                between the two. The caption turns its tokens over, so it is
+                chalk on the carbon the scrim lays down and not carbon on
+                carbon. */}
               <div aria-hidden="true" className="clip-scrim" />
 
-              <figcaption className="band-inner absolute inset-x-0 bottom-0 pb-10 sm:pb-14">
+              <figcaption className="on-carbon band-inner absolute inset-x-0 bottom-0 pb-10 sm:pb-14">
                 <p className="t-label">{String(index + 1).padStart(2, "0")}</p>
-                <p className="measure mt-3 text-[19px] leading-snug text-ink text-pretty sm:text-[22px]">
+                <p className="measure mt-3 text-[1rem] leading-snug text-ink text-pretty sm:text-[1.125rem]">
                   {clip.caption}
                 </p>
-                <p className="mt-4 text-[13px] text-muted">
+                <p className="t-caption mt-4 text-muted">
                   {clip.credit} ·{" "}
                   <a href={clip.href} className="link-arrow">
                     source
@@ -74,7 +78,7 @@ export default function ReelPage() {
       })}
 
       <div className="band-inner py-16 sm:py-20">
-        <p className="measure text-[15px] leading-relaxed text-muted">
+        <p className="measure t-caption leading-relaxed text-muted">
           Licences and the reason each clip was chosen are recorded in
           <code className="mx-1.5 text-ink">public/media/SOURCE.md</code>,
           including the four that were rejected: a wall of third-party logos, a
