@@ -34,9 +34,11 @@ uniform float u_time;
 uniform float u_scale;
 uniform float u_amplitude;
 uniform float u_colourFactor;
-uniform float u_progress;
+uniform float u_from;
+uniform float u_to;
+uniform float u_mix;
 uniform float u_explode;
-uniform float u_mobileRotation;
+uniform float u_facing;
 uniform vec3 u_offset;
 uniform vec3 u_rotation;
 uniform vec3 u_camera;
@@ -56,16 +58,15 @@ void main() {
   vec3 simulated = texture(t_position, a_id * 0.5).xyz;
   vec3 pos = (simulated - 0.5) * 2.0 * u_factor;
 
-  /* Scale follows the same four quadrant layout as position, so a particle can
-     be a different size in each shape it becomes. */
-  float scale1 = texture(t_scale, quadrantUV(a_id, 0)).r;
-  float scale2 = texture(t_scale, quadrantUV(a_id, 1)).r;
-  float scale3 = texture(t_scale, quadrantUV(a_id, 2)).r;
-  float scale4 = texture(t_scale, quadrantUV(a_id, 3)).r;
-
-  float scale = mix(scale1, scale2, clamp01(u_progress));
-  scale = mix(scale, scale3, clamp01(u_progress - 1.0));
-  scale = mix(scale, scale4, clamp01(u_progress - 2.0));
+  /* Scale follows the same slot layout as position, so a particle can be a
+     different size in each shape it becomes: the two it is between, blended by
+     how far through the change it is. */
+  int fromSlot = int(u_from + 0.5);
+  int toSlot = int(u_to + 0.5);
+  float scale = mix(
+    texture(t_scale, slotUV(a_id, fromSlot)).r,
+    texture(t_scale, slotUV(a_id, toSlot)).r,
+    clamp01(u_mix));
   scale *= u_scale;
 
   /* Scattered particles read as further away, so they shrink a little. Without
@@ -82,7 +83,7 @@ void main() {
   float angle = mod(n * TAU + u_time * 0.35 + a_random.w * TAU, TAU);
   mat3 tumble = rotationMatrix(normalize(vec3(0.35 + a_random.x * 0.3, 1.0, 1.0)), angle);
   mat3 facing = lookAtMatrix(pos, u_camera);
-  mat3 spin = u_mobileRotation > 0.5 ? facing : tumble;
+  mat3 spin = u_facing > 0.5 ? facing : tumble;
 
   vec3 local = spin * (a_vertex * scale);
   vec3 normal = spin * a_normal;
@@ -94,15 +95,11 @@ void main() {
   vec3 world = field * (pos + local) + u_offset;
   normal = field * normal;
 
-  /* Colour, from the same quadrant layout again. */
-  vec3 colour1 = texture(t_colour, quadrantUV(a_id, 0)).rgb;
-  vec3 colour2 = texture(t_colour, quadrantUV(a_id, 1)).rgb;
-  vec3 colour3 = texture(t_colour, quadrantUV(a_id, 2)).rgb;
-  vec3 colour4 = texture(t_colour, quadrantUV(a_id, 3)).rgb;
-
-  vec3 tint = mix(colour1, colour2, clamp01(u_progress));
-  tint = mix(tint, colour3, clamp01(u_progress - 1.0));
-  tint = mix(tint, colour4, clamp01(u_progress - 2.0));
+  /* Colour, from the same slot layout again. */
+  vec3 tint = mix(
+    texture(t_colour, slotUV(a_id, fromSlot)).rgb,
+    texture(t_colour, slotUV(a_id, toSlot)).rgb,
+    clamp01(u_mix));
   tint *= u_colourFactor;
 
   /* Scattered particles lose some of their colour, which is what stops the

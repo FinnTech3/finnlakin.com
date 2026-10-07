@@ -9,24 +9,35 @@ export type QualityLevel = "high" | "medium" | "low";
 export type PostLevel = "full" | "bloom" | "minimal";
 
 export type ParticleBrainConfig = {
-  /* The logical particle grid is square and its side is this. The simulation
-     textures are twice this on each axis, because they carry four target
-     quadrants. */
+  /* The logical particle grid is square and its side is this. The simulation's
+     state textures are twice this on each axis and use a quarter of it, and the
+     texture the shapes are in is three times it, one slot of a three by three
+     grid to a shape. */
   gridSize: number;
-  gridSizeMobile: number;
-  factorDesktop: number;
-  factorMobile: number;
-  particleScaleDesktop: number;
-  particleScaleMobile: number;
+  /* The same on a compact screen, which is a phone and not a touch screen. It
+     builds a smaller cloud rather than sampling one its tier would throw away.
+     A tablet is not compact: its screen is as large as a laptop's. */
+  gridSizeCompact: number;
+  /* How large the cloud is drawn, and it is a property of the layout and not of
+     the device. `factorLane` is the size in the lane the page keeps beside its
+     content, which is wherever the window is wide enough for one; `factorSlot`
+     is the fallback size when a window too narrow for a lane has no room under
+     the hero's controls. They used to be chosen by whether the pointer was
+     coarse, which gave a tablet in landscape, which has a lane, the size a
+     phone has. */
+  factorLane: number;
+  factorSlot: number;
+  /* The pyramids' size, on a full screen and on a compact one. */
+  particleScale: number;
+  particleScaleCompact: number;
   spring: number;
   friction: number;
   /* How much of the opening reveal one particle's own arrival occupies. The
      rest of the reveal is the stagger: the smaller this is, the longer the
      queue and the more the cloud streams in rather than landing together. */
   entryWindow: number;
-  morphDelayDesktop: number;
-  morphDelayMobile: number;
-  secondaryMorphDelay: number;
+  morphDelay: number;
+  morphDelayCompact: number;
   explosionDelay: number;
   /* How far the parting reaches, in the simulation's own nought to one
      space, and how hard it pushes. */
@@ -104,12 +115,13 @@ export const DEFAULTS: ParticleBrainConfig = {
      instances, which is nothing on a desktop GPU. A phone builds a smaller
      cloud rather than paying for particles its tier will not draw. */
   gridSize: 180,
-  gridSizeMobile: 120,
-  factorDesktop: 5.15,
+  gridSizeCompact: 120,
+  factorLane: 5.15,
   /* Down from 2.5. The cloud has to fit between the call to action and a
      little past the bottom of a phone's viewport, and at 2.5 it was half a
-     screen tall and sat across the hero's text. */
-  factorMobile: 2.05,
+     screen tall and sat across the hero's text. Only used when the slot has no
+     room to size the cloud from: with a slot the cloud is sized to fill it. */
+  factorSlot: 2.05,
   /* Smaller than they were, and that is what makes the folds visible.
 
      At 1.55 the pyramids overlapped enough that the cortex accumulated to white
@@ -118,8 +130,8 @@ export const DEFAULTS: ParticleBrainConfig = {
      the individual shapes, and the structure is in the gaps between them. That
      is a size decision, not a brightness one, though the bloom below had to
      come down with it. */
-  particleScaleDesktop: 1.08,
-  particleScaleMobile: 0.92,
+  particleScale: 1.08,
+  particleScaleCompact: 0.92,
   spring: 0.006,
   friction: 0.892,
   /* An eighth, which is a little over a tenth of a second: nearly a step rather
@@ -135,9 +147,11 @@ export const DEFAULTS: ParticleBrainConfig = {
      on: the force is proportional to distance, so the particle accelerates from
      rest whatever the gate does. */
   entryWindow: 0.12,
-  morphDelayDesktop: 0.0005,
-  morphDelayMobile: 0.000025,
-  secondaryMorphDelay: 0.0005,
+  /* How much of a transition each particle waits out, on a full screen and on a
+     compact one. A compact screen draws far fewer particles, so its wave is
+     nearly a step. */
+  morphDelay: 0.0005,
+  morphDelayCompact: 0.000025,
   explosionDelay: 0.00015,
   /* How far the pointer reaches, in the space the shapes are built in, where
      the cloud's furthest particle sits at 0.34.
@@ -229,15 +243,21 @@ export type PageLayout = {
   slot: { centre: number; half: number; px: number } | null;
 };
 
-/* A seam between two sections whose lanes differ: the one kind of place the
-   cloud can change sides, because it is the one band of the page with no text
-   across it. */
+/* A seam between two bands of the page that differ in lane, in shape, or both:
+   the one kind of place the cloud can change sides or change into something
+   else, because it is the one strip of the page with no text across it. */
 export type LaneSeam = {
   /* uv y of the middle of the seam, up from the bottom of the window. */
   uv: number;
-  /* The lanes of the sections above and below it, +1 right and -1 left. */
+  /* The lanes of the bands above and below it, +1 right and -1 left. Equal
+     when the seam is only a change of shape. */
   above: number;
   below: number;
+  /* The places of the same two bands in the chain of shapes, which is how many
+     changes of shape there have been on the way down to each. One apart across
+     a seam where the shape changes and equal where it does not. */
+  aboveChain: number;
+  belowChain: number;
   /* uv half height of the part of it that is clear of text with the page at
      rest: the padding either side, less a margin. What the cloud is sized to
      and the split is softened over, so neither changes with how fast the page
@@ -252,9 +272,15 @@ export type LaneSeam = {
 
 /* Which lanes are where on the screen, read off the page every frame. */
 export type LaneState = {
-  /* The lane of the section across the middle of the window, which is the
+  /* The lane of the band across the middle of the window, which is the
      cloud's when there is no seam near it. */
   here: number;
+  /* And its place in the chain of shapes. */
+  hereChain: number;
+  /* The chain of shapes the page asks for, top to bottom, as slots of the
+     target texture, with the bands that ask for the same shape one after
+     another counted once. */
+  chain: readonly number[];
   /* Seams on or near the screen, top first. */
   seams: LaneSeam[];
 };
@@ -318,10 +344,10 @@ export type ParticleTimelineState = {
   explode: number;
   /* The radius the normalised target positions are multiplied up by. */
   factor: number;
-  /* Zero through three, walking the four target quadrants. */
+  /* Where the cloud is along the chain of shapes: a whole number is a shape and
+     between two is a change from one to the next. The engine turns it into the
+     two slots and how far between them. */
   progress: number;
-  /* A second progress the depth and post effects follow. */
-  progress2: number;
   rotation: { x: number; y: number; z: number };
   /* How far the cloud's brightness is pulled down so that text laid over it
      keeps its contrast ratio. Zero is full strength. */
@@ -342,7 +368,8 @@ export type MouseState = {
 };
 
 export type ScrollState = {
-  /* Zero through six. Six sections of timeline, seven sections of page. */
+  /* Where the page is, in bands: the top of band n at the top of the window is
+     exactly n, and between two it is the share of the way there. */
   sectionProgress: number;
   target: number;
 };
@@ -371,6 +398,11 @@ export type ParticleBrain = {
   inspect: () => {
     quality: QualityLevel;
     instances: number;
+    /* What kind of screen the engine decided it was on, and the drawing buffer
+       ratio the tier asked for. Read by the tests that hold a tablet to the
+       size of a laptop's cloud and not a phone's. */
+    device: { compact: boolean; touch: boolean };
+    pixelRatio: number;
     frameMs: number;
     timeline: ParticleTimelineState;
     /* Where the parting is happening, in the simulation's own space, and how

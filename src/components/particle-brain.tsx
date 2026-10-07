@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { frameScheduler } from "@/particles/frame";
 import { createParticleBrain } from "@/particles/engine";
+import { OPENING_CEILING_MS } from "@/particles/opening";
 import { debugRequested, forcedLevel } from "@/particles/quality";
 import { STORAGE_KEY } from "@/components/intro";
 import type { CloudSurface, ParticleBrain as Engine } from "@/particles/types";
@@ -18,9 +19,9 @@ import type { CloudSurface, ParticleBrain as Engine } from "@/particles/types";
    way an effect like this ends up costing ten times what it should. */
 
 
-/* However the opening animation ends, it is over by this point. A decoration
-   must never be the reason a page cannot be read. */
-const INTRO_CEILING_MS = 9_000;
+/* However the opening animation ends, it is over by this point, and the figure
+   is in particles/opening.ts beside the schedule it has to stay clear of. */
+const INTRO_CEILING_MS = OPENING_CEILING_MS;
 
 /* Matches the transition in the stylesheet that fades the veil out. */
 const VEIL_FADE_MS = 700;
@@ -294,6 +295,10 @@ function Cloud({ className, surface }: Props) {
        way a hand held in a shoal does; the hole closes when the pointer leaves
        the window, not when it stops moving. */
     const onPointerMove = (event: PointerEvent) => {
+      /* Not a finger. A tablet that has a trackpad attached listens for it, and
+         a touch on the glass would otherwise part the cloud under whatever the
+         reader was trying to tap. */
+      if (event.pointerType === "touch") return;
       engine.pointer(event.clientX, event.clientY);
     };
 
@@ -365,11 +370,13 @@ function Cloud({ className, surface }: Props) {
       host.dataset.brain = "fallback";
     };
 
-    /* Only where there is a pointer that hovers. On a touch screen there is no
-       cursor to part the cloud around, and a finger that has to touch the glass
-       to be heard would scatter the particles under whatever the reader was
-       trying to tap. */
-    const hovers = window.matchMedia?.("(hover: hover)").matches ?? true;
+    /* Only where there is a pointer that hovers, which is asked of every
+       pointer the machine has and not only the main one: a tablet's main
+       pointer is a finger, and its trackpad is the one that can part the cloud.
+       On a touch screen alone there is no cursor to part the cloud around, and
+       a finger that has to touch the glass to be heard would scatter the
+       particles under whatever the reader was trying to tap. */
+    const hovers = window.matchMedia?.("(any-hover: hover)").matches ?? true;
     if (hovers) {
       window.addEventListener("pointermove", onPointerMove, { passive: true });
       document.addEventListener("pointerleave", onPointerLeave);

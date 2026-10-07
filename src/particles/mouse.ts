@@ -70,7 +70,7 @@ export function pointerInCloudSpace(
    having been disturbed by something passing through it. */
 
 const DESKTOP_DELTA_CLAMP = 2;
-const MOBILE_DELTA_CLAMP = 0.1;
+const TOUCH_DELTA_CLAMP = 0.1;
 
 export class MouseController {
   private state: MouseState = {
@@ -82,14 +82,15 @@ export class MouseController {
 
   private previous = { x: 0, y: 0 };
   private deltaTarget = { x: 0, y: 0 };
-  private mobile: boolean;
+  /* Whether the main pointer is a finger. */
+  private touch: boolean;
   private smoothing: number;
   /* Nought to one, eased, so the hole opens and closes rather than appearing
      and vanishing with the pointer. */
   private presence = 0;
 
-  constructor(mobile: boolean, smoothing: number) {
-    this.mobile = mobile;
+  constructor(touch: boolean, smoothing: number) {
+    this.touch = touch;
     this.smoothing = smoothing;
   }
 
@@ -128,7 +129,7 @@ export class MouseController {
     state.current.x += (state.target.x - state.current.x) * smoothing * 0.75;
     state.current.y += (state.target.y - state.current.y) * smoothing * 0.75;
 
-    const limit = this.mobile ? MOBILE_DELTA_CLAMP : DESKTOP_DELTA_CLAMP;
+    const limit = this.touch ? TOUCH_DELTA_CLAMP : DESKTOP_DELTA_CLAMP;
     if (state.inside) {
       this.deltaTarget.x = clamp(50 * (state.current.x - this.previous.x), -limit, limit);
       this.deltaTarget.y = clamp(50 * (state.current.y - this.previous.y), -limit, limit);

@@ -15,8 +15,11 @@ import { COMMON } from "./common";
 
 /* Velocity. Reads the previous position and the previous velocity, resolves
    where the particle is supposed to be right now, and accelerates towards it.
-   The target is not a fixed shape: it is four shapes, blended by a progress
-   value that each particle reaches at its own moment. */
+   The target is not a fixed shape: it is the shape the cloud is leaving and the
+   one it is going to, blended by how far through the change it is, which each
+   particle reaches at its own moment. Which two they are is the timeline's to
+   say, so the page can go from the brain to a surface and back, and a shape does
+   not have to be next to another in a list to be moved to from it. */
 export const VELOCITY_FRAGMENT = `#version 300 es
 precision highp float;
 
@@ -29,10 +32,12 @@ uniform sampler2D t_velocity;
 uniform sampler2D t_param1;
 uniform sampler2D t_param2;
 uniform sampler2D t_param3;
+uniform sampler2D t_param4;
 
-uniform float u_progress;
+uniform float u_from;
+uniform float u_to;
+uniform float u_mix;
 uniform float u_morphDelay;
-uniform float u_secondaryDelay;
 uniform float u_explosionDelay;
 uniform float u_length;
 uniform float u_spring;
@@ -51,38 +56,38 @@ ${COMMON}
 
 void main() {
   /* The simulation covers the lower left quarter of its own target, so reading
-     its previous value means halving the coordinate. The four morph targets
-     live in the four quarters of a different texture at full size. */
+     its previous value means halving the coordinate. The shapes live in the
+     slots of a different texture, three across and three down. */
   vec2 simUv = v_uv * 0.5;
 
   vec4 param1 = texture(t_param1, v_uv);
   vec4 param2 = texture(t_param2, v_uv);
   vec4 param3 = texture(t_param3, v_uv);
+  vec4 param4 = texture(t_param4, v_uv);
 
-  vec3 target1 = texture(t_targets, quadrantUV(v_uv, 0)).xyz;
-  vec3 target2 = texture(t_targets, quadrantUV(v_uv, 1)).xyz;
-  vec3 target3 = texture(t_targets, quadrantUV(v_uv, 2)).xyz;
-  vec3 target4 = texture(t_targets, quadrantUV(v_uv, 3)).xyz;
+  int fromSlot = int(u_from + 0.5);
+  int toSlot = int(u_to + 0.5);
+  vec3 targetFrom = texture(t_targets, slotUV(v_uv, fromSlot)).xyz;
+  vec3 targetTo = texture(t_targets, slotUV(v_uv, toSlot)).xyz;
 
   /* The orderings are stored normalised and multiplied back up here. Stored raw,
      a rank of nine thousand sits above the range where a half float texture can
      keep consecutive integers apart, and on a machine that falls back to half
-     float the morph wave arrives in visible steps instead of sweeping. */
+     float the morph wave arrives in visible steps instead of sweeping. The
+     ordering is the one for the shape being moved to, so the wave sweeps across
+     the shape it is making. */
   float span = u_length - 1.0;
-  float progress12 = delayedProgress(u_progress, param2.r * span, u_morphDelay, u_length);
-  float progress23 = delayedProgress(max(u_progress - 1.0, 0.0), param2.g * span, u_secondaryDelay, u_length);
-  float progress34 = delayedProgress(max(u_progress - 2.0, 0.0), param2.b * span, u_morphDelay, u_length);
+  float arrival = delayedProgress(
+    u_mix, arrivalOrder(param2, param4, toSlot) * span, u_morphDelay, u_length);
 
-  vec3 target = mix(target1, target2, progress12);
-  target = mix(target, target3, progress23);
-  target = mix(target, target4, progress34);
+  vec3 target = mix(targetFrom, targetTo, arrival);
 
   /* Outward along the particle's own relationship to the centre, not a blunt
      multiply of the position. A blunt multiply moves the whole cloud away from
      the origin as well as expanding it, which reads as the brain sliding off
      rather than coming apart. */
   vec3 centre = vec3(0.5);
-  float burst = delayedProgress(u_explode, param2.a * span, u_explosionDelay, u_length);
+  float burst = delayedProgress(u_explode, param3.a * span, u_explosionDelay, u_length);
   float multiplier = mix(1.0, param3.r, burst);
   target = centre + (target - centre) * multiplier;
 

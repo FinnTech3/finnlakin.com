@@ -106,34 +106,88 @@ const DESKTOP: Record<QualityLevel, Omit<Tier, "pixelRatio">> = {
   low: { level: "low", instances: 6000, post: "minimal" },
 };
 
-const MOBILE: Record<QualityLevel, Omit<Tier, "pixelRatio">> = {
+const COMPACT: Record<QualityLevel, Omit<Tier, "pixelRatio">> = {
   high: { level: "high", instances: 14400, post: "bloom" },
   medium: { level: "medium", instances: 7000, post: "bloom" },
   low: { level: "low", instances: 3500, post: "minimal" },
 };
 
-export function isMobile() {
-  if (typeof window === "undefined") return false;
+/* What kind of screen this is, as two questions that used to be one.
+
+   There was a single "is this a phone" test, a coarse pointer or a narrow
+   window, and it decided everything at once: how many particles to build, how
+   large to draw the cloud, how to turn each pyramid, how fast to morph, and
+   whether to listen for a mouse. A tablet has a coarse pointer, so every iPad
+   was a phone, and on one held in landscape, which has a lane beside the
+   content exactly as a laptop does, the cloud came out a sixth of the height of
+   the screen where a laptop's is over a third of it: measured, 127 pixels tall
+   in a window 820 tall against the 300 odd it should have been.
+
+   The two questions are not the same question and do not have the same answer
+   on every machine:
+
+   - `compact` is whether the screen is small, which is what decides how much
+     there is room for and so how much to build and draw. It is the shorter side
+     of the window, so a phone held either way up is compact and a tablet held
+     either way up is not.
+   - `touch` is whether the main way of pointing is a finger, which is what
+     decides whether there is a hover to part the cloud around and how far one
+     frame's worth of pointer movement can be trusted.
+
+   How large the cloud is drawn is neither: it is the layout's to say, and it is
+   read off the page in timeline.ts. */
+export type Device = {
+  compact: boolean;
+  touch: boolean;
+};
+
+/* The shorter side of the window below which the screen is compact, in CSS
+   pixels. The smallest tablets are 744 on their short side and the largest
+   phones 440 on theirs, held either way up, so the line is between them. A
+   desktop window dragged narrow is a small screen for as long as it is narrow,
+   which is also right. */
+const COMPACT_BELOW = 600;
+
+export function detectDevice(): Device {
+  if (typeof window === "undefined") return { compact: false, touch: false };
+  /* The main pointer is a finger and nothing finer is attached. A tablet in a
+     keyboard case has a trackpad as well, and for as long as it is there that
+     is a pointer machine: the page can part the cloud around it, and its
+     movements can be trusted as a mouse's are. */
   const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
-  return coarse || window.innerWidth < 760;
+  const finerToo = window.matchMedia?.("(any-pointer: fine)").matches ?? false;
+  const touch = coarse && !finerToo;
+  const compact = Math.min(window.innerWidth, window.innerHeight) < COMPACT_BELOW;
+  return { compact, touch };
 }
 
-export function tierFor(level: QualityLevel, mobile: boolean): Tier {
-  const base = mobile ? MOBILE[level] : DESKTOP[level];
-  const ratio = mobile ? Math.min(window.devicePixelRatio || 1, 2) : 1;
-  return { ...base, pixelRatio: level === "high" ? ratio : Math.min(ratio, 1) };
+export function tierFor(level: QualityLevel, device: Device): Tier {
+  const base = device.compact ? COMPACT[level] : DESKTOP[level];
+  /* Drawn in the screen's own pixels on a touch screen, up to two to a pixel,
+     and in CSS pixels everywhere else: a soft cloud costs nothing to upscale,
+     and a pointer machine's graphics are spending their effort elsewhere. */
+  const ratio = device.touch ? Math.min(window.devicePixelRatio || 1, 2) : 1;
+  /* The depth of field is the expensive pass and it is for a machine with a
+     card to spend on it. A tablet draws a full size cloud and has bloom. */
+  const post = device.touch && base.post === "full" ? "bloom" : base.post;
+  return { ...base, post, pixelRatio: level === "high" ? ratio : Math.min(ratio, 1) };
 }
 
 /* Where to start before any frame has been timed. Deliberately not clever: the
    frame timer below is the real measurement, and this only decides how long the
    machine spends finding out. A software rasteriser names itself, and starting
-   it at high costs a second of stutter before the timer catches up. */
-export function initialLevel(capability: Capability, mobile: boolean): QualityLevel {
+   it at high costs a second of stutter before the timer catches up.
+
+   A tablet draws the full size cloud, which is more than a phone does, so it
+   asks for more cores before starting at the top and otherwise starts a step
+   down and lets the page's ladder bring it up if it can keep up. */
+export function initialLevel(capability: Capability, device: Device): QualityLevel {
   const software = /swiftshader|llvmpipe|software|microsoft basic/i.test(capability.renderer);
   if (software) return "low";
 
   const cores = navigator.hardwareConcurrency ?? 4;
-  if (mobile) return cores >= 6 ? "high" : "medium";
+  if (device.compact) return cores >= 6 ? "high" : "medium";
+  if (device.touch) return cores >= 8 ? "high" : "medium";
   return cores >= 4 ? "high" : "medium";
 }
 

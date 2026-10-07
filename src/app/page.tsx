@@ -5,9 +5,10 @@ import { Endorsements } from "@/components/endorsements";
 import { Hero } from "@/components/hero";
 import { ProjectIndex } from "@/components/project-index";
 import { ProjectEntry, ProvenanceLegend } from "@/components/project-entry";
-import { Section } from "@/components/section";
+import { Band, Section } from "@/components/section";
 import { Skills } from "@/components/skills";
 import { PersonSchema } from "@/components/structured-data";
+import { bandOf, bandPlan, PROJECTS_PER_BAND } from "@/lib/bands";
 import { buildMetadata } from "@/lib/metadata";
 import { numberWord } from "@/lib/numbers";
 import { projects } from "@/lib/projects";
@@ -17,25 +18,50 @@ import { timeline } from "@/lib/timeline";
 export const metadata = buildMetadata({ path: "/" });
 
 export default function HomePage() {
+  /* The cloud's side and shape for every band of the page: see lib/bands.ts,
+     which is where they are changed. */
+  const plan = bandPlan(projects.length);
+
+  /* The projects in bands of two, one band for each side the work visits. */
+  const work = plan.filter((band) => band.id === "work" || band.id.startsWith("work-"));
+  const entries = work.map((_, band) =>
+    projects.slice(band * PROJECTS_PER_BAND, (band + 1) * PROJECTS_PER_BAND),
+  );
+  const entry = (band: number, project: (typeof projects)[number], within: number) => (
+    <ProjectEntry
+      key={project.slug}
+      project={project}
+      index={band * PROJECTS_PER_BAND + within}
+      strongest={band === 0 && within === 0}
+    />
+  );
+
   return (
     <>
       <PersonSchema />
-      <Hero />
+      <Hero band={bandOf(plan, "hero")} />
 
-      {/* The lanes run in pairs: right for the opening, the work and the about
-          band, left for the path and the tools, right again for the references
-          and the contact. Not alternating, which is what this was.
+      {/* The cloud changes sides, and shape, wherever the page changes its mind.
 
-          Alternating guarantees a collision. Two sections share the viewport for
-          most of a scroll through the boundary between them, so if their lanes
+          The work used to be one band down one side, and the cloud was the
+          brain, or a haze of it, from the first project to the last. It is bands
+          of two projects now, the content alternating from one side of the
+          screen to the other, and at every seam between two the cloud gathers
+          itself up, crosses the strip with nothing written on it, and arrives
+          as what the next band asked for. The rest of the page changes at the
+          same kind of seam: the lanes run in pairs through the about band, the
+          path and the tools, the references and the contact.
+
+          Alternating guarantees a meeting. Two bands share the viewport for most
+          of a scroll through the boundary between them, so where their sides
           differ one of them has its content where the cloud is, whichever side
-          the cloud picks and whenever it crosses. In pairs, most of the
-          boundaries have both sections on the same side and the cloud simply
-          stays put; the two crossings that are left happen once each, through the
-          seam between two sections, and the cloud gathers itself up to fit it. */}
+          the cloud picks and whenever it crosses. What makes that safe is the
+          seam, and what the engine does about it: the final pass cuts the cloud
+          to each band's own column, split at the seam, so the part of the screen
+          that is still the upper band is cut to its column and the part that is
+          already the lower to its own. */}
       <Section
-        id="work"
-        lane="right"
+        {...bandOf(plan, "work")}
         eyebrow="Selected work"
         title="Index"
         intro={`${numberWord(projects.length, { capital: true })} projects, strongest evidence first. Ordered by how much of each result you can check for yourself, rather than by how large the number is. Every project states what it does not show.`}
@@ -101,18 +127,19 @@ export default function HomePage() {
         </div>
 
         <div className="mt-20 flex flex-col">
-          {projects.map((project, index) => (
-            <ProjectEntry
-              key={project.slug}
-              project={project}
-              index={index}
-              strongest={index === 0}
-            />
-          ))}
+          {entries[0]!.map((project, within) => entry(0, project, within))}
         </div>
       </Section>
 
-      <Section id="about" eyebrow="About" title="Why this way" lane="right">
+      {work.slice(1).map((band, index) => (
+        <Band key={band.id} id={band.id} lane={band.lane} shape={band.shape}>
+          <div className="flex flex-col">
+            {entries[index + 1]!.map((project, within) => entry(index + 1, project, within))}
+          </div>
+        </Band>
+      ))}
+
+      <Section {...bandOf(plan, "about")} eyebrow="About" title="Why this way">
         <div className="longform">
           <p>
             I read {person.course} at {person.university}, and I have just come
@@ -151,10 +178,9 @@ export default function HomePage() {
           eight hundred words of dates in the middle of a page whose job is the
           work. */}
       <Section
-        id="path"
+        {...bandOf(plan, "path")}
         eyebrow="Path"
         title="Where I have studied and worked"
-        lane="left"
         intro="Four years of it, with what each place was actually for."
       >
         <div className="flex flex-col gap-10">
@@ -185,26 +211,24 @@ export default function HomePage() {
         </div>
       </Section>
 
-      <Section id="skills" eyebrow="Tools" title="What I actually use" lane="left">
+      <Section {...bandOf(plan, "skills")} eyebrow="Tools" title="What I actually use">
         <Skills />
         <Bays />
       </Section>
 
       <Section
-        id="endorsements"
+        {...bandOf(plan, "endorsements")}
         eyebrow="References"
         title="On record"
-        lane="right"
         intro="From people who have worked alongside me."
       >
         <Endorsements />
       </Section>
 
       <Section
-        id="contact"
+        {...bandOf(plan, "contact")}
         eyebrow="Contact"
         title="Get in touch"
-        lane="right"
         intro="Happy to talk through any of the methods above, including the parts that did not work."
       >
         <div className="flex flex-wrap items-center gap-3">

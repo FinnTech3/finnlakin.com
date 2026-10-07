@@ -7,7 +7,7 @@ import { clamp, mulberry32 } from "./pack";
 import {
   detectCapability,
   initialLevel,
-  isMobile,
+  detectDevice,
   tierFor,
   type Capability,
   type Tier,
@@ -17,9 +17,10 @@ import { CAMERA_FOV, CAMERA_POSITION, ParticleRenderer } from "./renderer";
 import { ScrollController } from "./scroll";
 import { ParticleSimulation } from "./simulation";
 import { buildTargetSet, SEED } from "./targets";
-import { brainTargets } from "./brain-shape";
+import { pageShapes } from "./structures";
 import { introFactor, wordShape } from "./words";
 import { mapClamped } from "./pack";
+import { OPENING, openingMorph } from "./opening";
 import {
   DEFAULTS,
   type CloudMask,
@@ -27,6 +28,7 @@ import {
   type ParticleBrainConfig,
   type QualityLevel,
 } from "./types";
+import { sampleOf } from "./extent";
 import { ParticleTimeline } from "./timeline";
 
 /* The engine. Everything above it is a part; this is what makes them a system.
@@ -103,33 +105,27 @@ const SHOW_SECONDS = 1.0;
    switches away and comes back finds it finished, which is what they would
    want anyway. */
 
-/* The opening animation, in milliseconds from the first frame. The first word
-   assembles, becomes the second, and the second becomes the brain; then the
-   hold on the composition is released and the page takes over.
-
-   These are the timings from the version Finn watched, kept because they were
-   arrived at by watching rather than by reasoning. */
-/* The first word needs longer than it looks, and the reason is measurable
-   rather than aesthetic. The reveal draws the cloud in over nine tenths of a
-   second, and only once it has arrived does the spring start closing the last
-   of the distance, which at a spring of six thousandths and a friction of
-   0.892 takes about another seventy steps. So the word is not actually a word
-   until roughly two seconds in. Starting the second phase at 2300 had it
-   morphing away at the moment it became legible. */
-const WORD_TWO_FROM = 3000;
-const WORD_TWO_TO = 4200;
-const BRAIN_FROM = 5000;
-const BRAIN_TO = 6300;
-const HANDOVER_AT = 6900;
-
-/* When the brain starts moving from the middle of the screen, at the scale the
-   words were drawn at, to the place and size the page opens with. It is most
-   of the way formed by then, so what a reader sees is the thing assembling
-   and then settling into position, and by the hand-over there is nothing left
-   to move. See the note at the hand-over in frame(). */
-const SETTLE_FROM = 5700;
-
+/* The opening animation's phases are in opening.ts, with the reasons for their
+   numbers: this plays them. See the note at the hand-over in frame() for why the
+   composition travels to the page's own place before the hold is released. */
 const INTRO_LINES: string[][] = [["FINN LAKIN"], ["ECONOMICS,", "FINANCE,", "SOFTWARE DEV"]];
+
+/* The opening's shapes are the first word, the second and the brain, in the
+   first three slots of its own texture, one after the next. */
+const INTRO_CHAIN: readonly number[] = [0, 1, 2];
+
+/* Where a number along a chain of shapes is: the two slots it is between and how
+   far from the first to the second. A whole number is a shape and has nothing
+   to be between, which reads as the shape and no distance. */
+function between(progress: number, chain: readonly number[]) {
+  if (chain.length < 2) {
+    const only = chain[0] ?? 0;
+    return { from: only, to: only, mix: 0 };
+  }
+  const at = clamp(progress, 0, chain.length - 1);
+  const link = Math.min(Math.floor(at), chain.length - 2);
+  return { from: chain[link]!, to: chain[link + 1]!, mix: at - link };
+}
 
 export type EngineOptions = {
   canvas: HTMLCanvasElement;
@@ -222,7 +218,11 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   if (!capability) return null;
 
   const config: ParticleBrainConfig = { ...DEFAULTS, ...options.config };
-  const mobile = isMobile();
+  const device = detectDevice();
+  /* Small, as opposed to touch: see Device in quality.ts. Everything below that
+     is about how much a screen has room for reads this. How large the cloud is
+     drawn is the layout's to say and is read off the page in the timeline. */
+  const compact = device.compact;
   const reducedMotion = options.reducedMotion ?? false;
 
   const fullscreen = createFullscreen(context);
@@ -231,23 +231,23 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   /* A phone draws half as many particles, so it builds half as many rather than
      spending a couple of hundred milliseconds of its slower processor sampling
      a cloud its tier will throw away. */
-  const gridSize = mobile ? config.gridSizeMobile : config.gridSize;
+  const gridSize = compact ? config.gridSizeCompact : config.gridSize;
   const count = gridSize * gridSize;
-  const built = brainTargets(count, SEED);
-  /* The same tone for all four quadrants: the other three shapes are per
-     particle derivations of the brain, so a particle keeps its colour identity
-     as it morphs rather than being recoloured by whatever shape it is in. */
+  const built = pageShapes(count, SEED);
+  /* The same tone for every shape: it belongs to the particle and not to the
+     shape, so a particle keeps its colour identity as it morphs rather than
+     being recoloured by whatever shape it is in. */
   const scrollSet = buildTargetSet(
     built.shapes,
     gridSize,
-    [built.tone, built.tone, built.tone, built.tone],
+    built.shapes.map(() => built.tone),
     built.relief,
   );
 
-  /* The opening animation is not a separate system. It is the same four
-     quadrant target texture with two words in it and the brain in the other
-     two, so the words are made of the identical ten thousand pyramids and
-     become the brain by the same morph that carries every other transition. */
+  /* The opening animation is not a separate system. It is the same target
+     texture with two words in it and the brain in the third slot, so the words
+     are made of the identical ten thousand pyramids and become the brain by the
+     same morph that carries every other transition. */
   /* The canvas's own shape rather than the window's. Below the breakpoint the
      canvas covers the first screen at its largest, which on a phone is taller
      than the window while the address bar is showing, and the words are laid
@@ -292,10 +292,9 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
             wordShape(INTRO_LINES[0]!, boxWidth, boxHeight, count, SEED + 3),
             wordShape(INTRO_LINES[1]!, boxWidth, boxHeight, count, SEED + 5),
             brain,
-            brain,
           ],
           gridSize,
-          [null, null, built.tone, built.tone],
+          [null, null, built.tone],
           built.relief,
         );
       })()
@@ -306,9 +305,15 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
   /* Built before the simulation, because the simulation's first act is to seed
      every particle off the edge of the screen and the edge of the screen is
      only knowable through the composition the reveal opens in. */
-  const baseFactor = mobile ? config.factorMobile : config.factorDesktop;
-  const timeline = new ParticleTimeline(baseFactor, aspect);
-  const mouse = new MouseController(mobile, config.mouseSmoothing);
+  const timeline = new ParticleTimeline(
+    { lane: config.factorLane, slot: config.factorSlot },
+    aspect,
+  );
+  /* A sample of every shape, which the timeline measures where the cloud is
+     drawn each time it sizes it, so the cloud is sized to the room the page
+     leaves it whatever it is being and wherever it is. */
+  timeline.setShapes(built.shapes.map((shape) => sampleOf(shape, count)));
+  const mouse = new MouseController(device.touch, config.mouseSmoothing);
   const scroll = new ScrollController(config.scrollEase);
 
   /* The intro holds the cloud square on, centred and at the words' own factor;
@@ -341,8 +346,8 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     return null;
   }
 
-  let level: QualityLevel = options.quality ?? initialLevel(capability, mobile);
-  let tier: Tier = tierFor(level, mobile);
+  let level: QualityLevel = options.quality ?? initialLevel(capability, device);
+  let tier: Tier = tierFor(level, device);
   /* Whether the page's frame scheduler may move this between levels. Not when
      a level was asked for by name, which is how the tests hold one still, and
      not for a reader who asked for less motion, who gets one settled frame
@@ -404,7 +409,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
 
   function applyLevel(next: QualityLevel) {
     level = next;
-    tier = tierFor(level, mobile);
+    tier = tierFor(level, device);
     resize();
   }
 
@@ -441,16 +446,16 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
      arrive at the answer before it is drawn rather than springing towards it.
      Stepped here, at startup, rather than animated. */
   if (reducedMotion) {
-    const settled = timeline.settle(scroll.value.sectionProgress);
+    const settled = timeline.settle(scroll.value.sectionProgress, scroll.laneState());
     const inputs = {
-      progress: settled.progress,
+      ...between(settled.progress, scroll.chain),
       explode: settled.explode,
       show: 1,
       pointer: [0.5, 0.5, 0.5] as [number, number, number],
       pointerActive: 0,
       pointerSpeed: 0,
     };
-    for (let i = 0; i < 240; i++) simulation.step(inputs, config, mobile);
+    for (let i = 0; i < 240; i++) simulation.step(inputs, config, compact);
   }
 
   /* The end of the opening animation, whether it ran its course or a reader
@@ -490,14 +495,12 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     timeline.setLayout(scroll.layout);
 
     let state;
-    let morph;
+    let shapes: { from: number; to: number; mix: number };
     if (introActive) {
       introMs = sinceStart;
       /* Two transitions, each a straight ramp. The wave across the cloud comes
          from the per particle ordering in the shader, not from shaping this. */
-      morph =
-        mapClamped(introMs, WORD_TWO_FROM, WORD_TWO_TO, 0, 1) +
-        mapClamped(introMs, BRAIN_FROM, BRAIN_TO, 0, 1);
+      shapes = between(openingMorph(introMs), INTRO_CHAIN);
       /* Settled into place before the page takes over.
 
          The page's own composition is somewhere else entirely: on a monitor
@@ -510,7 +513,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
          the veil is still up and nothing else is on the screen, and at the
          hand-over the page's composition and this one are the same numbers. */
       const place = timeline.peek(progress, scroll.laneState());
-      const t = mapClamped(introMs, SETTLE_FROM, HANDOVER_AT, 0, 1);
+      const t = mapClamped(introMs, OPENING.settleFrom, OPENING.handoverAt, 0, 1);
       const settle = t * t * (3 - 2 * t);
       const centre = windowCentreY(surfaceHeight);
       state = timeline.hold(
@@ -523,13 +526,19 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
         place.rotation.y * settle,
       );
 
-      if (introMs >= HANDOVER_AT) handOver();
+      if (introMs >= OPENING.handoverAt) {
+        handOver();
+        /* The page's own shapes from this frame on. The targets were swapped
+           for the page's in the call above, so the slots this frame had were
+           the opening's and mean something else in the texture it has now. */
+        shapes = between(0, scroll.chain);
+      }
     } else {
       const lane = scroll.laneState();
       state = reducedMotion
         ? timeline.settle(progress, lane)
         : timeline.update(progress, config.timelineEase, delta, lane);
-      morph = state.progress;
+      shapes = between(state.progress, scroll.chain);
     }
 
     /* Cut to nothing, and the last frame was too: a phone held sideways, where
@@ -565,7 +574,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     lastPointerActive = pointerActive;
 
     const inputsForStep = {
-      progress: morph,
+      ...shapes,
       explode: state.explode,
       show,
       pointer,
@@ -577,7 +586,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     accumulator += delta;
     let steps = 0;
     while (accumulator >= SIMULATION_STEP_SECONDS && steps < MAX_STEPS_PER_FRAME) {
-      simulation!.step(inputsForStep, config, mobile);
+      simulation!.step(inputsForStep, config, compact);
       accumulator -= SIMULATION_STEP_SECONDS;
       steps += 1;
     }
@@ -588,7 +597,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     /* A frame that came due for no step at all still has to draw something, and
        the first frame of all must run the simulation once or the particles are
        drawn from an unwritten texture. */
-    if (steps === 0 && seconds <= delta) simulation!.step(inputsForStep, config, mobile);
+    if (steps === 0 && seconds <= delta) simulation!.step(inputsForStep, config, compact);
 
     /* The clock the picture is drawn at, as opposed to the one the simulation
        runs on. For a reader who asked for less motion it stands still: the
@@ -599,13 +608,14 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     const drawnAt = reducedMotion ? 0 : seconds;
 
     const inputs = {
-      timeline: introActive ? { ...state, progress: morph } : state,
+      timeline: state,
+      morph: shapes,
       seconds: drawnAt,
       mouse: mouse.value.current,
       pitch: 0,
       yaw: 0,
       instances: tier.instances,
-      mobile,
+      compact,
     };
 
     const chain = postUsable && post ? post : null;
@@ -699,7 +709,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
     },
     setConfig(partial) {
       Object.assign(config, partial);
-      timeline.setBaseFactor(mobile ? config.factorMobile : config.factorDesktop);
+      timeline.setBaseFactors({ lane: config.factorLane, slot: config.factorSlot });
     },
     resize,
     frame,
@@ -716,6 +726,8 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
       return {
         quality: level,
         instances: tier.instances,
+        device,
+        pixelRatio: tier.pixelRatio,
         frameMs: lastFrameMs,
         timeline: timeline.current,
         pointer: lastPointer,

@@ -1,4 +1,5 @@
 import { clamp, easeForFrame, mapClamped } from "./pack";
+import { edgesOf, type Edges, type Pose } from "./extent";
 import { CAMERA_FOV, CAMERA_POSITION } from "./renderer";
 import type {
   CloudMask,
@@ -8,12 +9,21 @@ import type {
   ParticleTimelineState,
 } from "./types";
 
-/* Scroll position in, everything the renderer needs out.
+/* Where the page is in, everything the renderer needs out.
 
-   Every value here is a stack of clamped linear ramps, each contributing
-   nothing until the scroll enters its window and its full amount after it
-   leaves. Stacked, they compose into a choreography: the cloud drifts left,
-   comes apart, reassembles into something else, turns, and gathers again.
+   The page is a column of bands, and each band says which side the cloud keeps
+   and which shape it wants to be: this is the choreography that follows from
+   what they say. The cloud sits in its band's lane as the shape its band asks
+   for, and where two bands differ it gathers itself up, crosses the text-free
+   seam between them, and arrives as what the next band asked for.
+
+   It used to be a stack of clamped ramps across a fixed run of seven sections,
+   each contributing nothing until the scroll entered its window: the cloud
+   drifted, came apart over the whole of the work, reassembled as something
+   else late in the page, turned, and gathered again. That put the one change of
+   shape after the first two thirds of the page and left the long run of project
+   entries with a dispersed haze of brain behind them. It is a rule about
+   seams now, and a seam is wherever the page changes its mind.
 
    Nothing is set from the scroll position directly. Every output eases towards
    its target, which is the whole reason scrolling backwards reverses the
@@ -35,8 +45,7 @@ const BASE = { x: 0, y: -1.19, z: 0 };
    shows its own brain at very nearly this angle, for the same reason. */
 export const INITIAL_YAW = -0.1 * Math.PI;
 
-/* The lane the cloud travels down on the paper half, derived rather than
-   chosen.
+/* The lane the cloud travels down, derived rather than chosen.
 
    This is the share of the viewport the bands leave empty beside their content,
    and it is --lane in globals.css: the two have to be changed together, which
@@ -55,22 +64,54 @@ function halfViewport(aspect: number) {
 }
 
 /* The extent every shape is normalised to, which the factor scales into the
-   same world units as the offset: factor times this is the cloud's radius. */
+   same world units as the offset: factor times this is the cloud's nominal
+   radius. Nominal, and only for the one thing it is still used for, which is
+   sizing the cloud in the phone's slot, tuned against it and measured to fill
+   the slot. Everything in a lane is sized from where the cloud's body actually
+   lands on the screen, which is measured in extent.ts. */
 const CLOUD_RADIUS = 0.34;
-
-/* How much further than its own radius the explosion throws the cloud, at full
-   strength. param3.r in targets.ts is 1 + 2.2 * random(), so no particle is
-   thrown more than 3.2 times its own distance from the centre; this is a little
-   over that, because the particle that draws the largest multiple is not always
-   the one that started furthest out and the two compound. Measured against the
-   generated cloud by scripts/check-motion.ts, which fails if the reach here
-   stops covering the real one. */
-const EXPLODE_SPREAD = 4.4;
 
 /* How much of the half frame the composition is allowed to fill. Not one: a
    shape whose outermost particle sits exactly on the edge reads as clipped,
-   and the bloom carries five downsample levels past the particles. */
-const FRAME_FILL = 0.94;
+   and the bloom carries five downsample levels past the particles. It is the
+   outer edge of a wide shape in the lane at the screen's side that this decides:
+   at a tenth short of the edge on a 1280 window the surface and the drape came
+   within thirty pixels of the glass, against more than forty from the text on
+   the other side of them. */
+const FRAME_FILL = 0.92;
+
+/* How much of the lane the cloud may fill, measured from the lane's middle to
+   its inner edge, at rest.
+
+   The cloud is sized from the height of the window, so on a window that is
+   wide for its height it has room to spare, and on one that is not it has none:
+   at 16 by 9 the brain, turned the way the page opens with it, is 0.86 of its
+   lane across; at 16 by 10 it is nearly the lane, and on an iPad held on its
+   side, which is 4 by 3, it was wider than the lane and was cut at its edge by
+   the final pass and at the other by the screen. So this is the cloud's share
+   of the lane, and the size is the smaller of this and the height's.
+
+   Set to what the brain is on a 16 by 9 window, which is the proportion the size
+   was tuned at and the one that looks right, and where the hero's composition
+   brings the cloud nearest the inner edge of its lane: it reaches 0.88 of the way
+   across. So on that window nothing moves and on every other the cloud is the
+   same share of its lane or less. It is not set higher because the final pass
+   feathers the lane's inner edge over its first 0.09 of the half frame, and a
+   cloud that reaches into it is faded on that side, which on a tall window was a
+   brain with its left cut off by a straight line. The body is measured as drawn
+   in extent.ts and checked against photographs by tests/fit.spec.ts: the cloud
+   is lit by its own bloom and thinned at its edges, so what a reader sees as its
+   width is not quite what the particles say. */
+const LANE_FILL = 0.88;
+
+/* How many times the size is corrected against a measurement of the body. The
+   first measurement is taken at the size the cloud wants to be and the cloud is
+   scaled to fit what it found; perspective makes a smaller cloud a little
+   smaller than that scaling says, so the second and third bring it in. Measured
+   over every shape the page has, in both lanes, at seven aspect ratios, three
+   passes land the body on the wall of its room from the inside, never past it
+   and never more than a fifth of a percent of the half frame short of it. */
+const FIT_PASSES = 3;
 
 /* Half the viewport measured up and down rather than across, which is what the
    seam between two sections has to be converted into. */
@@ -86,6 +127,12 @@ function halfViewportHeight() {
    seam, and it reads as the thing gathering itself up to move rather than as a
    picture sliding sideways behind the text. */
 const CROSS_CONTRACT = 0.55;
+
+/* And while it changes shape without changing sides. A smaller thing: the cloud
+   is not going anywhere, so it only draws in a little, which is what lets a
+   change of shape read as the cloud re-forming rather than as one picture
+   replaced by another. */
+const MORPH_CONTRACT = 0.12;
 
 /* How near the cloud's own height a seam has to be for the cloud to be
    crossing on it, in uv of the window either side. The crossing is geometric:
@@ -109,10 +156,66 @@ const MASK_FEATHER = 0.045;
    quarter of a second is gone before anything under it can be read. */
 const MASK_ON_SECONDS = 0.25;
 
+/* How each shape is turned to face the reader, by slot of the target texture:
+   the order of SHAPE_NAMES in structures.ts.
+
+   The turn is where each one reads as what it is. A surface wants looking at
+   from above and a little from the side or it is a line; a depth chart from
+   straight on and a little above, so the bars have a face and a top; a helix
+   side on and tilted, because a helix end on is a ring; the pleats of a drape
+   are folds in depth and only show from a little to one side. Angles in
+   radians, pitch positive looking down on it.
+
+   They are turns from facing the camera, and not from the page's own axes. The
+   cloud is not at the middle of the screen. It is a long way to one side of it,
+   so the camera sees it from the side, and a shape turned square to the page is
+   seen at the angle between the two: the columns of the order book, a few pixels
+   apart, were closed up into a solid wedge by looking at them from where the
+   camera is, and the two strands of the helix into a coil. So every shape but the
+   brain is first turned to face the camera from where the cloud is (`gaze`
+   below), and these are the turns from there.
+
+   They are for the right hand lane. In the left lane the same view is its mirror
+   image, so a shape turns towards the middle of the screen in either, and the
+   helix, which is in both, is the same helix.
+
+   How wide and how tall each comes out at these turns is not written down here:
+   it is measured where the cloud is, every time it is sized, in extent.ts. */
+type View = { yaw: number; pitch: number; roll: number };
+const VIEWS: View[] = [
+  /* The brain is not here: see BRAIN_RETURNS and the turn in targets(). */
+  { yaw: 0, pitch: 0, roll: 0 },
+  { yaw: -0.3, pitch: 0.15, roll: -0.05 },
+  { yaw: 0, pitch: 0.1, roll: 0.25 },
+  { yaw: -0.3, pitch: 0.65, roll: 0 },
+  { yaw: 0, pitch: 0.2, roll: 0 },
+  { yaw: -0.3, pitch: 0.1, roll: 0 },
+  { yaw: -0.3, pitch: 0.15, roll: 0 },
+];
+
+/* The brain's turns, which are the page's own and are from the world and not
+   from the camera. The first time it is the brain it is the opening profile, and
+   it turns a quarter turn away as the hero leaves so that the cloud is seen to be
+   a solid. Each time it comes back it is a view of its own: turned a tenth of a
+   turn further from the profile and from a little above, and then the opening
+   profile again, so that the page closes on the picture it opened with. Further
+   round than that and it stops reading as a brain: at three tenths of a turn it
+   is an oval with a shadow, and seen end on, which is where the first turn
+   leaves it, it is a rounded box. */
+const BRAIN_RETURNS: View[] = [
+  { yaw: INITIAL_YAW - 0.1 * Math.PI, pitch: 0.12, roll: 0 },
+  { yaw: INITIAL_YAW, pitch: 0.1, roll: 0 },
+];
+
+/* The two sizes the cloud can be drawn at before the page's own geometry has had
+   its say: in a lane, and in the slot under the hero's controls. See
+   factorLane and factorSlot in types.ts. */
+export type CloudFactors = { lane: number; slot: number };
+
 /* The default for the callers that have no page to read a lane off: the tests,
-   the reduced motion path, and the first frame before the sections are
-   measured. The right column, settled, not crossing. */
-const SETTLED_RIGHT: LaneState = { here: 1, seams: [] };
+   the reduced motion path, and the first frame before the bands are measured.
+   The right column, settled, not crossing, and the brain. */
+const SETTLED_RIGHT: LaneState = { here: 1, hereChain: 0, chain: [0], seams: [] };
 
 /* The seam the cloud is crossing on, if it is: the nearest one within the
    crossing window of the cloud's own height. */
@@ -125,9 +228,8 @@ function crossingSeam(lane: LaneState, home: number): LaneSeam | null {
   return best;
 }
 
-/* The lane of the region of the screen at a height, which is the section
-   there. The seams are top first, and each one's lane above is the region
-   over it. */
+/* The lane of the region of the screen at a height, which is the band there.
+   The seams are top first, and each one's lane above is the region over it. */
 function laneAt(lane: LaneState, height: number): number {
   for (const seam of lane.seams) {
     if (height > seam.uv) return seam.above;
@@ -136,15 +238,35 @@ function laneAt(lane: LaneState, height: number): number {
   return last ? last.below : lane.here;
 }
 
-/* Where the final pass splits the screen, and the column in each region. */
+/* The same for the cloud's place in the chain of shapes. */
+function chainAt(lane: LaneState, height: number): number {
+  for (const seam of lane.seams) {
+    if (height > seam.uv) return seam.aboveChain;
+  }
+  const last = lane.seams[lane.seams.length - 1];
+  return last ? last.belowChain : lane.hereChain;
+}
+
+/* Where the final pass splits the screen, and the column in each region. Only
+   the seams where the lane changes split it: where only the shape does, the
+   column is the same either side and there is nothing to cut. */
 function regions(lane: LaneState): {
   splits: [number, number];
   sides: [number, number, number];
+  soft: number;
 } {
-  const [first, second] = lane.seams;
-  if (!first) return { splits: [-1, -1], sides: [lane.here, lane.here, lane.here] };
-  if (!second) return { splits: [first.uv, -1], sides: [first.above, first.below, first.below] };
-  return { splits: [first.uv, second.uv], sides: [first.above, first.below, second.below] };
+  const changes = lane.seams.filter((seam) => seam.above !== seam.below);
+  const [first, second] = changes;
+  const soft = changes.reduce((least, each) => Math.min(least, each.clear), 1);
+  if (!first) return { splits: [-1, -1], sides: [lane.here, lane.here, lane.here], soft };
+  if (!second) {
+    return { splits: [first.uv, -1], sides: [first.above, first.below, first.below], soft };
+  }
+  return {
+    splits: [first.uv, second.uv],
+    sides: [first.above, first.below, second.below],
+    soft,
+  };
 }
 
 /* And for the callers with no page to read a layout off: a screen with a lane. */
@@ -162,15 +284,98 @@ const SLOT_SOFT = 0.15;
 const SLOT_FILL = 0.85;
 const MIN_SLOT_PX = 180;
 
+function lerp(from: number, to: number, amount: number) {
+  return from + (to - from) * amount;
+}
+
+/* The body of the cloud on the screen at a size, for the two shapes it is
+   between.
+
+   At rest it is one shape and its own edges. While it changes, the cloud is
+   both: each particle is on its way from where it was in the first shape to
+   where it is in the second, so the edges are somewhere between theirs, and
+   `strict`, which is nought at both ends of a change and one in the middle,
+   moves them from halfway to the outermost of the two, because a cloud that is
+   being cut by a mask is cut by whichever of them reaches furthest. */
+function bodyOf(
+  shapes: readonly Float32Array[],
+  slotA: number,
+  slotB: number,
+  smooth: number,
+  strict: number,
+  pose: Pose,
+  factor: number,
+  aspect: number,
+): Edges | null {
+  const a = shapes[slotA];
+  const b = shapes[slotB];
+  if (!a || !b) return null;
+  const onlyA = slotA === slotB || (smooth < 0.001 && strict < 0.001);
+  const onlyB = !onlyA && smooth > 0.999 && strict < 0.001;
+  if (onlyA) return edgesOf(a, factor, pose, aspect);
+  if (onlyB) return edgesOf(b, factor, pose, aspect);
+  const first = edgesOf(a, factor, pose, aspect);
+  const second = edgesOf(b, factor, pose, aspect);
+  return {
+    left: lerp(lerp(first.left, second.left, smooth), Math.min(first.left, second.left), strict),
+    right: lerp(lerp(first.right, second.right, smooth), Math.max(first.right, second.right), strict),
+    bottom: lerp(
+      lerp(first.bottom, second.bottom, smooth),
+      Math.min(first.bottom, second.bottom),
+      strict,
+    ),
+    top: lerp(lerp(first.top, second.top, smooth), Math.max(first.top, second.top), strict),
+  };
+}
+
+/* The largest size, no larger than the one asked for, at which the body of the
+   cloud is inside a room, which is a box in the window's own units.
+
+   The cloud's centre is where the offset puts it and a size is a scaling about
+   that, so what is measured is how far the body reaches from the centre each
+   way, and the answer is the scaling that brings the furthest of the four
+   exactly to the wall of the room. Perspective bends that a little, since a
+   smaller cloud is also a shallower one, so it is measured again at the size
+   that came out and corrected; see FIT_PASSES. A cloud already inside its room
+   is left at the size it asked for and measured once. */
+function fitted(
+  measure: (factor: number) => Edges | null,
+  centre: { x: number; y: number },
+  room: Edges,
+  wanted: number,
+): number {
+  let factor = wanted;
+  for (let pass = 0; pass < FIT_PASSES; pass++) {
+    const body = measure(factor);
+    if (!body) return wanted;
+    /* How far the body reaches from the centre, and how far the room does, each
+       way. A body that is entirely on one side of the centre reaches nought the
+       other way, which constrains nothing. Written out and not looped over a
+       list, because this runs every frame. */
+    const right = body.right - centre.x;
+    const left = centre.x - body.left;
+    const top = body.top - centre.y;
+    const bottom = centre.y - body.bottom;
+    let scale = Infinity;
+    if (right > 1e-4) scale = Math.min(scale, Math.max(room.right - centre.x, 0.02) / right);
+    if (left > 1e-4) scale = Math.min(scale, Math.max(centre.x - room.left, 0.02) / left);
+    if (top > 1e-4) scale = Math.min(scale, Math.max(room.top - centre.y, 0.02) / top);
+    if (bottom > 1e-4) scale = Math.min(scale, Math.max(centre.y - room.bottom, 0.02) / bottom);
+    const next = Math.min(wanted, factor * scale);
+    if (Math.abs(next - factor) < 1e-4 * wanted) return next;
+    factor = next;
+  }
+  return factor;
+}
+
 function targets(
-  progress: number,
-  baseFactor: number,
+  band: number,
+  factors: CloudFactors,
+  shapes: readonly Float32Array[],
   aspect: number,
   lane: LaneState,
   layout: PageLayout,
 ) {
-  const p = progress;
-
   /* Whether the page has given the cloud a lane, which is the layout's
      decision and is read off it: see PageLayout. It used to be worked out
      here from the aspect ratio, as 1.22, on the reasoning that 1100 by 900 is
@@ -180,175 +385,138 @@ function targets(
      lane the cloud lives in the phone's slot, composed further down. */
   const wide = layout.wide;
   const narrow = !wide;
+  /* How large the cloud is drawn is the layout's to say. A window with a lane
+     is drawn at the lane's size and one without at the slot's, whatever it is
+     held in: this used to follow the pointer, which made every tablet in
+     landscape a phone. */
+  const baseFactor = wide ? factors.lane : factors.slot;
+
+  const half = halfViewport(aspect);
+  const halfH = halfViewportHeight();
+
   /* Where the cloud opens, and it is the lane rather than a number of its own.
 
      It was 3.1, tuned when the hero's copy was centred in a 1200 pixel measure
      and the cloud had whatever was left of the right hand side. The copy is
      anchored to the left gutter now, so the cloud has the whole right of the
      screen, and starting it where the lane is means the hand-over out of the
-     hero is a change of height rather than a slide across.
-
-     It also fixed a contrast failure, which is how it was found: at 3.1 the
-     cloud's bloom reached back far enough to put the provenance label on a
-     background of 0.0563 and 4.30:1, and the dimming that would have covered
-     that would have taken the opening composition down with it. Moving the
-     thing that is too close is better than dimming it. */
-  const openX = (1 - LANE_FRACTION) * halfViewport(aspect) * 0.92;
-
+     hero is a change of height rather than a slide across. */
+  const openX = (1 - LANE_FRACTION) * half * 0.92;
+  const laneX = (1 - LANE_FRACTION) * half;
   const openY = 2.1;
 
-  const half = halfViewport(aspect);
-  const laneX = (1 - LANE_FRACTION) * half;
+  /* Vertical drift, and it is one step on purpose. The canvas is fixed, so this
+     is movement within the viewport rather than down the page: the page
+     supplies the travel, and a cloud that also rides up and down the screen
+     reads as two motions fighting rather than as one.
 
-  /* Vertical drift, and it is small on purpose. The canvas is fixed, so this is
-     movement within the viewport rather than down the page: the page supplies
-     the travel, and a cloud that also rides up and down the screen reads as two
-     motions fighting rather than as one.
+     The step is the hand-over out of the hero, where the opening composition
+     sits high beside the headline and the lane sits at the middle of the
+     screen. */
+  const y = openY + mapClamped(band, 0.55, 1, 0, -1.9);
 
-     The one large step is the hand-over out of the hero, where the opening
-     composition sits high beside the headline and the lane sits at the middle
-     of the screen. */
-  const y =
-    openY +
-    mapClamped(p, 0.55, 1, 0, -1.9) +
-    mapClamped(p, 2.7, 3, 0, 0.4) -
-    mapClamped(p, 3.3, 3.5, 0, 0.4) +
-    mapClamped(p, 5.7, 6, 0, 0.6);
+  /* Which lane the cloud is in, which shape it is, and whether either is
+     changing.
 
-  /* Which lane the cloud is in, and whether it is changing.
+     Both are read off the page, each band's own class and attribute, by
+     scroll.ts, so the cloud and the layout cannot disagree about either. The
+     change happens on a seam, the strip of padding between two bands that
+     differ, and it happens as that seam passes the cloud's own height:
+     approaching from below, the cloud is still the upper band's shape in the
+     upper band's lane; with the seam at its height, it is halfway across and
+     halfway through the change; with the seam gone above, it is the lower
+     band's. It used to be a stretch of each section's progress, which put it
+     in the right place on one screen size and a hundred and fifty pixels of
+     scroll early at 1920 by 1080, where the seam had already passed the cloud
+     when the crossing began.
 
-     The lanes are read off the page, each band's own class, by scroll.ts, so
-     the cloud and the layout cannot disagree about which side a section keeps.
-     The change happens on a seam, the band of padding between two sections
-     whose lanes differ, and it happens as that seam passes the cloud's own
-     height: approaching from below, the cloud is still in the upper section's
-     lane; with the seam at its height, it is halfway across on it; with the
-     seam gone above, it is in the lower section's lane. It used to be a
-     stretch of each section's progress, which put it in the right place on
-     one screen size and a hundred and fifty pixels of scroll early at
-     1920 by 1080, where the seam had already passed the cloud when the
-     crossing began.
-
-     `ride` is nought at both ends of a crossing and one in the middle of it,
-     so everything it drives returns to where it was. */
-  const halfH = halfViewportHeight();
+     `pulse` is nought at both ends of a change and one in the middle of it, so
+     everything it drives returns to where it was. */
   const home = 0.5 + (BASE.y + y) / (2 * halfH);
   const seam = wide ? crossingSeam(lane, home) : null;
   const amount = seam
     ? clamp((seam.uv - (home - CROSS_WINDOW)) / (2 * CROSS_WINDOW), 0, 1)
     : 0;
+  const crossesLane = seam ? seam.above !== seam.below : false;
   const from = seam ? seam.above : laneAt(lane, home);
   const to = seam ? seam.below : from;
   const eased =
     amount < 0.5 ? 2 * amount * amount : 1 - Math.pow(-2 * amount + 2, 2) / 2;
-  const ride = Math.pow(Math.sin(Math.PI * amount), 0.7);
+  const pulse = Math.pow(Math.sin(Math.PI * amount), 0.7);
+  /* The part of it that is about changing sides, which gathers the cloud into
+     the seam, and the part that is only about changing shape. */
+  const ride = crossesLane ? pulse : 0;
+  const reform = crossesLane ? 0 : pulse;
   const sweep = from + (to - from) * eased;
 
-  const x = openX + mapClamped(p, 0.55, 1, 0, laneX - openX) + (sweep - 1) * laneX;
+  const x = openX + mapClamped(band, 0.55, 1, 0, laneX - openX) + (sweep - 1) * laneX;
 
-  const burst =
-    mapClamped(p, 1.1, 2.2, 0, 1) -
-    mapClamped(p, 2.8, 3, 0, 1) +
-    mapClamped(p, 4.5, 5, 0, 1) -
-    mapClamped(p, 5.7, 6, 0, 1);
-  /* Held to two thirds of what the stage plays. The burst was choreographed
-     against a screen with nothing else on it; down the page it is behind a
-     column of writing, and a fully dispersed cloud there is not a brain coming
-     apart, it is a haze across two paragraphs. */
-  /* And gathered in to cross. A crossing inside a burst was the worst case on
-     the page: at the seam between about and path the cloud is two thirds
-     dispersed, and even drawn in by the contraction below its reach was a
-     hundred and sixty six pixels either side of a seam of eighty. It gathers
-     itself up as it reaches the seam and comes apart again past it, which is
-     the picture the crossing was always described as. */
-  const explode = burst * (1 - 0.34 * mapClamped(p, 0.8, 1.2, 0, 1)) * (1 - ride);
+  /* Where the cloud is along the chain of shapes, and which two it is between.
+     In the slot below the breakpoint it is the brain throughout: the cloud is
+     only drawn under the hero's controls and there is nothing else to be. */
+  const chain = lane.chain;
+  const progress = narrow
+    ? 0
+    : seam
+      ? seam.aboveChain + (seam.belowChain - seam.aboveChain) * eased
+      : chainAt(lane, home);
+  const link = clamp(Math.floor(progress), 0, Math.max(0, chain.length - 2));
+  const between = chain.length > 1 ? clamp(progress - link, 0, 1) : 0;
+  const smooth = between * between * (3 - 2 * between);
+  const slotA = chain[link] ?? 0;
+  const slotB = chain[Math.min(link + 1, chain.length - 1)] ?? slotA;
 
-  /* How large the cloud is drawn, and it now falls as the cloud comes apart.
+  /* Where the cloud is centred, before it is sized.
 
-     The explosion scatters each particle by a distance proportional to this,
-     so at a constant factor a fully dispersed cloud is several times the width
-     of the screen and a reader is not watching it break up, they are flying
-     through the middle of it: individual tetrahedra a hundred pixels across
-     drifting past, with no shape to read at all. That was survivable while the
-     cloud was also travelling off to one side, and it is not now that the
-     stage holds it in one place.
+     The cloud leaves its column to cross, which means going to where the seam
+     between the two bands currently is on the screen. `ride` returns to
+     nought at both ends, so the cloud is back at its own drift height by the
+     time it is in either column. */
+  const seamY = seam ? (seam.uv - 0.5) * 2 * halfH : BASE.y + y;
+  const ridden = y * (1 - ride) + (seamY - BASE.y) * ride;
+  const offset = { x: BASE.x + x, y: BASE.y + ridden, z: BASE.z };
 
-     Tying it to the same explode value that causes the problem keeps the two
-     in step by construction, rather than by two ramps that have to be kept
-     lined up by hand. The dispersed cloud ends up about the size of the whole
-     brain, which is what makes it read as the brain having come apart. */
-  const baseSize =
-    baseFactor +
-    mapClamped(p, 0, 1, 0, 0.5) -
-    Math.max(0, Math.min(1, explode)) * 1.9 +
-    mapClamped(p, 3.3, 3.5, 0, 0.3);
+  /* How the cloud is turned: the view of each of the two shapes it is between, in
+     the lane it is in, and the turn that makes a shape face the camera from where
+     the cloud is.
 
-  const progressTarget =
-    mapClamped(p, 2.7, 3, 0, 1) +
-    mapClamped(p, 3.3, 3.5, 0, 1) +
-    mapClamped(p, 5.7, 6, 0, 1);
+     The brain's first turn is the page's, from the opening profile as the hero
+     leaves. Each later time it is the brain it has a view of its own, which is
+     which time it is: the number of brains earlier in the chain. */
+  const brainTurn = INITIAL_YAW + mapClamped(band, 0, 1, 0, -Math.PI / 2);
+  const viewOf = (at: number, side: number) => {
+    const slot = chain[at] ?? 0;
+    const mirror = side < 0 ? -1 : 1;
+    if (slot === 0) {
+      let before = 0;
+      for (let i = 0; i < at; i++) if (chain[i] === 0) before += 1;
+      const view =
+        before === 0
+          ? { yaw: brainTurn, pitch: 0, roll: 0 }
+          : BRAIN_RETURNS[(before - 1) % BRAIN_RETURNS.length]!;
+      return { yaw: mirror * view.yaw, pitch: view.pitch, roll: mirror * view.roll, facing: 0 };
+    }
+    const view = VIEWS[slot] ?? VIEWS[1]!;
+    return { yaw: mirror * view.yaw, pitch: view.pitch, roll: mirror * view.roll, facing: 1 };
+  };
+  const viewA = viewOf(link, from);
+  const viewB = viewOf(Math.min(link + 1, chain.length - 1), to);
+  const facing = lerp(viewA.facing, viewB.facing, smooth);
+  const distance = Math.abs(CAMERA_POSITION[2] - offset.z);
+  const rotation = {
+    x: lerp(viewA.pitch, viewB.pitch, smooth) - facing * Math.atan2(offset.y, distance),
+    y: lerp(viewA.yaw, viewB.yaw, smooth) - facing * Math.atan2(offset.x, distance),
+    z: lerp(viewA.roll, viewB.roll, smooth),
+  };
 
-  const progress2 =
-    mapClamped(p, 0, 1, 0, 1) -
-    mapClamped(p, 2.7, 3, 0, 1) +
-    mapClamped(p, 3, 3.5, 0, 1);
-
-  const rotationY =
-    mapClamped(p, 0, 1, 0, -Math.PI / 2) +
-    mapClamped(p, 2.7, 3, 0, Math.PI / 2) +
-    mapClamped(p, 3.3, 3.5, 0, Math.PI / 4) -
-    mapClamped(p, 4.5, 5, 0, Math.PI * 1.25) +
-    mapClamped(p, 5.7, 6, 0, Math.PI);
-
-  const rotationZ =
-    mapClamped(p, 2.7, 3, 0, -0.489) + mapClamped(p, 3.3, 3.5, 0, 0.6);
-
-  /* Not from the specification, and the least glamorous number in this file.
-
-     In the opening screen the cloud has the right half of the page and the
-     headline has the left, so nothing is written over it and it runs at full
-     strength. The moment it starts travelling left it crosses the text, and a
-     bright particle behind a paragraph is not a stylistic question: for the
-     quietest grey on this site to clear AA, the brightest pixel behind it has
-     to stay under a relative luminance of about 0.033, and the cloud at full
-     strength was measured at 0.87 behind a line of body copy.
-
-     So it goes nearly dark before it arrives, and spends the rest of the page
-     as a faint moving presence rather than a picture. That is a real cost and
-     it is the right way round: the choreography is decoration, and the words
-     are the reason anybody is here. The ramp finishes before the cloud reaches
-     the text rather than while it is crossing it, and the number at the end is
-     set by the measurement, not by eye. */
-  /* Finished sooner on a narrow screen. The ramp is measured against how far
-     the reader has to scroll before text is over the cloud, and that distance
-     is much shorter on a phone: the hero's own table is under the cloud's band
-     within a couple of hundred pixels, where on a wide screen the cloud is
-     still in the half the text does not use. */
-  /* Nothing is dimmed any more, and that is the change.
-
-     Three separate things used to hold the cloud down so that text laid over it
-     kept its contrast ratio: a ramp against the scroll, a ramp against the
-     cloud's own distance from the column, and a black gradient painted over the
-     reading in CSS. All three worked, in that the measurement passed. All three
-     had the same cost, and it is the fault that was reported: the brain lost
-     brightness on whichever side the words were, so it visibly went dim every
-     time it changed columns.
-
-     The light is cut now rather than turned down. The final pass masks the
-     composited cloud to the column the layout leaves empty for it, so it never
-     reaches a word and there is nothing left to protect against. Both columns
-     run at the same brightness because neither is being compensated for, and
-     the bloom is inside the cut rather than outside it, which is the part no
-     amount of dimming could do.
-
-     What the timeline still owes the mask is where to cut. That is the rest of
-     this function. */
+  /* How large the cloud is drawn. */
+  const baseSize = baseFactor + mapClamped(band, 0, 1, 0, 0.5);
 
   /* Smaller once the hero is behind, and that is a composition decision as much
      as anything: the opening shows the cloud at full size because it is the
      subject, and down the page it is travelling beside the writing and is a
      companion to it. */
-  const settled = baseSize * (1 - 0.18 * mapClamped(p, 0.75, 1.15, 0, 1));
+  const settled = baseSize * (1 - 0.18 * mapClamped(band, 0.75, 1.15, 0, 1));
 
   /* Below the breakpoint there is no column, and the cloud lives in the slot
      under the hero's controls: centred in it, sized to fill it, turned by the
@@ -362,8 +530,7 @@ function targets(
      scrolled up over a brain at full brightness. */
   if (narrow) {
     const room = layout.slot && layout.slot.px >= MIN_SLOT_PX ? layout.slot : null;
-    const scattered = Math.max(0, Math.min(1, explode));
-    const reach = CLOUD_RADIUS * (1 + scattered * EXPLODE_SPREAD);
+    const reach = CLOUD_RADIUS;
     const across = half * FRAME_FILL;
     const down = room ? room.half * 2 * halfH * (1 - SLOT_SOFT) : 0;
     return {
@@ -372,11 +539,10 @@ function targets(
         y: room ? (room.centre - 0.5) * 2 * halfH : BASE.y,
         z: BASE.z,
       },
-      explode: scattered,
+      explode: 0,
       factor: room ? (SLOT_FILL * Math.min(down, across)) / reach : settled,
-      progress: progressTarget,
-      progress2,
-      rotation: { x: 0, y: INITIAL_YAW + rotationY, z: rotationZ },
+      progress: 0,
+      rotation: { x: 0, y: brainTurn, z: 0 },
       mask: {
         edge: 0.5,
         side: 0,
@@ -400,72 +566,75 @@ function targets(
      paragraph. Drawing itself in is what makes the seam passable, and it is
      also the better picture: the thing gathers itself up, crosses, and opens
      out again, rather than sliding sideways behind the words. */
-  const burstReach = 1 + explode * EXPLODE_SPREAD;
-  const contracted = settled * (1 - CROSS_CONTRACT * ride);
+  const contracted = settled * (1 - CROSS_CONTRACT * ride - MORPH_CONTRACT * reform);
 
-  /* And never larger than the seam it is crossing on, which is a guarantee
-     rather than a tuning: the seam's clear height is measured off the page, so
-     a band with less padding, or a screen where the same padding is a smaller
-     share of the window, gets a smaller cloud rather than a cloud across its
-     text. Eased in with the crossing, so it binds only in the middle of it.
-     Sized to the seam at rest, not to the strip the mask cuts, which is
-     narrower by however far the page moved in the last frame: sized to that,
-     the cloud would swell and shrink with the speed of the scroll. */
-  const seamFit = seam
-    ? Math.min(
-        1,
-        (SEAM_FILL * seam.clear * 2 * halfH) /
-          Math.max(1e-3, CLOUD_RADIUS * contracted * burstReach),
-      )
-    : 1;
-  const crossed = contracted * (1 - ride + ride * seamFit);
+  /* The column the cloud is in, which is the lane's side until the middle of a
+     crossing and the next lane's after it. */
+  const side = amount < 0.5 ? from : to;
 
-  /* Then the whole composition is pulled in until it fits the frame.
+  /* Then the cloud is sized to the room it has, and the room is measured.
 
-     This is a guarantee rather than a tuning. The choreography is a stack of
-     ramps and the explosion multiplies each particle's distance from the centre,
-     so the reach at any given scroll position is not something anybody is
-     holding in their head: measured, the cloud was reaching 1.74 times the half
-     width of the screen during the burst before the contact section, and the
-     helix went off the bottom as well. Every previous attempt to keep it in
-     frame was a number somewhere else being nudged until one screen width
-     looked right.
+     This is a guarantee and not a tuning. The choreography is a stack of
+     offsets and the size is the screen's, so how far the cloud reaches at any
+     given scroll position, on any shape of window, is not something anybody is
+     holding in their head. Every earlier attempt at keeping the cloud where it
+     belonged was a number somewhere else being nudged until one window looked
+     right, and the first of the windows it did not look right on was an iPad.
 
-     Scaling the offset and the size together is a uniform zoom out, so the
-     composition keeps its shape and its place in the lane; only its size on the
-     screen changes, and only when it would otherwise be clipped. */
-  /* The cloud leaves its column to cross, which means going to where the seam
-     between the two sections currently is on the screen. `ride` returns to
-     nought at both ends, so the cloud is back at its own drift height by the
-     time it is in either column. */
-  const seamY = seam ? (seam.uv - 0.5) * 2 * halfH : BASE.y + y;
-  const ridden = y * (1 - ride) + (seamY - BASE.y) * ride;
+     The room is a box in the window's own units, minus one to one each way:
 
-  const radius = CLOUD_RADIUS * crossed * burstReach;
-  const roomX = half * FRAME_FILL;
-  const roomY = (half / aspect) * FRAME_FILL;
-  const overflow = Math.max(
-    (Math.abs(x) + radius) / Math.max(0.001, roomX),
-    (Math.abs(BASE.y + ridden) + radius) / Math.max(0.001, roomY),
+     Across, the lane the cloud is in, and the cloud may fill LANE_FILL of it.
+     The size is set in world units and the window's height is a fixed number of
+     them whatever its width, so the cloud is the same share of the height on
+     every screen and a share of the lane's width that depends on the shape of
+     the window. On one as wide as a monitor that leaves room. On an iPad held
+     on its side or a browser dragged tall the lane is a narrow strip and the
+     cloud was wider than it: the final pass cut it at the column's edge and the
+     screen at the other, and what a reader saw was a brain with both sides
+     missing. The lane lets go as the cloud sets off to cross, because the seam
+     runs the whole width, and the outer side is the frame in any case.
+
+     Up and down, the frame; and in the middle of a crossing, the seam. The
+     seam's clear height is measured off the page, so a band with less padding,
+     or a screen where the same padding is a smaller share of the window, gets
+     a smaller cloud and not a cloud across its text. Sized to the seam at rest
+     and not to the strip the mask cuts, which is narrower by however far the
+     page moved in the last frame: sized to that, the cloud would swell and
+     shrink with the speed of the scroll.
+
+     The frame is not all of the frame: FRAME_FILL of it, because a body on the
+     very edge reads as clipped and the bloom carries past the particles. */
+  const centre = { x: offset.x / half, y: offset.y / halfH };
+  const seamReach = seam ? SEAM_FILL * 2 * seam.clear : FRAME_FILL;
+  const inner = lerp(side * (1 - LANE_FRACTION - LANE_FILL * LANE_FRACTION), -side * FRAME_FILL, ride);
+  const room: Edges = {
+    left: side > 0 ? inner : -FRAME_FILL,
+    right: side > 0 ? FRAME_FILL : inner,
+    bottom: lerp(-FRAME_FILL, centre.y - seamReach, ride),
+    top: lerp(FRAME_FILL, centre.y + seamReach, ride),
+  };
+  const pose: Pose = { offset, rotation };
+  const factor = fitted(
+    (size) => bodyOf(shapes, slotA, slotB, smooth, pulse, pose, size, aspect),
+    centre,
+    room,
+    contracted,
   );
-  const fit = overflow > 1 ? 1 / overflow : 1;
-  const factor = crossed * fit;
 
   /* Where the final pass is allowed to draw what all of the above produced.
 
-     Each region of the screen keeps the cloud to its own section's column,
-     split where the lane changes. The whole screen used to have one column,
-     snapped from one side to the other at the middle of a crossing, and two
-     sections with their content on opposite sides are on screen together for
-     most of a scroll past their boundary: the next section's heading and first
-     lines came up the screen in the old column, on the side the cloud was
-     still on, and were drawn over it before the crossing had even begun.
+     Each region of the screen keeps the cloud to its own band's column, split
+     where the lane changes. The whole screen used to have one column, snapped
+     from one side to the other at the middle of a crossing, and two bands with
+     their content on opposite sides are on screen together for most of a scroll
+     past their boundary: the next band's heading and first lines came up the
+     screen in the old column, on the side the cloud was still on, and were drawn
+     over it before the crossing had even begun.
 
      The strip is the seam itself, measured, and only while the cloud is on
      it. It used to be sized to the cloud and its bloom, which at the seams on
      this page is more than the seam: it let the glow out over the last line
      above and the heading below. */
-  const side = amount < 0.5 ? from : to;
   const split = regions(lane);
 
   const mask: CloudMask = {
@@ -473,7 +642,7 @@ function targets(
     side,
     splits: split.splits,
     sides: split.sides,
-    splitSoft: lane.seams.reduce((soft, each) => Math.min(soft, each.clear), 1),
+    splitSoft: split.soft,
     inner: 0.5 - LANE_FRACTION,
     feather: MASK_FEATHER,
     gapCentre: seam ? seam.uv : 0.5,
@@ -483,12 +652,11 @@ function targets(
   };
 
   return {
-    offset: { x: (BASE.x + x) * fit, y: (BASE.y + ridden) * fit, z: BASE.z },
-    explode: Math.max(0, Math.min(1, explode)),
+    offset,
+    explode: 0,
     factor,
-    progress: progressTarget,
-    progress2,
-    rotation: { x: 0, y: INITIAL_YAW + rotationY, z: rotationZ },
+    progress,
+    rotation,
     mask,
   } satisfies ParticleTimelineState;
 }
@@ -499,20 +667,27 @@ function approach(current: number, target: number, ease: number) {
 
 export class ParticleTimeline {
   private state: ParticleTimelineState;
-  private baseFactor: number;
+  private factors: CloudFactors;
+  private shapes: readonly Float32Array[] = [];
   private aspect: number;
   private layout: PageLayout = WIDE;
 
-  constructor(baseFactor: number, aspect: number) {
-    this.baseFactor = baseFactor;
+  constructor(factors: CloudFactors, aspect: number) {
+    this.factors = factors;
     this.aspect = aspect;
     /* Started at the resting values rather than at zero, so the first frame is
        the opening composition rather than a cloud easing in from the origin. */
-    this.state = targets(0, baseFactor, aspect, SETTLED_RIGHT, this.layout);
+    this.state = targets(0, factors, this.shapes, aspect, SETTLED_RIGHT, this.layout);
   }
 
-  setBaseFactor(value: number) {
-    this.baseFactor = value;
+  setBaseFactors(value: CloudFactors) {
+    this.factors = value;
+  }
+
+  /* A sample of each shape, by slot, in the shape's own units: what the cloud
+     is measured from every time it is sized. See sampleOf in extent.ts. */
+  setShapes(value: readonly Float32Array[]) {
+    this.shapes = value;
   }
 
   setAspect(value: number) {
@@ -530,12 +705,12 @@ export class ParticleTimeline {
   }
 
   update(
-    sectionProgress: number,
+    band: number,
     ease: number,
     deltaSeconds: number,
     lane: LaneState = SETTLED_RIGHT,
   ) {
-    const to = targets(sectionProgress, this.baseFactor, this.aspect, lane, this.layout);
+    const to = targets(band, this.factors, this.shapes, this.aspect, lane, this.layout);
     const from = this.state;
     const step = easeForFrame(ease, deltaSeconds);
 
@@ -548,7 +723,6 @@ export class ParticleTimeline {
       explode: approach(from.explode, to.explode, step),
       factor: approach(from.factor, to.factor, step),
       progress: approach(from.progress, to.progress, step),
-      progress2: approach(from.progress2, to.progress2, step),
       rotation: {
         x: approach(from.rotation.x, to.rotation.x, step),
         y: approach(from.rotation.y, to.rotation.y, step),
@@ -581,8 +755,8 @@ export class ParticleTimeline {
   /* Where the composition belongs at a scroll position, without going there.
      The opening animation uses it to arrive at the place the page will take it
      over from, so that the hand-over has nothing left to move. */
-  peek(sectionProgress: number, lane: LaneState = SETTLED_RIGHT): ParticleTimelineState {
-    return targets(sectionProgress, this.baseFactor, this.aspect, lane, this.layout);
+  peek(band: number, lane: LaneState = SETTLED_RIGHT): ParticleTimelineState {
+    return targets(band, this.factors, this.shapes, this.aspect, lane, this.layout);
   }
 
   /* Pins the composition while the opening animation owns the screen.
@@ -597,7 +771,6 @@ export class ParticleTimeline {
       offset,
       factor,
       explode: 0,
-      progress2: 0,
       rotation: { x: 0, y: yaw, z: 0 },
       /* And no keep-out while the opening runs.
 
@@ -619,8 +792,8 @@ export class ParticleTimeline {
 
   /* Used by the reduced motion path and by the tests, which need the settled
      answer for a scroll position without waiting for it to ease there. */
-  settle(sectionProgress: number, lane: LaneState = SETTLED_RIGHT) {
-    this.state = targets(sectionProgress, this.baseFactor, this.aspect, lane, this.layout);
+  settle(band: number, lane: LaneState = SETTLED_RIGHT) {
+    this.state = targets(band, this.factors, this.shapes, this.aspect, lane, this.layout);
     return this.state;
   }
 }

@@ -37,12 +37,15 @@ export const CAMERA_POSITION: [number, number, number] = [0, 0, 10];
 
 export type RenderInputs = {
   timeline: ParticleTimelineState;
+  /* The shape the cloud is leaving and the one it is going to, as slots of the
+     target texture, and how far through the change it is. */
+  morph: { from: number; to: number; mix: number };
   seconds: number;
   mouse: { x: number; y: number };
   pitch: number;
   yaw: number;
   instances: number;
-  mobile: boolean;
+  compact: boolean;
 };
 
 const UNIFORMS = [
@@ -56,9 +59,11 @@ const UNIFORMS = [
   "u_scale",
   "u_amplitude",
   "u_colourFactor",
-  "u_progress",
+  "u_from",
+  "u_to",
+  "u_mix",
   "u_explode",
-  "u_mobileRotation",
+  "u_facing",
   "u_offset",
   "u_rotation",
   "u_camera",
@@ -195,13 +200,15 @@ export class ParticleRenderer {
     gl.uniform1f(uniforms.u_time ?? null, inputs.seconds);
     gl.uniform1f(
       uniforms.u_scale ?? null,
-      inputs.mobile ? config.particleScaleMobile : config.particleScaleDesktop,
+      inputs.compact ? config.particleScaleCompact : config.particleScale,
     );
     gl.uniform1f(uniforms.u_amplitude ?? null, config.noiseAmplitude);
     gl.uniform1f(uniforms.u_colourFactor ?? null, config.colourFactor);
-    gl.uniform1f(uniforms.u_progress ?? null, timeline.progress);
+    gl.uniform1f(uniforms.u_from ?? null, inputs.morph.from);
+    gl.uniform1f(uniforms.u_to ?? null, inputs.morph.to);
+    gl.uniform1f(uniforms.u_mix ?? null, inputs.morph.mix);
     gl.uniform1f(uniforms.u_explode ?? null, timeline.explode);
-    gl.uniform1f(uniforms.u_mobileRotation ?? null, inputs.mobile ? 1 : 0);
+    gl.uniform1f(uniforms.u_facing ?? null, inputs.compact ? 1 : 0);
     gl.uniform3f(uniforms.u_offset ?? null, timeline.offset.x, timeline.offset.y, timeline.offset.z);
     gl.uniform3f(
       uniforms.u_rotation ?? null,

@@ -286,7 +286,15 @@ body {
    sits under the controls at a size worth drawing a brain in, the canvas is
    made to reach its bottom, and on a short phone the brain is partly below the
    fold at first and all of it a short scroll later: never cut, and never under
-   the words. */
+   the words.
+
+   The ceiling rises with the width on a screen that has some to spare. Twenty
+   rem is right for a phone and was the ceiling on every screen below the
+   breakpoint, so a tablet held upright, which is two or three times as wide as
+   a phone and has the height to match, had the phone's strip for its brain.
+   Half the width is the ceiling there, which leaves every phone exactly as it
+   was (half of 430 pixels is under twenty rem) and gives an iPad the room its
+   screen has. */
 .brain-slot {
   display: none;
 }
@@ -295,7 +303,7 @@ body {
   .brain-slot {
     display: block;
     flex: none;
-    height: clamp(14rem, 38svh, 20rem);
+    height: clamp(14rem, 38svh, max(20rem, 50vw));
     margin-top: 1.5rem;
   }
 }
@@ -348,6 +356,20 @@ body {
      to change columns in, so this is a measurement as well as a margin. */
   .section-pad {
     padding-block: clamp(3.5rem, 8vw, 7rem);
+  }
+
+  /* The same room round a band that carries on a section instead of starting
+     one, and only where there is a lane to cross: below the breakpoint two
+     bands of one list sit as the entries of a list do, and a hundred pixels of
+     nothing between them would only be a gap in the middle of it. */
+  .band-pad {
+    padding-block: 0;
+  }
+
+  @media (min-width: 1100px) {
+    .band-pad {
+      padding-block: clamp(3.5rem, 8vw, 7rem);
+    }
   }
 
   .measure {

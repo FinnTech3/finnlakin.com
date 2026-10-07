@@ -2,47 +2,56 @@ import { mulberry32, orderAlongAxis, shuffled } from "./pack";
 import { sampleRamp, WARM, WARM_SHARE, hexToLinear } from "./palette";
 import { cross, cube, sphere, torus, type Shape } from "./shapes";
 
-/* Packing four shapes into the quadrants of one texture, and building the three
-   parameter textures that decide how each particle behaves inside them.
+/* Packing the shapes into the slots of one texture, and building the parameter
+   textures that decide how each particle behaves inside them.
 
-   The quadrant layout is the reason there is only one texture bind for four
-   shapes: a particle samples its own coordinate four times with a different
-   half unit offset each time, and gets its position in each of the four shapes
-   it can become. */
+   The slot layout is the reason there is only one texture bind for all of them:
+   a particle samples its own coordinate in whichever two slots it is moving
+   between, with a different offset each time, and gets its position in each.
+
+   It was four quadrants and a chain, one shape after the next in a fixed order,
+   which was enough while the page asked for the brain and three things derived
+   from it. The page now asks for seven structures in an order of its own and
+   goes back to the brain between them, so the texture is a three by three grid
+   of slots, nine of them, and the two it is moving between are chosen by the
+   timeline rather than by position in a list. */
 
 export const SEED = 1337;
 
+/* How many slots there are along one side of the target texture. The shaders
+   have the same number in common.ts, and the two have to be changed together. */
+export const SLOT_COLUMNS = 3;
+export const SLOT_COUNT = SLOT_COLUMNS * SLOT_COLUMNS;
+
 export type TargetSet = {
-  /* 200 x 200 x RGBA. Positions normalised nought to one. */
+  /* Three grid sides across and down, RGBA. Positions normalised nought to
+     one. */
   positions: Float32Array;
   scales: Float32Array;
   colours: Float32Array;
-  /* 100 x 100 x RGBA each. */
+  /* One grid side across and down, RGBA each. */
   param1: Float32Array;
+  /* How early each particle leaves for the shape in slots 0 to 3, one slot to a
+     channel, and param4 for the shape in slots 4 to 7. */
   param2: Float32Array;
   param3: Float32Array;
+  param4: Float32Array;
   count: number;
   gridSize: number;
 };
 
-const QUADRANTS = [
-  [0, 0],
-  [1, 0],
-  [0, 1],
-  [1, 1],
-] as const;
-
-/* Writes one shape into one quadrant of a 200 x 200 buffer. Particle i sits at
-   grid position (i mod side, i div side), and the quadrant offset moves it into
-   its quarter of the texture. */
-function writeQuadrant(
+/* Writes one shape into one slot of the target texture. Particle i sits at grid
+   position (i mod side, i div side), and the slot's offset moves it into its
+   ninth of the texture. */
+function writeSlot(
   destination: Float32Array,
-  quadrant: number,
+  slot: number,
   gridSize: number,
   channels: (index: number) => [number, number, number],
 ) {
-  const width = gridSize * 2;
-  const [qx, qy] = QUADRANTS[quadrant]!;
+  const width = gridSize * SLOT_COLUMNS;
+  const qx = slot % SLOT_COLUMNS;
+  const qy = Math.floor(slot / SLOT_COLUMNS);
   const count = gridSize * gridSize;
 
   for (let i = 0; i < count; i++) {
@@ -126,26 +135,43 @@ function colourFor(
   return sampleRamp(t);
 }
 
-/* The four orderings that make a morph sweep rather than jump, each sorted
-   along a different axis and direction so that consecutive transitions travel
-   across the shape in different directions instead of all sweeping the same
-   way. Stored normalised, and multiplied back up in the shader: a raw rank of
-   nine thousand is beyond the range where a half float texture can hold
-   consecutive integers apart, and on a machine that falls back to half float
-   the wave would come out in visible steps. */
+/* How the wave sweeps across a shape when it is the one being moved to, one
+   entry per slot. Each is sorted along a different axis and direction so that
+   consecutive transitions travel across the cloud in different directions
+   instead of all sweeping the same way. The first three are what the chain's
+   first three were, so the opening animation's two transitions sweep as they
+   always have. */
+const SWEEPS: { axis: 0 | 1 | 2; descending: boolean }[] = [
+  { axis: 0, descending: false },
+  { axis: 0, descending: false },
+  { axis: 1, descending: false },
+  { axis: 1, descending: true },
+  { axis: 0, descending: true },
+  { axis: 2, descending: false },
+  { axis: 1, descending: false },
+  { axis: 0, descending: true },
+];
+
+/* The orderings that make a morph sweep rather than jump, one for each shape
+   that can be moved to, and the one the explosion uses. Stored normalised, and
+   multiplied back up in the shader: a raw rank of nine thousand is beyond the
+   range where a half float texture can hold consecutive integers apart, and on
+   a machine that falls back to half float the wave would come out in visible
+   steps. */
 function orderings(shapes: Shape[], count: number) {
   return {
-    toSecond: orderAlongAxis(shapes[1]!, count, 0, true),
-    toThird: orderAlongAxis(shapes[2]!, count, 1, true),
-    toFourth: orderAlongAxis(shapes[3]!, count, 1, false),
+    arriving: shapes.slice(0, SWEEPS.length).map((shape, slot) => {
+      const sweep = SWEEPS[slot]!;
+      return orderAlongAxis(shape, count, sweep.axis, sweep.descending);
+    }),
     explosion: orderAlongAxis(shapes[0]!, count, 0, false),
   };
 }
 
-/* One structural tone array per quadrant, or null for a shape that has no
-   structure of its own. The opening animation's texture holds two words and two
-   brains, and they want different things: a word reads best as a vertical
-   gradient, a brain as its own folds. */
+/* One structural tone array per slot, or null for a shape that has no structure
+   of its own. The opening animation's texture holds two words and a brain, and
+   they want different things: a word reads best as a vertical gradient, a brain
+   as its own folds. */
 export function buildTargetSet(
   shapes: Shape[],
   gridSize: number,
@@ -153,30 +179,28 @@ export function buildTargetSet(
   relief: Float32Array | null = null,
 ): TargetSet {
   const count = gridSize * gridSize;
-  const width = gridSize * 2;
+  const width = gridSize * SLOT_COLUMNS;
   const random = mulberry32(SEED);
 
   const positions = new Float32Array(width * width * 4);
   const scales = new Float32Array(width * width * 4);
   const colours = new Float32Array(width * width * 4);
 
-  for (let q = 0; q < 4; q++) {
+  for (let q = 0; q < Math.min(shapes.length, SLOT_COUNT); q++) {
     const shape = shapes[q]!;
-    writeQuadrant(positions, q, gridSize, (i) => [
+    writeSlot(positions, q, gridSize, (i) => [
       shape[i * 3]!,
       shape[i * 3 + 1]!,
       shape[i * 3 + 2]!,
     ]);
     const scaleRandom = mulberry32(SEED + q * 17);
-    writeQuadrant(scales, q, gridSize, (i) => {
+    writeSlot(scales, q, gridSize, (i) => {
       const s = scaleFor(scaleRandom, relief ? relief[i] : undefined);
       return [s, s, s];
     });
     const colourRandom = mulberry32(SEED + q * 29);
-    const quadrantTone = tones[q] ?? null;
-    writeQuadrant(colours, q, gridSize, (i) =>
-      colourFor(shape, i, colourRandom, quadrantTone, relief),
-    );
+    const slotTone = tones[q] ?? null;
+    writeSlot(colours, q, gridSize, (i) => colourFor(shape, i, colourRandom, slotTone, relief));
   }
 
   const order = orderings(shapes, count);
@@ -188,6 +212,7 @@ export function buildTargetSet(
   const param1 = new Float32Array(count * 4);
   const param2 = new Float32Array(count * 4);
   const param3 = new Float32Array(count * 4);
+  const param4 = new Float32Array(count * 4);
   const denominator = Math.max(1, count - 1);
 
   for (let i = 0; i < count; i++) {
@@ -199,10 +224,11 @@ export function buildTargetSet(
        in unison. */
     param1[i * 4 + 3] = (random() * 2 - 1) * 0.0001;
 
-    param2[i * 4] = order.toSecond[i]! / denominator;
-    param2[i * 4 + 1] = order.toThird[i]! / denominator;
-    param2[i * 4 + 2] = order.toFourth[i]! / denominator;
-    param2[i * 4 + 3] = order.explosion[i]! / denominator;
+    for (let slot = 0; slot < order.arriving.length; slot++) {
+      const arrival = order.arriving[slot]![i]! / denominator;
+      if (slot < 4) param2[i * 4 + slot] = arrival;
+      else param4[i * 4 + (slot - 4)] = arrival;
+    }
 
     /* How far the explosion throws this particle, as a multiple of its own
        distance from the centre of the cloud.
@@ -216,10 +242,13 @@ export function buildTargetSet(
     param3[i * 4] = 1 + 2.2 * random();
     param3[i * 4 + 1] = 2 * random() - 1;
     param3[i * 4 + 2] = (shapes[0]![i * 3]! - 0.5) * 2;
-    param3[i * 4 + 3] = 0;
+    /* Where this particle is in the explosion's own order, which used to share
+       a texture with the arrival orders and now has the channel that was
+       empty. */
+    param3[i * 4 + 3] = order.explosion[i]! / denominator;
   }
 
-  return { positions, scales, colours, param1, param2, param3, count, gridSize };
+  return { positions, scales, colours, param1, param2, param3, param4, count, gridSize };
 }
 
 /* The shapes the simulation is proved against before the brain exists. A torus

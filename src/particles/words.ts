@@ -5,8 +5,7 @@ import type { Shape } from "./shapes";
 
    The opening animation used to be a separate two dimensional canvas with its
    own particle system, its own loop and its own compositing problems. It is now
-   two more entries in the same four quadrant target texture the brain lives in,
-   which means the words are made of the identical ten thousand pyramids, lit
+   two more entries in the same target texture the brain lives in, which means the words are made of the identical ten thousand pyramids, lit
    the same way, and become the brain by the same morph that carries every other
    transition on the page. That was the original brief, and doing it this way
    also disposes of the failure that stopped the old one: additive compositing

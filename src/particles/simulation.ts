@@ -3,7 +3,7 @@ import { bindTexture, createTexture, FULLSCREEN_VERTEX, link, locations } from "
 import { PingPong } from "./ping-pong";
 import type { Capability } from "./quality";
 import { POSITION_FRAGMENT, VELOCITY_FRAGMENT } from "./shaders/simulation";
-import type { TargetSet } from "./targets";
+import { SLOT_COLUMNS, type TargetSet } from "./targets";
 import { toHalfArray } from "./pack";
 import type { ParticleBrainConfig } from "./types";
 
@@ -20,7 +20,11 @@ import type { ParticleBrainConfig } from "./types";
 type Fullscreen = { draw: () => void; dispose: () => void };
 
 export type SimulationInputs = {
-  progress: number;
+  /* The shape the cloud is leaving and the one it is going to, as slots of the
+     target texture, and how far through the change it is, nought to one. */
+  from: number;
+  to: number;
+  mix: number;
   explode: number;
   show: number;
   /* Where the pointer is, in the simulation's own space, and how open the hole
@@ -36,7 +40,10 @@ export class ParticleSimulation {
   private capability: Capability;
   private fullscreen: Fullscreen;
   private gridSize: number;
+  /* The state's textures are twice the grid on each side and the targets' are
+     three times, so the two are different sizes and each has its own. */
   private simSize: number;
+  private targetSize: number;
 
   private velocityProgram: WebGLProgram;
   private positionProgram: WebGLProgram;
@@ -52,6 +59,7 @@ export class ParticleSimulation {
   private param1: WebGLTexture;
   private param2: WebGLTexture;
   private param3: WebGLTexture;
+  private param4: WebGLTexture;
 
   private constructor(parts: {
     gl: WebGL2RenderingContext;
@@ -68,12 +76,14 @@ export class ParticleSimulation {
     param1: WebGLTexture;
     param2: WebGLTexture;
     param3: WebGLTexture;
+    param4: WebGLTexture;
   }) {
     this.gl = parts.gl;
     this.capability = parts.capability;
     this.fullscreen = parts.fullscreen;
     this.gridSize = parts.gridSize;
     this.simSize = parts.gridSize * 2;
+    this.targetSize = parts.gridSize * SLOT_COLUMNS;
     this.velocityProgram = parts.velocityProgram;
     this.positionProgram = parts.positionProgram;
     this.positions = parts.positions;
@@ -84,6 +94,7 @@ export class ParticleSimulation {
     this.param1 = parts.param1;
     this.param2 = parts.param2;
     this.param3 = parts.param3;
+    this.param4 = parts.param4;
 
     this.velocityUniforms = locations(this.gl, this.velocityProgram, [
       "t_targets",
@@ -92,9 +103,11 @@ export class ParticleSimulation {
       "t_param1",
       "t_param2",
       "t_param3",
-      "u_progress",
+      "t_param4",
+      "u_from",
+      "u_to",
+      "u_mix",
       "u_morphDelay",
-      "u_secondaryDelay",
       "u_explosionDelay",
       "u_length",
       "u_spring",
@@ -130,6 +143,7 @@ export class ParticleSimulation {
     if (!velocityProgram || !positionProgram) return null;
 
     const simSize = set.gridSize * 2;
+    const targetSize = set.gridSize * SLOT_COLUMNS;
     const positions = PingPong.create(gl, simSize, capability, "position");
     const velocities = PingPong.create(gl, simSize, capability, "velocity");
     if (!positions || !velocities) {
@@ -143,8 +157,8 @@ export class ParticleSimulation {
 
     const full = (source: Float32Array) =>
       createTexture(gl, {
-        width: simSize,
-        height: simSize,
+        width: targetSize,
+        height: targetSize,
         internalFormat: capability.simInternal,
         format: capability.simFormat,
         type: capability.simType,
@@ -166,11 +180,28 @@ export class ParticleSimulation {
     const param1 = grid(set.param1);
     const param2 = grid(set.param2);
     const param3 = grid(set.param3);
+    const param4 = grid(set.param4);
 
-    if (!targetTexture || !scaleTexture || !colourTexture || !param1 || !param2 || !param3) {
+    if (
+      !targetTexture ||
+      !scaleTexture ||
+      !colourTexture ||
+      !param1 ||
+      !param2 ||
+      !param3 ||
+      !param4
+    ) {
       positions.dispose(gl);
       velocities.dispose(gl);
-      for (const texture of [targetTexture, scaleTexture, colourTexture, param1, param2, param3]) {
+      for (const texture of [
+        targetTexture,
+        scaleTexture,
+        colourTexture,
+        param1,
+        param2,
+        param3,
+        param4,
+      ]) {
         if (texture) gl.deleteTexture(texture);
       }
       return null;
@@ -191,6 +222,7 @@ export class ParticleSimulation {
       param1,
       param2,
       param3,
+      param4,
     });
 
     simulation.seed(set, entry);
@@ -216,7 +248,10 @@ export class ParticleSimulation {
       if (entry) {
         entry(seeded, texel);
       } else {
-        for (let axis = 0; axis < 3; axis++) seeded[texel + axis] = set.positions[texel + axis]!;
+        /* Slot zero of the targets, which is wider than the state, so its texel
+           is not this one. */
+        const home = (gy * this.targetSize + gx) * 4;
+        for (let axis = 0; axis < 3; axis++) seeded[texel + axis] = set.positions[home + axis]!;
       }
       seeded[texel + 3] = 1;
     }
@@ -226,11 +261,11 @@ export class ParticleSimulation {
     this.velocities.clear(gl);
   }
 
-  /* Swap in a different set of four shapes without disturbing the simulation.
+  /* Swap in a different set of shapes without disturbing the simulation.
 
      The opening animation and the scrolling page use different target
      textures: the first holds two words and the brain, the second holds the
-     brain and the three shapes it morphs through. Uploading over the existing
+     brain and the structures it becomes. Uploading over the existing
      textures rather than allocating new ones keeps every particle's position
      and velocity exactly as it was, which is what makes the handover between
      them invisible: the cloud does not restart, it simply finds that its
@@ -255,12 +290,13 @@ export class ParticleSimulation {
       );
     };
 
-    upload(this.targetTexture, set.positions, this.simSize);
-    upload(this.scaleTexture, set.scales, this.simSize);
-    upload(this.colourTexture, set.colours, this.simSize);
+    upload(this.targetTexture, set.positions, this.targetSize);
+    upload(this.scaleTexture, set.scales, this.targetSize);
+    upload(this.colourTexture, set.colours, this.targetSize);
     upload(this.param1, set.param1, this.gridSize);
     upload(this.param2, set.param2, this.gridSize);
     upload(this.param3, set.param3, this.gridSize);
+    upload(this.param4, set.param4, this.gridSize);
     gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
@@ -276,16 +312,18 @@ export class ParticleSimulation {
     return this.colourTexture;
   }
 
-  /* One step. Both passes render into the lower left quarter of a target that
-     is twice the grid on each side.
+  /* One step. Both passes render into the lower left quarter of a state texture
+     that is twice the grid on each side.
 
-     The target is that size because it has to hold four shapes; the state only
-     ever needs one quarter of it. Setting the viewport to the grid rather than
-     to the whole texture means three quarters of the pixels are never shaded,
-     which costs nothing to do and would cost four times the fill rate not to. */
-  step(inputs: SimulationInputs, config: ParticleBrainConfig, mobile: boolean) {
+     The state keeps the size it had when it shared a layout with a target
+     texture of four quadrants, and it only ever needs one quarter of it. The
+     shapes are in their own texture now, three grids across and down. Setting
+     the viewport to the grid rather than to the whole texture means three
+     quarters of the pixels are never shaded, which costs nothing to do and would
+     cost four times the fill rate not to. */
+  step(inputs: SimulationInputs, config: ParticleBrainConfig, compact: boolean) {
     const { gl } = this;
-    const morphDelay = mobile ? config.morphDelayMobile : config.morphDelayDesktop;
+    const morphDelay = compact ? config.morphDelayCompact : config.morphDelay;
 
     gl.disable(gl.BLEND);
     gl.disable(gl.DEPTH_TEST);
@@ -299,9 +337,11 @@ export class ParticleSimulation {
     bindTexture(gl, 3, this.param1, this.velocityUniforms.t_param1 ?? null);
     bindTexture(gl, 4, this.param2, this.velocityUniforms.t_param2 ?? null);
     bindTexture(gl, 5, this.param3, this.velocityUniforms.t_param3 ?? null);
-    gl.uniform1f(this.velocityUniforms.u_progress ?? null, inputs.progress);
+    bindTexture(gl, 6, this.param4, this.velocityUniforms.t_param4 ?? null);
+    gl.uniform1f(this.velocityUniforms.u_from ?? null, inputs.from);
+    gl.uniform1f(this.velocityUniforms.u_to ?? null, inputs.to);
+    gl.uniform1f(this.velocityUniforms.u_mix ?? null, inputs.mix);
     gl.uniform1f(this.velocityUniforms.u_morphDelay ?? null, morphDelay);
-    gl.uniform1f(this.velocityUniforms.u_secondaryDelay ?? null, config.secondaryMorphDelay);
     gl.uniform1f(this.velocityUniforms.u_explosionDelay ?? null, config.explosionDelay);
     gl.uniform1f(this.velocityUniforms.u_length ?? null, this.gridSize * this.gridSize);
     gl.uniform1f(this.velocityUniforms.u_spring ?? null, config.spring);
@@ -343,6 +383,7 @@ export class ParticleSimulation {
     gl.deleteTexture(this.param1);
     gl.deleteTexture(this.param2);
     gl.deleteTexture(this.param3);
+    gl.deleteTexture(this.param4);
     gl.deleteProgram(this.velocityProgram);
     gl.deleteProgram(this.positionProgram);
   }

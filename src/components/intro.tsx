@@ -42,7 +42,7 @@ export function IntroBoot() {
      arrives within the first three: on a slow connection the engine could
      start at five seconds and have the veil pulled out from under its words at
      twelve, halfway through. From the moment the engine owns it, its own
-     ceiling, nine seconds from its start, is the guarantee. */
+     ceiling, ten seconds from its start, is the guarantee. */
   const source = `try{if(location.pathname==="/"&&!sessionStorage.getItem(${JSON.stringify(
     STORAGE_KEY,
   )})&&!matchMedia("(prefers-reduced-motion: reduce)").matches){var r=document.documentElement;r.dataset.intro="running";setTimeout(function(){if(r.dataset.intro==="running"&&!r.hasAttribute("data-intro-owned")){delete r.dataset.intro}},12000)}}catch(e){}`;

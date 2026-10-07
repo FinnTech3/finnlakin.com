@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import type { Lane } from "@/lib/bands";
+import type { ShapeName } from "@/particles/structures";
 
 /* A section of the wall: a scored line, a label, a headline, and what the
    section is about.
@@ -25,6 +27,9 @@ export function Section({
      but the home page wants: the cloud is only on the home page, and a lane with
      nothing in it is a wasted third of the screen. */
   lane,
+  /* What shape the cloud is while it is beside this band. Only meaningful with
+     a lane, because the cloud is only on the home page. See lib/bands.ts. */
+  shape,
 }: {
   id: string;
   eyebrow: string;
@@ -32,14 +37,20 @@ export function Section({
   intro?: string;
   children: ReactNode;
   level?: 1 | 2;
-  lane?: "left" | "right";
+  lane?: Lane;
+  shape?: ShapeName;
 }) {
   const Heading = level === 1 ? "h1" : "h2";
   const laneClass = lane ? ` band-lane-${lane}` : "";
   const inner = lane ? "band-inner" : "shell";
 
   return (
-    <section id={id} className={`w-full${laneClass}`}>
+    <section
+      id={id}
+      className={`w-full${laneClass}`}
+      data-band={lane ? "" : undefined}
+      data-shape={lane ? shape : undefined}
+    >
       <div className={`${inner} section-pad`}>
         <div className="scored pt-3">
           <p className="t-label">{eyebrow}</p>
@@ -54,6 +65,37 @@ export function Section({
             to a line. */}
         <div className="@container mt-12">{children}</div>
       </div>
+    </section>
+  );
+}
+
+/* A band that carries on a section rather than starting one: no label and no
+   heading, only the room round its content that the cloud changes sides in.
+
+   The work is one section of the page and several bands of the cloud's
+   choreography, because the cloud has to change side and shape inside it. The
+   first band is the Section, with the heading and the index; the ones after it
+   are these. Each is its own element for the same reason a section is, which is
+   that the engine reads a band's side and shape off the element and measures the
+   room above and below its first child for the seam.
+
+   Below the breakpoint the lane collapses and so does the room, because a page
+   with no cloud to cross has no use for a hundred pixels of nothing between two
+   entries of the same list. */
+export function Band({
+  id,
+  lane,
+  shape,
+  children,
+}: {
+  id: string;
+  lane: Lane;
+  shape: ShapeName;
+  children: ReactNode;
+}) {
+  return (
+    <section id={id} className={`w-full band-lane-${lane}`} data-band="" data-shape={shape}>
+      <div className="band-inner band-pad">{children}</div>
     </section>
   );
 }

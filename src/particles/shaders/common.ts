@@ -92,14 +92,29 @@ mat3 rotateZ(float a) {
   return mat3(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0);
 }
 
-/* The four morph targets are packed as quadrants of one texture, so a particle
-   samples the same coordinate four times with a different offset. */
-vec2 quadrantUV(vec2 uv, int target) {
-  vec2 scaled = uv * 0.5;
-  if (target == 1) return scaled + vec2(0.5, 0.0);
-  if (target == 2) return scaled + vec2(0.0, 0.5);
-  if (target == 3) return scaled + vec2(0.5, 0.5);
-  return scaled;
+/* The shapes are packed as slots of one texture, three across and three down,
+   so a particle samples the same coordinate with a different offset for each
+   shape it can be. The same number is SLOT_COLUMNS in targets.ts, and the two
+   have to be changed together. */
+const float SLOT_COLUMNS = 3.0;
+
+vec2 slotUV(vec2 uv, int slot) {
+  float index = float(slot);
+  vec2 cell = vec2(mod(index, SLOT_COLUMNS), floor(index / SLOT_COLUMNS));
+  return (uv + cell) / SLOT_COLUMNS;
+}
+
+/* Where a particle waits in the line for the shape it is moving to: one channel
+   of the two textures that hold the orderings, a slot to a channel. */
+float arrivalOrder(vec4 low, vec4 high, int slot) {
+  if (slot == 0) return low.r;
+  if (slot == 1) return low.g;
+  if (slot == 2) return low.b;
+  if (slot == 3) return low.a;
+  if (slot == 4) return high.r;
+  if (slot == 5) return high.g;
+  if (slot == 6) return high.b;
+  return high.a;
 }
 
 /* Where one particle is in a transition that the whole cloud is making.

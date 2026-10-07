@@ -7,8 +7,9 @@ import {
   profileDistance,
   regionAt,
 } from "../src/particles/brain-anatomy";
-import { brain, brainTargets } from "../src/particles/brain-shape";
-import { buildTargetSet, SEED } from "../src/particles/targets";
+import { brain } from "../src/particles/brain-shape";
+import { pageShapes, SHAPE_NAMES } from "../src/particles/structures";
+import { buildTargetSet, SEED, SLOT_COLUMNS } from "../src/particles/targets";
 import { DEFAULTS } from "../src/particles/types";
 
 /* Validates the generated particle targets, and proves they are the same every
@@ -32,7 +33,9 @@ import { DEFAULTS } from "../src/particles/types";
    checking nothing. */
 const GRID = DEFAULTS.gridSize;
 const COUNT = GRID * GRID;
-const SIDE = GRID * 2;
+/* The target texture is a grid of slots, so a side of it is the grid's side times
+   the slots along one. */
+const SIDE = GRID * SLOT_COLUMNS;
 
 let failures = 0;
 
@@ -95,14 +98,21 @@ function checksum(data: Float32Array) {
   return hash.toString(16).padStart(8, "0");
 }
 
-const names = ["brain", "data field", "helix", "reassembly"];
-const built = brainTargets(COUNT, SEED);
+/* The shapes the page asks for, in the order of its slots: what ships, and not a
+   set of the same size that happens to be easier to check. */
+const names = [...SHAPE_NAMES];
+const built = pageShapes(COUNT, SEED);
 const shapes = built.shapes;
-const set = buildTargetSet(shapes, GRID, [built.tone, built.tone, built.tone, built.tone]);
+const tones = shapes.map(() => built.tone);
+const set = buildTargetSet(shapes, GRID, tones, built.relief);
 
-console.log(`Brain targets, seed ${SEED}, ${COUNT} particles in a ${GRID} by ${GRID} grid.`);
+console.log(`Page targets, seed ${SEED}, ${COUNT} particles in a ${GRID} by ${GRID} grid.`);
 
-check(shapes.length === 4, "there are four targets", `found ${shapes.length}`);
+check(
+  shapes.length === names.length,
+  `there is a target for each of the ${names.length} shapes the page can ask for`,
+  `found ${shapes.length}`,
+);
 shapes.forEach((shape, index) => {
   check(
     shape.length === COUNT * 3,
@@ -122,6 +132,7 @@ for (const [name, data] of [
   ["parameter texture 1", set.param1],
   ["parameter texture 2", set.param2],
   ["parameter texture 3", set.param3],
+  ["parameter texture 4", set.param4],
 ] as const) {
   check(data.length === COUNT * 4, `${name} is ${GRID} by ${GRID}`, `${data.length / 4} texels`);
 }
@@ -132,18 +143,25 @@ finiteRange("colours", set.colours, 0, 8);
 finiteRange("parameter texture 1", set.param1, -1, 1);
 finiteRange("parameter texture 2", set.param2, 0, 1);
 finiteRange("parameter texture 3", set.param3, -1, 7);
+finiteRange("parameter texture 4", set.param4, 0, 1);
 
-permutation("morph to target two", set.param2, 4, 0);
-permutation("morph to target three", set.param2, 4, 1);
-permutation("morph to target four", set.param2, 4, 2);
-permutation("explosion", set.param2, 4, 3);
+/* Every shape the page can arrive at has an order of its own, and the first
+   shape, which the page opens on and never has to arrive at, has none. They are
+   spread over two textures of four channels, so a shape's order is in the
+   texture and channel its slot says. */
+for (let slot = 1; slot < names.length; slot++) {
+  const order = slot < 4 ? set.param2 : set.param4;
+  const channel = slot < 4 ? slot : slot - 4;
+  permutation(`morph to the ${names[slot]}`, order, 4, channel);
+}
+permutation("explosion", set.param3, 4, 3);
 
-/* Every quadrant has to actually contain something. An empty one is the single
+/* Every slot has to actually contain something. An empty one is the single
    easiest mistake to make here and it looks, from outside, like a morph that
    does nothing. */
-for (let quadrant = 0; quadrant < 4; quadrant++) {
-  const qx = quadrant % 2;
-  const qy = Math.floor(quadrant / 2);
+for (let slot = 0; slot < names.length; slot++) {
+  const qx = slot % SLOT_COLUMNS;
+  const qy = Math.floor(slot / SLOT_COLUMNS);
   let spread = 0;
   for (let i = 0; i < COUNT; i++) {
     const gx = i % GRID;
@@ -151,7 +169,7 @@ for (let quadrant = 0; quadrant < 4; quadrant++) {
     const texel = ((gy + qy * GRID) * SIDE + (gx + qx * GRID)) * 4;
     spread = Math.max(spread, Math.abs(set.positions[texel]! - 0.5));
   }
-  check(spread > 0.05, `quadrant ${quadrant} (${names[quadrant]}) is not collapsed`, `spread ${spread.toFixed(4)}`);
+  check(spread > 0.05, `slot ${slot} (${names[slot]}) is not collapsed`, `spread ${spread.toFixed(4)}`);
 }
 
 /* The brain is a skin over a distance field, and it has to stay one.
@@ -388,11 +406,17 @@ for (let quadrant = 0; quadrant < 4; quadrant++) {
 
 /* Determinism. Generated twice in the same process, from the same seed, the
    bytes have to be identical. */
-const repeat = brainTargets(COUNT, SEED);
-const again = buildTargetSet(repeat.shapes, GRID, [repeat.tone, repeat.tone, repeat.tone, repeat.tone]);
+const repeat = pageShapes(COUNT, SEED);
+const again = buildTargetSet(
+  repeat.shapes,
+  GRID,
+  repeat.shapes.map(() => repeat.tone),
+  repeat.relief,
+);
 const first = checksum(set.positions);
 check(checksum(again.positions) === first, "generation is deterministic");
 
+const sums = new Set<string>();
 shapes.forEach((shape, index) => {
   let lo = 1;
   let hi = 0;
@@ -401,10 +425,174 @@ shapes.forEach((shape, index) => {
     lo = Math.min(lo, radius);
     hi = Math.max(hi, radius);
   }
-  console.log(
-    `  ${names[index]!.padEnd(11)} radius ${lo.toFixed(3)} to ${hi.toFixed(3)}  checksum ${checksum(shape)}`,
-  );
+  const sum = checksum(shape);
+  sums.add(sum);
+  console.log(`  ${names[index]!.padEnd(8)} radius ${lo.toFixed(3)} to ${hi.toFixed(3)}  checksum ${sum}`);
 });
+check(sums.size === shapes.length, "no two shapes are the same shape", `${sums.size} distinct of ${shapes.length}`);
+
+/* The structures the brain turns into, and whether each reads as what it is.
+
+   What can go wrong with a generated shape is not that it is out of range, which
+   the checks above see, but that it is a blob: every one of these is a cloud of
+   the same number of particles inside the same radius, and a wire frame that has
+   lost its wires is a lump of the same size. So each is held to the one property
+   that makes it that thing, measured in the cloud and not in the function that
+   made it.
+
+   The coordinates are read as they are stored: nought to one about a centre of
+   a half, with the furthest particle at the standard extent. */
+{
+  const at = (name: (typeof SHAPE_NAMES)[number]) => shapes[SHAPE_NAMES.indexOf(name)]!;
+  const EXTENT = 0.34;
+
+  /* Centred on the middle of the box it fills, and out to the standard extent,
+     so that a morph changes what the cloud is and not how big it is. */
+  for (const name of ["surface", "skyline", "drape", "network"] as const) {
+    const shape = at(name);
+    const low = [1, 1, 1];
+    const high = [0, 0, 0];
+    let furthest = 0;
+    for (let i = 0; i < COUNT; i++) {
+      for (let axis = 0; axis < 3; axis++) {
+        const value = shape[i * 3 + axis]!;
+        low[axis] = Math.min(low[axis]!, value);
+        high[axis] = Math.max(high[axis]!, value);
+      }
+      furthest = Math.max(
+        furthest,
+        Math.hypot(shape[i * 3]! - 0.5, shape[i * 3 + 1]! - 0.5, shape[i * 3 + 2]! - 0.5),
+      );
+    }
+    const off = Math.max(...low.map((value, axis) => Math.abs((value + high[axis]!) / 2 - 0.5)));
+    check(off < EXTENT * 0.5, `the ${name} is centred on the middle of its box`, `${off.toFixed(3)} off`);
+    check(
+      Math.abs(furthest - EXTENT) < 0.002,
+      `the ${name} reaches the standard extent`,
+      `furthest particle at ${furthest.toFixed(4)} against ${EXTENT}`,
+    );
+    const spans = low.map((value, axis) => high[axis]! - value);
+    check(
+      Math.min(...spans) > 0.03,
+      `the ${name} is solid in all three directions and not a sheet or a line`,
+      `spans ${spans.map((span) => span.toFixed(3)).join(", ")}`,
+    );
+  }
+
+  /* A seed-made shape starts every particle somewhere other than where it was in
+     the brain, and that is the point of it: the mean distance a particle has to
+     travel is a good fraction of the cloud's own radius, and a morph is a swarm
+     re-forming rather than a blob being gently reshaped. */
+  for (const name of ["surface", "skyline", "drape", "network"] as const) {
+    const shape = at(name);
+    const home = at("brain");
+    let travelled = 0;
+    for (let i = 0; i < COUNT; i++) {
+      travelled += Math.hypot(
+        shape[i * 3]! - home[i * 3]!,
+        shape[i * 3 + 1]! - home[i * 3 + 1]!,
+        shape[i * 3 + 2]! - home[i * 3 + 2]!,
+      );
+    }
+    const mean = travelled / COUNT;
+    check(
+      mean > EXTENT * 0.5,
+      `a particle has a long way to go from the brain to the ${name}`,
+      `${mean.toFixed(3)} on average, against an extent of ${EXTENT}`,
+    );
+  }
+
+  /* The surface is a wire frame: half of its particles sit on a few lines of
+     constant strike across it, which is what makes it a plot and not a blanket.
+     Counted as how much of the cloud is in the densest tenth of the slices cut
+     across the strike: a ball puts about a sixth of it there, the brain about a
+     fifth, and a surface with its wires about two fifths and more. */
+  {
+    const shape = at("surface");
+    const SLICES = 400;
+    const slices = new Uint32Array(SLICES);
+    for (let i = 0; i < COUNT; i++) {
+      const slice = Math.min(
+        SLICES - 1,
+        Math.max(0, Math.floor(((shape[i * 3]! - 0.5) / EXTENT + 1) * 0.5 * SLICES)),
+      );
+      slices[slice]! += 1;
+    }
+    const densest = Array.from(slices)
+      .sort((a, b) => b - a)
+      .slice(0, SLICES / 10)
+      .reduce((total, n) => total + n, 0);
+    check(
+      densest / COUNT > 0.35,
+      "the surface is drawn as the lines of a plot and not as a smooth sheet",
+      `${((densest / COUNT) * 100).toFixed(1)}% of the particles are in the densest tenth of the slices across it`,
+    );
+  }
+
+  /* The depth chart has a gap in the middle, which is the spread: the strip
+     across the middle of it holds far fewer particles than the strips beside. */
+  {
+    const shape = at("skyline");
+    let middle = 0;
+    let beside = 0;
+    for (let i = 0; i < COUNT; i++) {
+      const across = (shape[i * 3]! - 0.5) / EXTENT;
+      if (Math.abs(across) < 0.06) middle += 1;
+      else if (Math.abs(across) > 0.12 && Math.abs(across) < 0.18) beside += 1;
+    }
+    check(
+      middle < beside * 0.6,
+      "the order book has a spread in the middle of it",
+      `${middle} particles in the middle strip against ${beside} in the one beside it`,
+    );
+  }
+
+  /* The drape flares: its hem is wider than its waist. */
+  {
+    const shape = at("drape");
+    const widthAt = (from: number, to: number) => {
+      let low = 1;
+      let high = 0;
+      for (let i = 0; i < COUNT; i++) {
+        const up = (shape[i * 3 + 1]! - 0.5) / EXTENT;
+        if (up < from || up >= to) continue;
+        low = Math.min(low, shape[i * 3]!);
+        high = Math.max(high, shape[i * 3]!);
+      }
+      return high - low;
+    };
+    const waist = widthAt(0.55, 1);
+    const hem = widthAt(-1, -0.55);
+    check(
+      hem > waist * 1.5,
+      "the cloth is narrow at the waist and flares to the hem",
+      `${waist.toFixed(3)} wide at the top and ${hem.toFixed(3)} at the bottom`,
+    );
+  }
+
+  /* The network is nodes and lines between them: a good share of its particles
+     are packed into a few dense clusters and the rest are spread thin, which a
+     blob is not. Counted as how much of the cloud sits in the densest hundredth
+     of the cells it is divided into. */
+  {
+    const shape = at("network");
+    const side = 16;
+    const cells = new Uint32Array(side * side * side);
+    for (let i = 0; i < COUNT; i++) {
+      const cell = [0, 1, 2].map((axis) =>
+        Math.min(side - 1, Math.max(0, Math.floor(((shape[i * 3 + axis]! - 0.5) / EXTENT + 1) * 0.5 * side))),
+      );
+      cells[(cell[0]! * side + cell[1]!) * side + cell[2]!]! += 1;
+    }
+    const sorted = Array.from(cells).sort((a, b) => b - a);
+    const densest = sorted.slice(0, Math.ceil(sorted.length / 100)).reduce((total, n) => total + n, 0);
+    check(
+      densest / COUNT > 0.2,
+      "the network has hubs in it and is not an even cloud",
+      `${((densest / COUNT) * 100).toFixed(1)}% of the particles are in the densest hundredth of the cells`,
+    );
+  }
+}
 
 /* And the cloud still has to fill the outline it was traced from.
 

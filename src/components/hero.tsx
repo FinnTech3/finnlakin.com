@@ -1,6 +1,7 @@
 import { CtaVisibility } from "@/components/cta-visibility";
 import { Ledger } from "@/components/ledger";
 import { ShinyButton } from "@/components/shiny-button";
+import type { BandPlan } from "@/lib/bands";
 import { projects } from "@/lib/projects";
 import { held, rebuiltWord, reconstructions } from "@/lib/reconstructions";
 import { person } from "@/lib/site";
@@ -27,7 +28,7 @@ import { person } from "@/lib/site";
    the study. So the evidence arrives on the way down, where a reader is
    already committed, under a heading of its own, because headings are what the
    eye lands on when it scans rather than reads. */
-export function Hero() {
+export function Hero({ band }: { band: BandPlan }) {
   /* Split on the space, so the name is one string in one place and the two
      halves are stacked by the layout rather than typed twice. The text content
      of the heading stays "Finn Lakin", with the space in it. */
@@ -42,7 +43,12 @@ export function Hero() {
   );
 
   return (
-    <section id="hero" className="band-lane-right">
+    <section
+      id="hero"
+      className={`band-lane-${band.lane}`}
+      data-band=""
+      data-shape={band.shape}
+    >
       {/* The room above the name is a short one. The seam the engine reads is
           the padding between two sections, and nothing is above this one but
           the header, so it does not need a section's worth. */}

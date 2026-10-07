@@ -8,8 +8,8 @@ import { usePathname } from "next/navigation";
    It used to be imported straight into the layout, which put it in the client
    bundle for every route: measured, a write-up was downloading forty seven
    kilobytes of simulation and shaders to render an essay. The timeline is
-   choreographed against the home page's seven sections and nothing else uses
-   it, so nothing else should pay for it.
+   choreographed against the home page's bands and nothing else uses it, so
+   nothing else should pay for it.
 
    Loaded without server rendering, because the whole of it touches WebGL and
    there is nothing it could usefully render on a server. */

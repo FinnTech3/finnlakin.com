@@ -260,7 +260,7 @@ export function brain(count: number, seed: number): BrainShape {
    clamped: every particle that would have gone further piles up against the
    boundary and the shape grows a flat wall along its long axis. The data field
    had one, and it is invisible in the maths and obvious the moment you look. */
-function fitToExtent(shape: Shape, count: number): Shape {
+export function fitToExtent(shape: Shape, count: number): Shape {
   let radius = 0;
   for (let i = 0; i < count; i++) {
     radius = Math.max(
@@ -276,14 +276,23 @@ function fitToExtent(shape: Shape, count: number): Shape {
   return out;
 }
 
-/* The other three targets are derived from the brain per particle rather than
-   generated independently, which is what keeps a morph coherent: particle four
-   thousand is the same speck of matter in every shape it passes through, so the
-   transition reads as the cloud rearranging rather than as one picture being
-   cross faded into another. */
+/* The data field and the helix are derived from the brain per particle rather
+   than generated independently, which is what keeps a morph between them and the
+   brain coherent: particle four thousand is the same speck of matter in each, so
+   the transition reads as the cloud rearranging rather than as one picture being
+   cross faded into another. The page's other structures are made from a seed
+   alone, on purpose: see structures.ts. */
 
 /* Target two: the brain drawn out into a data field. Stretched along its long
-   axis, flattened, and combed into horizontal strata. */
+   axis, flattened, and combed into horizontal strata.
+
+   Seven thin layers with clear air between them, which is what makes it read as
+   strata and not as a lens. It was nine layers, each as thick as most of the gap
+   between them, in a slab half as deep again, and a shape that deep, looked
+   at from above to show its top, has its far layers drawn higher than its near
+   ones by more than the gap between two layers: they closed up into one smooth
+   disc, which is what it looked like. Fewer, thinner, a stack half as tall again
+   and not so deep, and the layers stay apart. */
 export function dataField(source: Shape, count: number, seed: number): Shape {
   const random = mulberry32(seed);
   const out = new Float32Array(count * 3);
@@ -294,11 +303,11 @@ export function dataField(source: Shape, count: number, seed: number): Shape {
 
     /* Strata: the vertical position is quantised towards bands, so the field
        reads as ordered data rather than as a cloud that has been stretched. */
-    const bands = 9;
+    const bands = 7;
     const banded = Math.round(y * bands) / bands;
     out[i * 3] = 0.5 + x * EXTENT * 2.1;
-    out[i * 3 + 1] = 0.5 + (banded * 0.72 + (random() - 0.5) * 0.05) * EXTENT;
-    out[i * 3 + 2] = 0.5 + z * EXTENT * 1.35;
+    out[i * 3 + 1] = 0.5 + (banded * 1.1 + (random() - 0.5) * 0.014) * EXTENT;
+    out[i * 3 + 2] = 0.5 + z * EXTENT * 0.9;
   }
   return fitToExtent(out, count);
 }
@@ -327,38 +336,4 @@ export function helix(source: Shape, count: number, seed: number): Shape {
     out[i * 3 + 2] = 0.5 + Math.cos(angle) * radius * EXTENT * 1.6;
   }
   return fitToExtent(out, count);
-}
-
-/* Target four: back towards the brain, but not yet arrived. Every particle sits
-   between its brain position and a loosened version of it, so the last
-   transition of the timeline reads as the cloud gathering itself. */
-export function reassembly(source: Shape, count: number, seed: number): Shape {
-  const random = mulberry32(seed);
-  const out = new Float32Array(count * 3);
-  for (let i = 0; i < count; i++) {
-    const looseness = 0.16 + random() * 0.2;
-    for (let axis = 0; axis < 3; axis++) {
-      const value = source[i * 3 + axis]!;
-      const outward = 0.5 + (value - 0.5) * (1 + looseness);
-      out[i * 3 + axis] = outward + (random() - 0.5) * 0.02;
-    }
-  }
-  return fitToExtent(out, count);
-}
-
-export function brainTargets(
-  count: number,
-  seed: number,
-): { shapes: Shape[]; tone: Float32Array; relief: Float32Array } {
-  const { shape, tone, relief } = brain(count, seed);
-  return {
-    shapes: [
-      shape,
-      dataField(shape, count, seed + 11),
-      helix(shape, count, seed + 23),
-      reassembly(shape, count, seed + 37),
-    ],
-    tone,
-    relief,
-  };
 }

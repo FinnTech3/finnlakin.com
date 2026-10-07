@@ -42,7 +42,7 @@ function check(condition: boolean, description: string, detail = "") {
    texture is unpacked about its centre and scaled by the factor, the field is
    turned by the timeline's rotation, and the camera looks down the z axis from
    its resting place. Only the z component matters here. */
-const factor = DEFAULTS.factorDesktop;
+const factor = DEFAULTS.factorLane;
 const { shape } = brain(COUNT, SEED);
 const cos = Math.cos(INITIAL_YAW);
 const sin = Math.sin(INITIAL_YAW);
