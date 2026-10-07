@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackToTop } from "@/components/back-to-top";
 import { NavLinks } from "@/components/nav-links";
 import { PaletteTrigger } from "@/components/palette-trigger";
 import { contact, person } from "@/lib/site";
@@ -42,22 +43,27 @@ export function SiteFooter() {
     <footer className="site-footer mt-auto w-full">
       <div className="shell pt-10 pb-14">
         <div className="scored pt-6">
-          <div className="flex flex-wrap gap-x-8 gap-y-3">
-            <a href={`mailto:${contact.email}`} className="link-arrow t-label text-ink">
-              {contact.email}
-            </a>
-            <a href={contact.linkedin} className="link-arrow t-label text-ink">
-              LinkedIn
-            </a>
-            <a href={contact.github} className="link-arrow t-label text-ink">
-              GitHub
-            </a>
-            <a href="/feed.xml" className="link-arrow t-label text-ink">
-              Feed
-            </a>
-            <Link href="/privacy" className="link-arrow t-label text-ink">
-              Privacy
-            </Link>
+          {/* The links, and at the end of the row the way back to the top. It
+              wraps below them on a screen with no room beside them. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-5">
+            <div className="flex flex-wrap gap-x-8 gap-y-3">
+              <a href={`mailto:${contact.email}`} className="link-arrow t-label text-ink">
+                {contact.email}
+              </a>
+              <a href={contact.linkedin} className="link-arrow t-label text-ink">
+                LinkedIn
+              </a>
+              <a href={contact.github} className="link-arrow t-label text-ink">
+                GitHub
+              </a>
+              <a href="/feed.xml" className="link-arrow t-label text-ink">
+                Feed
+              </a>
+              <Link href="/privacy" className="link-arrow t-label text-ink">
+                Privacy
+              </Link>
+            </div>
+            <BackToTop />
           </div>
           <p className="measure t-caption mt-6 text-muted">
             Nothing on this site is financial advice. Results labelled simulated or
