@@ -1,10 +1,9 @@
 # The particle brain
 
-A GPU particle engine: twenty two and a half thousand instanced three
-dimensional pyramids whose positions and velocities live in floating point
-textures, driven by a spring solver that runs entirely on the graphics card,
-morphing between four shapes as the page scrolls. A phone builds eleven
-thousand.
+A GPU particle engine: thirty two thousand instanced three dimensional
+pyramids whose positions and velocities live in floating point textures, driven
+by a spring solver that runs entirely on the graphics card, morphing between
+seven shapes as the page scrolls. A phone builds fourteen thousand.
 
 It is the opening animation, the first screen of the home page, and the cloud
 that goes on travelling down the page beside the writing.
@@ -19,7 +18,7 @@ paints an opaque background, the cloud sits behind all of it at `z-index: -10`,
 and what keeps it off the words is the lane rather than the layer.
 
 The opening animation runs on a carbon veil, which is the one dark thing the
-cloud is ever over, so the words are legible for the seven seconds they are the
+cloud is ever over, so the words are legible for the eight seconds they are the
 only thing on screen. Chalk over carbon and chalk over the wall are the same
 pigment over two grounds, which is why the engine needs no change between them.
 
@@ -37,9 +36,9 @@ this site's entire payload was before any of this existed. Adopting it would
 have roughly tripled the number the site is measured on.
 
 Written directly against WebGL2, every capability the specification asks for is
-reached: instanced geometry, ping ponged simulation, four morph targets with per
+reached: instanced geometry, ping ponged simulation, morph targets with per
 particle ordering, depth, bloom, depth of field, vignette and grain. The home
-page measures 553KB of JavaScript against a ceiling of 560, and the engine's
+page measures 561KB of JavaScript against a ceiling of 570, and the engine's
 share of that is whatever the home page carries over a route without it, which
 `tests/performance.spec.ts` holds apart by asserting the two separately.
 
@@ -73,11 +72,14 @@ targets. It never calculates where a particle is.
 | `src/particles/renderer.ts` | The instanced colour pass and the depth pass. |
 | `src/particles/post.ts` | Bright pass, five level bloom, bokeh, vignette, grain, tone map. |
 | `src/particles/timeline.ts` | Scroll position in, composition out. |
-| `src/particles/targets.ts` | Packs four shapes into quadrants, builds the parameter textures. |
-| `src/particles/brain-shape.ts` | Samples the brain out of the field, and derives the other three shapes from it. |
+| `src/particles/targets.ts` | Packs the shapes into the nine slots of one texture, builds the parameter textures. |
+| `src/particles/structures.ts` | The shapes the cloud becomes (a surface, an order book, a drape, a network), the names the page calls every shape by, and the chain of shapes a column of bands asks for. |
+| `src/particles/extent.ts` | Where the body of a shape lands on the screen, measured with the shader's own transform, so the cloud can be sized to the room it has. |
+| `src/particles/opening.ts` | The opening animation's schedule: the one list of times the engine, the host and the tests read. |
+| `src/particles/brain-shape.ts` | Samples the brain out of the field, and derives the data field and the helix from it. |
 | `src/particles/brain-anatomy.ts` | The distance field: the swept profile, the fissure, the regions, the folds. |
 | `src/particles/brain-profile.ts` | The traced outline. Generated; do not edit by hand. |
-| `src/particles/scroll.ts` | The real sections' geometry and the lane's seams in, timeline progress out. |
+| `src/particles/scroll.ts` | The real bands' geometry, sides and shapes, and the seams between them, in; timeline progress out. |
 | `src/particles/entrance.ts` | Where each particle waits before the opening releases it. |
 | `src/particles/mouse.ts` | A screen position back into the simulation's own space. |
 | `src/particles/words.ts` | Text to particle targets, for the opening animation, drawn in the page's own headline face (read off its first `h1`). |
@@ -87,6 +89,7 @@ targets. It never calculates where a particle is.
 | `src/components/particle-brain.tsx` | The canvas, the frame loop and five listeners, and the wait for the headline face before the opening is drawn. |
 | `src/components/particle-brain-mount.tsx` | Loads it, on the home page only, and says which surface the site uses and in what pigment. |
 | `src/components/hero.tsx` | The first band: where the choreography starts, and the slot a phone's cloud is drawn in. |
+| `src/lib/bands.ts` | The plan: which side and which shape each band of the home page asks for. The page, the validators and the tests all read it. |
 | `src/app/globals.css` | The wall on the root, the lane the layout leaves empty, and the veil over the opening. |
 
 ## The simulation
@@ -95,7 +98,7 @@ Every particle carries a position and a velocity, both in textures, both
 normalised nought to one. Two full screen passes a frame:
 
 1. **Velocity.** Reads the previous position and velocity, resolves where the
-   particle should be right now by blending the four morph targets, applies the
+   particle should be right now by blending the two shapes the cloud is between, applies the
    explosion, gates the spring on for the entrance and adds the pointer's
    parting, and accelerates towards it.
    `velocity = (velocity + (target - previous) * spring + flee) * friction`
@@ -115,18 +118,19 @@ once per drawn frame they describe a different animation on every machine.
 
 Sizes are given as a rule rather than as numbers, because the grid is
 configurable and the numbers were wrong in this table within a week of being
-written. `G` is `gridSize` on a desktop and `gridSizeMobile` on a phone: 180 and
+written. `G` is `gridSize` on a desktop and `gridSizeCompact` on a phone: 180 and
 120, for 32,400 and 14,400 particles.
 
 | Texture | Size | Holds |
 |---|---|---|
 | position, velocity | 2G x 2G, ping ponged | Particle state, in the lower left quarter |
-| targets | 2G x 2G | Four shapes, one per quadrant |
-| scale | 2G x 2G | Per particle size, per shape |
-| colour | 2G x 2G | Per particle colour, per shape |
+| targets | 3G x 3G | Up to nine shapes, one to each G x G slot of a three by three grid |
+| scale | 3G x 3G | Per particle size, per shape |
+| colour | 3G x 3G | Per particle colour, per shape |
 | parameter 1 | G x G | Signed random, row helper, display order, spring offset |
-| parameter 2 | G x G | Morph orderings for targets two, three and four, and the explosion |
-| parameter 3 | G x G | Explosion multiplier, signed random, normalised x |
+| parameter 2 | G x G | Arrival orderings for the shapes in slots zero to three |
+| parameter 3 | G x G | Explosion multiplier, signed random, normalised x, and the explosion's own ordering |
+| parameter 4 | G x G | Arrival orderings for the shapes in slots four to seven |
 
 The simulation only needs a quarter of its 2G x 2G target, so the passes set the
 viewport to G x G and three quarters of the pixels are never shaded.
@@ -151,6 +155,22 @@ float delayedProgress(float globalProgress, float localOrder, float delay, float
 Orderings are stored normalised and multiplied back up in the shader. Stored
 raw, a rank of nine thousand sits above the range where a half float texture can
 keep consecutive integers apart, and the wave arrives in visible steps.
+
+**The shader is told which two shapes the cloud is between, and how far.** The
+three uniforms are `u_from` and `u_to`, which are slots of the target texture, and
+`u_mix`. A particle reads its own coordinate in both slots and takes the ordering
+of the slot it is going to, so the wave that sweeps a morph is the arrival order
+of the destination, and each shape sweeps in a direction of its own
+(`SWEEPS` in `targets.ts`). It used to be a fixed chain of four, one shape after
+the next in a list, which was enough while the page asked for the brain and
+three things derived from it. The page asks for seven in an order of its own and
+goes back to the brain between them, so the timeline chooses the two.
+
+Four of the seven are made from nothing but a seed. A shape derived from the
+brain's own coordinates keeps every particle near where it was, which is gentle
+and is why the data field read as a tilted disc: a morph from one blob to another
+barely moves. These start every particle somewhere else in the room, so a morph
+is a swarm re-forming.
 
 ## The brain
 
@@ -293,7 +313,7 @@ with it, because additive blending means a denser cloud is a brighter one.
 prints a checksum so a change to the shape shows up as a changed number rather
 than as a silently different brain. It asserts the texture dimensions the
 shaders assume, no NaN or Infinity, everything in range, every ordering a true
-permutation, no collapsed quadrant, the colour ramp reaching both ends, and two
+permutation, no collapsed slot, the colour ramp reaching both ends, and the
 things worth naming:
 
 - **The cloud is a skin**, measured by putting each particle back into the
@@ -341,9 +361,24 @@ a brain is the temporal hook and the gyral bumps, which are a few percent of it.
 What guarantees the shape is where the outline comes from, and the corrugation
 assertion, which a potato fails outright.
 
-The other three targets are derived from the brain per particle rather than
+**The four structures made from a seed are each held to the one property that
+makes them what they are**, measured in the cloud and not in the function that
+made it, because every shape has the same particle count inside the same radius
+and a wire frame that has lost its wires is a lump of the same size. The surface
+is drawn as the lines of a plot, which is how much of the cloud is in the densest
+tenth of the slices cut across the strike: a ball puts a sixth of it there and the
+surface about two fifths. The order book has a spread, the strip across its
+middle holding fewer particles than the strips beside it. The drape is narrow at
+the waist and flares to the hem. The network has hubs in it, a share of the cloud
+packed into a few cells. Each of the four was run against a plain ball in its
+place to check the assertion could fail, and it did. Each is also centred, out to
+the standard extent, solid in all three directions, and a long way in
+particles from where it was in the brain.
+
+The data field and the helix are derived from the brain per particle rather than
 generated separately, so particle four thousand is the same speck of matter in
-every shape it passes through and a morph reads as the cloud rearranging.
+both of them and in the brain, and that morph reads as the cloud rearranging.
+The four others are not, on purpose: see Morphing.
 
 ## The pointer
 
@@ -428,10 +463,10 @@ a portrait phone start on screen.
 `scripts/check-motion.ts` asserts both properties, projecting every seeded
 position forward again through an independently written transform.
 
-**The hand-over moves nothing.** From 5.7 seconds the held composition travels,
+**The hand-over moves nothing.** From 6.7 seconds the held composition travels,
 eased, from the middle of the screen at the words' scale to the place and size
 the page opens with, read off the timeline's own targets with `peek()`. By the
-hand-over at 6.9 seconds the two are the same numbers, and the brain in the
+hand-over at 7.9 seconds the two are the same numbers, and the brain in the
 intro's texture is the same brain, at the same scale, as the page's, so the
 texture swap moves no particle either. The keep-out then comes on over a
 quarter of a second rather than in one frame.
@@ -646,37 +681,42 @@ and not a tuning.
 
 ## Scroll
 
-Progress runs nought to six and is read off **the real sections**: section *n*'s
-top reaching the top of the viewport is progress *n*, and between two boundaries
-it is the fraction of the way between them.
+Progress is counted in **bands** and is read off the real ones: band *n*'s top
+reaching the top of the viewport is progress *n*, and between two tops it is the
+fraction of the way between them. A band is an element with `data-band`: the hero,
+each section of the home page, and each pair of projects within the work, which
+makes eleven. What a band says about itself, in its markup, is which side the
+cloud keeps (`band-lane-left` or `band-lane-right`) and what shape it wants to be
+(`data-shape`). The plan the page is made from is `src/lib/bands.ts`, and the
+engine reads the page and is not told it a second way.
 
-This went round a circle. It was the sections; then, while the cloud could only
-be drawn on black, the whole timeline was compressed into a pinned stage's own
-travel so it could be seen at all; and it is the sections again, because the
-cloud has the length of the page to travel down. The ink pass bought that back,
-and the wall keeps it. The change back was a deletion both times, and the stage
-is gone.
+This went round a circle, and then changed what it counts. It was the sections;
+then, while the cloud could only be drawn on black, the whole timeline was
+compressed into a pinned stage's own travel so it could be seen at all; then the
+sections again, because the ink pass gave the cloud the length of the page. The
+timeline over the sections was a stack of clamped ramps, each doing nothing
+until the scroll entered its window, normalised by the number of gaps so that
+the end of the page was six whatever it was made of. So the cloud drifted, came
+apart over the whole of the work, reassembled as something else late in the
+page, turned, and gathered again: the one change of shape fell after the first
+two thirds of the page, and the long run of project entries had a dispersed haze
+of brain behind them. It is a rule about seams now, and a seam is wherever the
+page changes its mind. There is no dispersal at all: the explosion is always
+nought.
 
-Two things are different from the first version:
-
-- **Progress is normalised by the number of gaps** rather than being the section
-  index itself, so moving a section to its own page does not take the last state
-  off the end of the timeline. Six is the end of the page whatever the page is
-  made of.
-- **The last boundary is clamped to the furthest the page can scroll.** The
-  contact section is shorter than a viewport, so its top never reaches the top
-  of the screen: measured, it began at 16,166 pixels on a document whose maximum
-  scroll is 16,130, and progress six was unreachable by thirty six pixels. The
-  reassembly at the end of the timeline never played.
+**The last boundary is clamped to the furthest the page can scroll.** The
+contact band is shorter than a viewport, so its top never reaches the top of
+the screen. On an earlier version of the page its top began thirty six pixels
+further down than the document could scroll, and the last progress was
+unreachable.
 
 Dividing scroll by document height is what the specification allows and it is
-wrong here, because the sections are not equal heights: measured on the home
-page the work section is 10,139 pixels and the path section is 803, so a
-proportional mapping would race the cloud through the reading and dawdle over
-the footer.
+wrong here, because the bands are not equal heights: a pair of projects is
+several screens and the contact band is shorter than one, so a proportional
+mapping would race the cloud through the reading and dawdle over the footer.
 
 `ScrollController.measure()` re-reads the boundaries once at startup, again when
-`document.fonts.ready` resolves and whenever a section or the body changes size.
+`document.fonts.ready` resolves and whenever a band or the body changes size.
 Fonts change the height of every block of text, and measuring once, before the
 fonts arrive, left the timeline mapped to positions the page no longer had.
 
@@ -701,20 +741,62 @@ the cloud was cut to it over a full width column of text. The stage is gone and
 the number is still one: a test asserts the layout and the engine agree either
 side of the breakpoint.
 
-It was worked out twice, as a stack of ramps in `timeline.ts`, and the two
-disagreed. The ramps were a guess about where each section sits in the progress
-range, and the sections are nothing like equal heights: measured on the home
-page the work section is 10,139 pixels and the path section is 803. At 85% of
-the document the layout had put its content on the right and the cloud was on
-the right with it, over the words. Three separate tunings moved that number by a
-few hundredths each before the cause turned out to be that there were two
-statements of the same fact.
+The sides were worked out twice once, as a stack of ramps in `timeline.ts`, and
+the two disagreed. The ramps were a guess about where each section sits in the
+progress range, and the sections are nothing like equal heights. At 85% of the
+document the layout had put its content on the right and the cloud was on the
+right with it, over the words. Three separate tunings moved that number by a few
+hundredths each before the cause turned out to be that there were two statements
+of the same fact.
+
+### The chain of shapes
+
+The page asks for a shape per band, and the cloud is the shape of the band it is
+beside. Neighbouring bands that want the same shape are one link, because nothing
+changes between them, so the eleven bands are a chain of eleven shapes with ten
+changes in it: the brain, a surface, a data field, an order book, a network, a
+helix, the brain, a surface, a drape, a network and the brain. `chainOf` in
+`structures.ts` makes it, and the engine, the validators and the tests all make
+it through that one function, so they cannot disagree about what counts as a
+change.
+
+The cloud's place along the chain is a number. At rest in a band it is that
+band's link. In the middle of a crossing it is the link above the seam plus the
+fraction the crossing has gone, eased, so the shader is handed the two shapes
+either side of the seam and how far the cloud is between them (see Morphing).
+
+Each shape has a turn of its own, in `VIEWS` in `timeline.ts`, because a shape is
+only what it is from a direction: a surface is a line seen edge on, and a helix
+seen end on is a ring. The turns are from **facing the camera**, and not from the
+page's own axes. The cloud is a long way to one side of the middle of the screen,
+so the camera sees it from the side, and perspective acts on the whole of its
+position: the columns of the order book, a few pixels apart, were closed up into a
+solid wedge by the angle the camera sees them at, and the two strands of the helix
+into a coil. Every shape but the brain is first turned to face the camera from
+where the cloud is (`gaze` in `targets()`), and its view is the turn from there.
+Views are written for the right hand lane and mirrored in the left, so a shape
+turns towards the middle of the screen in either and the helix, which is in both,
+is the same helix. Drawn through the shader's transform, the order book's bars are
+columns again and the helix is two strands crossing.
+
+The brain's turn is the page's own, from the world and not from the camera: the
+opening profile and a quarter turn away from it as the hero leaves, so the cloud
+is seen to be a solid. Each time it comes back it has a view of its own, which is
+which time it is: a tenth of a turn further from the profile and from a little
+above for the about band, and the opening profile again for the contact band, so
+the page closes on the picture it opened with. Further round than that it stops
+reading as a brain: at three tenths of a turn it is an oval with a shadow, and
+seen end on, which is where the hero's turn leaves it, it is a rounded box. How wide and how tall a shape comes out at its turn is not written
+down anywhere: it is measured, every time the cloud is sized (see Sizing).
 
 ### Changing columns
 
-The cloud changes sides on a **seam**, the band of padding between two sections
-whose lanes differ, because that is the one road across the page with no text
-on it. Three things make that true rather than approximately true.
+The cloud changes sides on a **seam**, the band of padding between two bands
+whose lanes differ, because that is the one road across the page with no text on
+it. The page has six: after each pair of projects but the last, and either side
+of the path and the tools. Three more seams change only the shape, where two
+bands share a side. Three things make a crossing true rather than approximately
+true.
 
 **The crossing is geometric.** It starts when the seam coming up the screen is
 0.16 of the window below the cloud's own height, is halfway when the seam is at
@@ -723,14 +805,15 @@ of each section's progress, 0.38 to 0.72, which put the crossing in the right
 place on one screen size: measured at 1920 by 1080 the seam had already passed
 above the cloud when the crossing began.
 
-**The screen is split where the lane changes.** Two sections with their content
-on opposite sides are on screen together for most of a scroll past their
-boundary, and the keep-out used to be one column for the whole screen, snapped
-across at the middle of the crossing. The next section's heading came up the
-screen in the old column, where the cloud still was. Now each region keeps the
-cloud to its own section's column, split at the seam (`splits` and `sides` in
-`CloudMask`, up to three regions), so a section's text never has the cloud
-behind it whichever way the page is going.
+**The screen is split where the lane changes.** Two bands with their content on
+opposite sides are on screen together for most of a scroll past their boundary,
+and the keep-out used to be one column for the whole screen, snapped across at the
+middle of the crossing. The next band's heading came up the screen in the old
+column, where the cloud still was. Now each region keeps the cloud to its own
+band's column, split at the seam (`splits` and `sides` in `CloudMask`, up to three
+regions), so a band's text never has the cloud behind it whichever way the page is
+going. Only the seams where the side changes split the screen: where only the
+shape changes the column is the same either side and there is nothing to cut.
 
 **The cloud fits the seam it crosses on.** The strip the final pass keeps open
 across the middle of the screen is the seam itself, measured off the bands'
@@ -744,21 +827,125 @@ bloom, which here is more than the seam, and let the glow out over the last line
 above and the heading below.
 
 To fit, the cloud **gathers itself up to cross**: it contracts by
-`CROSS_CONTRACT`, its burst is drawn in with the crossing, and its size is capped
-to the seam's clear height in the middle of it. The crossing from about to path
-is inside a burst, two thirds dispersed, where even contracted the cloud reached
-a hundred and sixty six pixels either side of an eighty pixel seam. It now comes
-together as it reaches the seam and disperses again past it.
-`scripts/check-motion.ts` finds the halfway point of a crossing at every step of
-the timeline, since it depends on the cloud's height, and asserts every particle
-there is inside the seam: the worst is 0.73 of its clear half.
+`CROSS_CONTRACT`, rides to the seam, and its size is held to the seam's clear
+height in the middle of the crossing, then opens out again past it. Where only
+the shape changes it does not ride anywhere. It draws in a little, by
+`MORPH_CONTRACT`, and re-forms in place, which is what lets a change of shape
+read as the cloud re-forming and not as one picture replaced by another.
+`scripts/check-motion.ts` finds the halfway point of every crossing, since it
+depends on the cloud's height, and asserts every particle there is inside the
+seam, for each of the two shapes it is between: across twenty four crossings the
+worst is 0.85 of the seam's clear half.
 
-`tests/crossing.spec.ts` stands at both crossings with the seam at six heights on
-the screen, from well below the cloud to well above it, and asserts nothing on
+`tests/crossing.spec.ts` stands at all six crossings with the seam at six heights
+on the screen, from well below the cloud to well above it, and asserts nothing on
 the page has the cloud behind it at any of them. It also moves the page forty
 pixels a frame across a seam, with and without reduced motion, and asserts the
 strip is narrowed by exactly that while the page moves and by nothing once it
-stops.
+stops. `tests/bands.spec.ts` asserts the markup is the plan, that the work is
+five bands of two alternating sides, and that stood in the middle of each band the
+engine has the cloud on that band's side and in that band's shape.
+
+### Sizing: how large the cloud is, and the room it has
+
+How large the cloud is drawn is the layout's to say and not the device's: a
+window with a lane has the lane's size, `factorLane`, and one without has the
+slot's, `factorSlot`. See Devices for why it used to be the other way round.
+
+Whatever size that is, **it is then fitted to the room, and the room is
+measured.** On a window as wide as a monitor the lane has room to spare. The
+cloud's size is set in world units and a window's height is a fixed number of
+them whatever its width, so the cloud is the same share of the window's height on
+every screen and a share of the lane's width that depends on the window's shape.
+On an iPad held on its side, which is four by three, or a browser window dragged
+tall, the lane is a narrow strip and the cloud was wider than it: the final pass
+cut it at the column's edge and the screen at the other, and what a reader saw was
+a brain with both sides missing.
+
+`extent.ts` projects a sample of the shape through the vertex shader's transform,
+every time the timeline sizes it: scaled to the factor, turned about x then y then
+z, offset, divided by the particle's own distance from the camera. It leaves out
+the outermost half of one percent at each end of each axis, the thin scatter of
+strays, which is the share `tests/fit.spec.ts` leaves out of a photograph.
+`timeline.ts` then scales the cloud, about its centre, until the body is inside
+the room, which is a box in the window's own units: the lane across, the frame
+up and down, and in the middle of a crossing the seam. The lane may be filled to
+`LANE_FILL`, the frame to `FRAME_FILL`. It is measured again at the size that came
+out, because a smaller cloud is a shallower one and is magnified less. Three
+passes land the body on the wall of its room from the inside, never past it and
+never more than a fifth of a percent of the half frame short of it, measured over
+every shape in both lanes at seven aspect ratios.
+
+It is measured where the cloud is because that is the only place it can be
+measured. Written down once per shape, the sizes were wrong in a way worth keeping
+a record of. The first numbers were a radius, the same in every direction for every
+shape, and written as the factor where the shader draws at twice the factor, so
+every size was out by a half and the page's own tuning had grown to hide it. A
+measurement of each shape on its own, made once, was better and wrong in a smaller
+way: a helix measured at 0.87 of its lane was 1.08 of it when drawn there. The
+cloud is not at the middle of the screen. It is a long way to one side of it, and
+perspective acts on the whole of its position, so the near side of the cloud is
+magnified and so is the distance from the middle of the screen to the cloud's
+centre. Near particles are pushed outwards and far ones inwards, a shear of the
+shape by its own depth, and it grows with how far from the middle of the screen
+the cloud sits, so it grows with the aspect ratio. No number can be taken off a
+shape on its own. It depends on where the cloud is.
+
+`scripts/check-motion.ts` is the assertion, and it uses none of this: every
+particle of every shape through its own copy of the shader's arithmetic, at nine
+aspect ratios from 0.79 to 2.4, in both lanes, at four places down the page, in
+every link of the chain. The body has to be inside the frame and inside its lane.
+The worst is 0.93 of the half frame, which is `FRAME_FILL` (0.92) doing what it is
+for with a hundredth of the validator's own sampling on top, the narrowest margin
+to the lane's edge is 0.050 of the half frame, and the widest the cloud comes is
+0.85 of its lane. On a phone, in a Pixel 5's slot and in the
+smallest slot the timeline will draw in at all, the cloud reaches 1.04 of the
+slot's core against 1.18 to its edge. It replaced a habit: the composition is a
+stack of offsets and the size is the screen's, so how far the cloud reaches at a
+scroll position is not something anybody holds in their head, and the habit was
+to nudge a number until one screen width looked right. One screen width is not
+the set of screens.
+
+An earlier version of this check was twice as lenient as it said. It projected
+at the factor where the shader draws at twice the factor, and every share it
+reported was a half of what a reader would see.
+
+`tests/fit.spec.ts` is the same question asked of photographs, on the screens
+people have: seven iPads upright and on their side, a laptop, an ultrawide
+monitor, a desktop window dragged tall, and a phone on its side.
+
+### Devices
+
+There used to be a single "is this a phone" test, a coarse pointer or a narrow
+window, and it decided everything at once: how many particles to build, how large
+to draw the cloud, how to turn each pyramid, how fast to morph, and whether to
+listen for a mouse. A tablet has a coarse pointer, so every iPad was a phone, and
+on one held in landscape, which has a lane beside its content exactly as a laptop
+does, the cloud came out a sixth of the height of the screen where a laptop's is
+over a third of it. Measured on an iPad mini on its side, 1133 by 744: 115 pixels
+tall in a window 744 tall, against 282 on a laptop's 720.
+
+It is two questions now, and they do not have the same answer on every machine
+(`Device` in `quality.ts`):
+
+- **`compact`** is whether the screen is small, which decides how much there is
+  room for and so how much to build and draw. It is the shorter side of the
+  window under 600 CSS pixels, so a phone held either way up is compact and a
+  tablet held either way up is not. A compact screen builds the smaller grid and
+  draws the smaller tiers.
+- **`touch`** is whether the main way of pointing is a finger and nothing finer
+  is attached, which decides whether there is a hover to part the cloud around.
+  A tablet in a keyboard case has a trackpad as well, and for as long as it is
+  there it is a pointer machine. Pointer events from a finger are ignored either
+  way, because a tap is not a place to part the cloud around.
+
+The size is neither. A tablet draws the full size cloud with the bloom pass, and
+leaves the depth of field to a machine with a card to spend on it. Below 1100
+pixels it draws in the slot under the controls, whose height is
+`clamp(14rem, 38svh, max(20rem, 50vw))` so that a tablet's slot is not a phone's.
+
+`tests/fit.spec.ts` asserts what the engine took each screen to be, and that the
+layout and the engine agree about whether there is a lane, as well as the size.
 
 ### Below the breakpoint
 
@@ -772,7 +959,8 @@ animation is composed on the window, and the cloud settles into the slot before
 the hand-over. On a short phone the slot runs past the fold and the cloud is
 partly below it at first, never cut and never under the words; a phone held
 sideways, whose slot has no room, plays the entrance and then draws nothing,
-skipping the frames rather than drawing blanks.
+skipping the frames rather than drawing blanks. It is the brain throughout: the
+other shapes are for a page with a lane to cross.
 
 It used to keep the cloud low in a fixed canvas behind everything with the
 keep-out switched off, so the controls, the heading, the table and the cards all
@@ -780,21 +968,6 @@ scrolled up over it. The contrast walk passed anyway, because a dim enough cloud
 behind a word is still legible, and because on the phone project it had been
 measuring the wrong pixels: its screenshot was in device pixels and its boxes in
 CSS pixels. It now also asks whether anything is drawn over the cloud at all.
-
-### Nothing leaves the frame
-
-`scripts/check-motion.ts` sweeps every quarter step of progress at four aspect
-ratios, projects every shape forward with the explosion applied, and fails if
-anything reaches past the frame. It reports 0.86 of the half width and 0.92 of
-the half height.
-
-That assertion replaced a habit. The explosion multiplies each particle's own
-distance from the centre, so the reach at a given scroll position is not
-something anybody holds in their head: measured, the burst before the contact
-section reached **1.74 times the half width** and the helix went off the bottom
-too. The multiplier came down from `1 + 5 * random()` to `1 + 2.2 * random()`,
-and `targets()` then scales the whole composition uniformly until it fits, which
-keeps its shape and its place in the lane and only changes its size on screen.
 
 ### Two stacking traps
 
@@ -826,24 +999,30 @@ Everything in `DEFAULTS` in `src/particles/types.ts`:
 
 | To change | Set |
 |---|---|
-| Particle count | `gridSize`, `gridSizeMobile` (the count is the square) |
-| Brain scale | `factorDesktop`, `factorMobile` |
-| Particle scale | `particleScaleDesktop`, `particleScaleMobile` |
+| Particle count | `gridSize`, `gridSizeCompact` (the count is the square) |
+| Brain scale | `factorLane`, `factorSlot` |
+| Particle scale | `particleScale`, `particleScaleCompact` |
 | Colour palette of the light reading, which no page uses now | `RAMP`, `WARM`, `WARM_SHARE` in `palette.ts` |
 | What the cloud is drawn in: light, one ink, two inks | `surface`, a `CloudSurface` in `types.ts`, and see Surfaces |
 | The site's chalk: its two pigments, and how fast it saturates | `surface` in `particle-brain-mount.tsx` |
 | Spring, friction | `spring`, `friction` |
 | Pointer parting | `pointerReach`, `pointerPush`, `pointerSwirl`, `mouseSmoothing` |
 | Entrance | `entryWindow`, `SHOW_SECONDS` in `engine.ts`, the constants in `entrance.ts` |
-| Scroll sensitivity | `scrollEase`, and `MAX_SECTIONS_PER_SECOND` in `scroll.ts` |
-| What progress is measured against | `SECTIONS` and `RANGE` in `scroll.ts` |
-| Morph speed | `morphDelayDesktop`, `morphDelayMobile`, `secondaryMorphDelay` |
+| Scroll sensitivity | `scrollEase`, and `MAX_BANDS_PER_SECOND` in `scroll.ts` |
+| What progress is measured against | the bands of the page: `[data-band]` in the markup, and the plan in `src/lib/bands.ts` |
+| Which side and which shape each band asks for | `bandPlan` in `src/lib/bands.ts`, nothing else |
+| How many projects are in a band | `PROJECTS_PER_BAND` in `src/lib/bands.ts` |
+| How each shape is turned | `VIEWS` in `timeline.ts` |
+| How much of its lane the cloud may fill, and of the frame | `LANE_FILL` and `FRAME_FILL` in `timeline.ts` |
+| How far the cloud draws in while only its shape changes | `MORPH_CONTRACT` in `timeline.ts` |
+| Morph speed | `morphDelay`, `morphDelayCompact` |
 | Explosion | `explosionDelay`, and the multiplier in `targets.ts` |
 | Bloom | `bloomStrength`, `bloomThreshold`, `bloomRadius` |
 | Bokeh | `BOKEH_FOCAL_DEPTH` and `BOKEH_APERTURE` in `post.ts`, in that order of importance |
 | Grain | `grainStrength` |
 | Vignette | `vignetteOffset`, `vignetteDarkness` |
-| Section timings | the `mapClamped` stacks in `timeline.ts` |
+| The opening's timings | `OPENING` and `OPENING_CEILING_MS` in `opening.ts`, and nothing else: the engine, the host and `scripts/check-motion.ts` read it |
+| How small a screen is compact | `COMPACT_BELOW` in `quality.ts` |
 | How far the cloud draws in to cross | `CROSS_CONTRACT` in `timeline.ts` |
 | How near its height a seam starts a crossing | `CROSS_WINDOW` in `timeline.ts` |
 | How much of a seam the crossing cloud may fill | `SEAM_FILL` in `timeline.ts` |

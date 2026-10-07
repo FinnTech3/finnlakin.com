@@ -166,22 +166,54 @@ size in the middle.
 The home page is laid out around a lane. The brain is about 370 pixels across, so
 there is nowhere for it to be that is not over somebody's paragraph unless the page
 gives it a column, and it does. Each band's content sits to one side and the cloud
-travels down the other, changing sides at two band boundaries (about to path, and
-skills to endorsements). Below 1100 pixels the lane collapses, and the cloud draws
-inside a slot under the hero's controls instead.
+travels down the other. Wherever two neighbouring bands differ, in side or in
+shape, the cloud gathers itself up, crosses the strip of padding between them, and
+arrives as what the next band asked for. Below 1100 pixels the lane collapses, and
+the cloud draws inside a slot under the hero's controls instead.
+
+The page is eleven bands, and the list they come from is `src/lib/bands.ts`, which
+the page, the engine's validators and the tests all read:
+
+| Band | Side | Shape |
+|---|---|---|
+| `hero` | right | brain |
+| `work` (projects 1 and 2, with the index) | right | surface |
+| `work-2` (3 and 4) | left | field |
+| `work-3` (5 and 6) | right | skyline |
+| `work-4` (7 and 8) | left | network |
+| `work-5` (9 and 10) | right | helix |
+| `about` | right | brain |
+| `path` | left | surface |
+| `skills` | left | drape |
+| `endorsements` | right | network |
+| `contact` | right | brain |
+
+The ten projects are five bands of two and the sides alternate after every pair, so
+the cloud crosses the page six times and changes shape ten, and comes back to the
+brain between the other shapes. The shapes in the work follow what each pair is
+about: the first pair is the mark surface that broke static arbitrage, the second a
+band of estimates that moves with its start date, the third an order book, the
+fourth trade between countries, the fifth break even over years of compounding.
+A shape is not a claim, and nothing on the page says that this is what a project
+is. It used to be one band down one side, and the cloud was the brain, or a haze of
+it, from the first project to the last.
 
 This is a contract with the particle engine (`ParticleBrainREADME.md`), and these
 things must hold:
 
-- The seven section ids are `hero`, `work`, `about`, `path`, `skills`,
-  `endorsements` and `contact`, in that order.
-- The side is a class on the `<section>`: `band-lane-right` puts the lane on the
-  right and the content on the left, and `band-lane-left` the reverse. In order,
-  the lanes are right (hero, work, about), left (path, skills), right
-  (endorsements, contact).
-- The engine reads the padding on each section's **first child** as the seam it has
-  to change columns in. That is `.section-pad`, which is a measurement as well as a
-  margin.
+- A band is an element with `data-band`: the hero, every section of the home page,
+  and each pair of projects within the work. They are in the order of the plan,
+  and `tests/bands.spec.ts` asserts the markup is the plan.
+- The side is a class on the band: `band-lane-right` puts the lane on the right and
+  the content on the left, and `band-lane-left` the reverse.
+- The shape is `data-shape` on the band, one of the seven names in
+  `src/particles/structures.ts`. The engine reads both off the page and is not told
+  them a second way.
+- The engine reads the padding on each band's **first child** as the seam it has to
+  change columns in. That is `.section-pad` on a section and `.band-pad` on the
+  bands that continue one, which is a measurement as well as a margin. `.band-pad`
+  only has padding where there is a lane: below 1100 pixels two bands of one list
+  sit as the entries of a list do.
 - `--lane` is `40vw` and `LANE_FRACTION` in `src/particles/timeline.ts` is `0.4`.
   They are the same number and are changed together.
 - **A rule belongs to the block it is inside, never to a band**, or it runs through
@@ -217,7 +249,7 @@ material is a decision somebody made, not a default.
 | 0 | Wall | `#a7a39b` | Every page, and nearly everything on it |
 | 1 | Carbon block | `#121212` | `.chalk-block`, `.on-carbon`: the one inverted surface, used where a thing has to be read before anything else. The reconstruction ledger on the home page, the callout on the strongest project, and the caption over the reel's film. The tokens turn over inside it, so the same markup is carbon on the wall and chalk on carbon without restating a rule |
 | 2 | Chalk sheet | `#f4f2ee` | `.sheet`, `.palette`: a poster pasted on the wall, for anything read for twenty minutes. The essays, the privacy page and the search dialog |
-| - | Veil | `#121212` | The sheet over the opening animation, for the seven seconds the chalk cloud and the words are the only things on screen, lifting onto the wall |
+| - | Veil | `#121212` | The sheet over the opening animation, for the eight seconds the chalk cloud and the words are the only things on screen, lifting onto the wall |
 
 `.chalk-block` is named for the chalk type on it. It is a block of carbon.
 
@@ -233,8 +265,14 @@ chooses a side on the home page.
 ### Header and footer
 The header is in the flow, above the page, and nothing else: the name in `.t-h3`,
 the navigation as labels, and the search as a ruled box. There is no rule under it.
-The footer is a scored line, the links as arrow labels, and the one sentence that
-says nothing here is financial advice.
+The footer is a scored line, the links as arrow labels, the one sentence that
+says nothing here is financial advice, and at the end of the row of links a ghost
+pill, **Back To Top**, on every route. It is a button and not an anchor to the top
+of the page, because it does something to the page rather than going somewhere in
+it: a link would add a history entry and put a fragment in the address bar. It
+scrolls smoothly and takes a reader who asked for less motion there at once, it
+moves a keyboard user's focus up to the name with the page, and it does not print.
+`tests/back-to-top.spec.ts` holds each of those.
 
 ### Link with arrow
 `.link-arrow`. Carbon like the text around it, with the arrow as part of the label,
@@ -315,12 +353,14 @@ page blank when a script is blocked. The budget is small: rows settling once on 
 The name is never animated: it is the first thing a reader needs, and it is painted,
 not arriving.
 
-The opening animation runs about seven seconds on a reader's first visit to `/`:
-the name, then the second line, then the brain, then the hand-over, with the veil
-lifting over 700ms. Both lines are drawn in the headline face, read off the page's
-own `h1`, and the engine waits for that face to arrive (up to 1.5 seconds) before it
-draws the words, so a slow connection never gets them in a fallback. The page is held
-still while it runs. It does not run for a reader who asked for less motion, and it
+The opening animation runs about eight seconds on a reader's first visit to `/`:
+the name, then the second line (ECONOMICS, FINANCE, SOFTWARE DEV), which is held on
+the screen for a second and eight tenths, then the brain, then the hand-over at 7.9
+seconds, with the veil lifting over 700ms. The schedule is `src/particles/opening.ts`
+and `scripts/check-motion.ts` holds the second line to its hold. Both lines are
+drawn in the headline face, read off the page's own `h1`, and the engine waits for
+that face to arrive (up to 1.5 seconds) before it draws the words, so a slow
+connection never gets them in a fallback. The page is held still while it runs. It does not run for a reader who asked for less motion, and it
 is controlled by an attribute set before first paint so that LCP still happens on
 the real content.
 
@@ -416,7 +456,9 @@ provenance.
 | `src/lib/colours.ts` | The four colours, for the places that cannot read a stylesheet |
 | `src/app/globals.css` | The tokens, the type scale, the surfaces and the controls. This is where the system is enforced |
 | `src/app/layout.tsx` | The two faces, the viewport's theme colour, and the chrome |
-| `src/components/section.tsx` | Scored line, label, heading, lead and container |
+| `src/components/section.tsx` | Scored line, label, heading, lead and container; and `Band`, which carries a section on without a heading, for the pairs of projects |
+| `src/components/back-to-top.tsx` | The button at the foot of every page |
+| `src/lib/bands.ts` | The plan: which side and which shape every band of the home page asks for, and how many projects a band holds |
 | `src/components/hero.tsx` | The name, the standfirst, the controls, the ledger block |
 | `src/components/ledger.tsx` | The reconstruction table, and its phone form |
 | `src/components/project-index.tsx`, `project-entry.tsx` | The work as a listing and as entries |
@@ -430,6 +472,9 @@ provenance.
 | `src/app/manifest.ts`, `og/[card]/route.tsx`, `icon.svg` | The platform surfaces, on the same four colours |
 | `scripts/build-icons.ts` | Generates the icon set from one mark. Run `npm run build:icons` after changing it |
 | `tests/backdrop.spec.ts`, `cloud-overlap.ts`, `crossing.spec.ts` | The cloud never being under a word, and what the cloud is doing: its marks are measured as distance from the flat wall |
+| `tests/bands.spec.ts` | The markup being the plan, five pairs of projects alternating sides, and the engine reading each band's side and shape back off the page |
+| `tests/fit.spec.ts` | The cloud's size on the screens people have: seven iPads upright and on their side, a laptop, an ultrawide, a window dragged tall, a phone on its side |
+| `tests/back-to-top.spec.ts` | The button on every route, and what it does |
 | `tests/a11y.spec.ts`, `print.spec.ts`, `platform.spec.ts` | Contrast (including the call to action's label on its own fill), print, and the platform colours |
 | `tests/performance.spec.ts` | Budgets, and what a late font does to the page |
 | `tests/first-screen.spec.ts` | The name and both controls inside the window at five sizes |
