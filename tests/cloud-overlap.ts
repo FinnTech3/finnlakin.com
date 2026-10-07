@@ -426,3 +426,62 @@ export function marksRadius(
     { data, at, over, share, tools: TOOLS },
   );
 }
+
+/* The box the cloud occupies: the furthest left and right and the highest and
+   lowest the marks reach, with the thin tail of strays on every side left out.
+
+   Left out because the cloud has a faint halo, a scatter of single particles a
+   way beyond the body of it, and the furthest mark in any direction is one of
+   those. A hair's width of the marks at each end is trimmed, which is a few
+   particles and not a part of the brain. This is what the question "how big is
+   it on this screen" is asked of. */
+export function marksExtent(
+  decoder: Page,
+  data: string,
+  { over = VISIBLE_MARK, trim = 0.003 }: { over?: number; trim?: number } = {},
+): Promise<{ left: number; right: number; top: number; bottom: number; count: number }> {
+  return decoder.evaluate(
+    ({ data, over, trim, tools }: { data: string; over: number; trim: number; tools: string }) =>
+      new Function(
+        "data",
+        "over",
+        "trim",
+        `${tools}
+        return (async () => {
+          const shot = await decodeShot(data);
+          const none = { left: 0, right: 0, top: 0, bottom: 0, count: 0 };
+          if (!shot) return none;
+          const wall = wallOf(shot.pixels);
+          const xs = [];
+          const ys = [];
+          for (let y = 0; y < shot.height; y += 1) {
+            for (let x = 0; x < shot.width; x += 1) {
+              if (distanceFrom(shot.pixels, (y * shot.width + x) << 2, wall) > over) {
+                xs.push(x);
+                ys.push(y);
+              }
+            }
+          }
+          if (xs.length === 0) return none;
+          xs.sort((a, b) => a - b);
+          ys.sort((a, b) => a - b);
+          const at = (list, share) =>
+            list[Math.min(list.length - 1, Math.max(0, Math.floor(list.length * share)))];
+          return {
+            left: at(xs, trim),
+            right: at(xs, 1 - trim),
+            top: at(ys, trim),
+            bottom: at(ys, 1 - trim),
+            count: xs.length,
+          };
+        })();`,
+      )(data, over, trim) as Promise<{
+        left: number;
+        right: number;
+        top: number;
+        bottom: number;
+        count: number;
+      }>,
+    { data, over, trim, tools: TOOLS },
+  );
+}

@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { bandPlan } from "../src/lib/bands";
+import { projects } from "../src/lib/projects";
 import {
   collectContent,
   MARK_CEILING,
@@ -9,19 +11,21 @@ import {
 
 /* Changing columns, measured where it happens.
 
-   The cloud travels down one side of the page and has to change sides twice,
-   where a band that keeps its lane on the right meets one that keeps it on the
-   left. There is no route across the page that is not through somebody's
-   paragraph except the seam between the two sections, the band of padding with
-   no text in it, and the rule is that the cloud goes over nothing on the way.
+   The cloud travels down one side of the page and changes sides wherever a band
+   that keeps its lane on the right meets one that keeps it on the left, which
+   on this page is six times: after every two projects of the work, and again
+   either side of the path and the tools. There is no route across the page that
+   is not through somebody's paragraph except the seam between the two bands, the
+   strip of padding with no text in it, and the rule is that the cloud goes over
+   nothing on the way.
 
    The contrast walk stands at eight fixed points down the document and none of
    them is at a crossing, so a crossing that put the cloud's glow over the last
-   line of one section and the heading of the next would pass it. This stands
-   at the crossings: at six heights of the seam on the screen, from well below
-   the cloud's own height, through it, to well above, so the approach, the
-   crossing itself and the arrival are each photographed. Only where the page
-   has lanes, which is above the breakpoint. */
+   line of one band and the heading of the next would pass it. This stands at
+   the crossings: at six heights of the seam on the screen, from well below the
+   cloud's own height, through it, to well above, so the approach, the crossing
+   itself and the arrival are each photographed. Only where the page has lanes,
+   which is above the breakpoint. */
 
 const INTRO_KEY = "fl-intro-played";
 
@@ -54,29 +58,41 @@ async function open(page: Page) {
 }
 
 /* Each place the page changes columns: the band below it, where it starts in
-   the document, and the seam's clear half at rest as the page's own padding
-   has it, which is the band with no text in it less the margin. */
+   the document, and the seam's clear half at rest as the page's own padding has
+   it, which is the band with no text in it less the margin. Read off the bands
+   the page has, in the order it has them, and not off a list of names, so a band
+   added to the plan is a band measured here. */
 function findCrossings(page: Page) {
   return page.evaluate((margin) => {
-    const ids = ["hero", "work", "about", "path", "skills", "endorsements", "contact"];
-    const side = (id: string) =>
-      document.getElementById(id)!.classList.contains("band-lane-left") ? -1 : 1;
-    const pad = (id: string, edge: "paddingTop" | "paddingBottom") => {
-      const inner = document.getElementById(id)!.firstElementChild as HTMLElement | null;
+    const bands = Array.from(document.querySelectorAll<HTMLElement>("[data-band]"));
+    const side = (band: HTMLElement) => (band.classList.contains("band-lane-left") ? -1 : 1);
+    const pad = (band: HTMLElement, edge: "paddingTop" | "paddingBottom") => {
+      const inner = band.firstElementChild as HTMLElement | null;
       return inner ? Number.parseFloat(getComputedStyle(inner)[edge]) || 0 : 0;
     };
     const found: { name: string; top: number; clear: number }[] = [];
-    for (let i = 1; i < ids.length; i++) {
-      if (side(ids[i]!) === side(ids[i - 1]!)) continue;
-      const element = document.getElementById(ids[i]!)!;
+    for (let i = 1; i < bands.length; i++) {
+      const above = bands[i - 1]!;
+      const below = bands[i]!;
+      if (side(above) === side(below)) continue;
       found.push({
-        name: `${ids[i - 1]} to ${ids[i]}`,
-        top: element.getBoundingClientRect().top + window.scrollY,
-        clear: (pad(ids[i - 1]!, "paddingBottom") + pad(ids[i]!, "paddingTop")) / 2 - margin,
+        name: `${above.id} to ${below.id}`,
+        top: below.getBoundingClientRect().top + window.scrollY,
+        clear: (pad(above, "paddingBottom") + pad(below, "paddingTop")) / 2 - margin,
       });
     }
     return found;
   }, SEAM_MARGIN);
+}
+
+/* The places the plan says the page changes columns, which is what the page
+   is checked against: a band that stopped alternating would otherwise take its
+   crossing with it and leave this test measuring one fewer. */
+function plannedCrossings(): string[] {
+  const plan = bandPlan(projects.length);
+  return plan
+    .map((band, index) => (index > 0 && band.lane !== plan[index - 1]!.lane ? `${plan[index - 1]!.id} to ${band.id}` : null))
+    .filter((name): name is string => name !== null);
 }
 
 /* Puts a boundary at a height on the screen, as a share of the window up from
@@ -101,16 +117,19 @@ function gapHalf(page: Page) {
 }
 
 test.describe("crossing a column", () => {
-  /* Twelve photographs of a page with a thirty two thousand particle cloud on
-     it, on a machine with no GPU. */
-  test.describe.configure({ timeout: 300_000 });
+  /* Thirty six photographs of a page with a thirty two thousand particle cloud
+     on it, on a machine with no GPU. */
+  test.describe.configure({ timeout: 600_000 });
 
   test.skip(({ isMobile }) => Boolean(isMobile), "the page only has lanes above the breakpoint");
 
   test("goes over nothing", async ({ page, browser }) => {
     await open(page);
     const crossings = await findCrossings(page);
-    expect(crossings.length, "the page no longer changes columns where it did").toBe(2);
+    expect(
+      crossings.map((crossing) => crossing.name),
+      "the page no longer changes columns where its plan says it does",
+    ).toEqual(plannedCrossings());
 
     const decoder = await browser.newPage();
     let measured = 0;

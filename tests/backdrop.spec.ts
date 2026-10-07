@@ -1,4 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { bandPlan } from "../src/lib/bands";
+import { projects } from "../src/lib/projects";
+import { OPENING } from "../src/particles/opening";
+import { chainOf, shapeSlot } from "../src/particles/structures";
 import { DEFAULTS } from "../src/particles/types";
 import {
   collectContent,
@@ -188,6 +192,20 @@ test.describe("the opening animation", () => {
     expect(handedOver, "never saw the animation hand over").toBeGreaterThan(0);
     const atHandOver = samples[handedOver]!;
     const settled = samples[samples.length - 1]!;
+
+    /* The second line, ECONOMICS, FINANCE, SOFTWARE DEV, was held a second
+       longer on Finn's word, which moved the hand-over from 6.9 seconds to 7.9.
+       So the animation was still running after the old hand-over time, and it
+       handed over no sooner than the new one: read off the engine's own clock,
+       which is the only one that means anything on a machine drawing a few
+       frames a second. */
+    expect(
+      samples.some((sample) => sample.intro === "running" && sample.since >= 7_000),
+      "the opening ended before the second line's extra second was up",
+    ).toBe(true);
+    expect(atHandOver.since, "the opening handed over early").toBeGreaterThanOrEqual(
+      OPENING.handoverAt,
+    );
 
     /* The frame the animation hands over in against where the page settles.
        They were the middle of the screen at the words' size against the right
@@ -975,33 +993,26 @@ test.describe("the particle engine", () => {
     expect(middle, "the opening did not start outside the frame").toBeLessThan(whole / 3);
   });
 
-  test("maps the scroll onto the whole document, section by section", async ({
-    page,
-    isMobile,
-  }) => {
+  test("maps the scroll onto the whole document, band by band", async ({ page, isMobile }) => {
     /* Where the page keeps a lane, which is where the cloud travels the whole
        document. Below the breakpoint it lives in the hero and stops drawing
        once that has scrolled away, so the engine is not there to follow a
-       phone to the fourth section; that contract is asserted on its own, in
+       phone to the fourth band; that contract is asserted on its own, in
        "stops drawing once its space has scrolled off a phone's screen". The
        mapping read here is the same code on both. */
     test.skip(Boolean(isMobile), "the cloud only travels the document where there is a lane");
     test.slow();
-    /* The contract in scroll.ts has been through two versions and is back at
-       the first, which is worth saying rather than quietly reverting.
+    /* The contract in scroll.ts: band n's top reaching the top of the viewport
+       is progress n, and between two bands it is the fraction of the way
+       between them. A band is anything on the page that carries data-band: the
+       hero, each section, and each pair of projects in the work, which is why
+       there are eleven of them and not seven.
 
-       It was section boundaries: section n's top reaching the top of the
-       viewport is progress n. Then the cloud could not be drawn on paper, being
-       additive, so the whole timeline was compressed into the dark stage at the
-       top and the contract became a proportion of the stage's own travel. The
-       final pass reads the same accumulation as ink on the paper half now, so
-       the cloud travels the document again and the section measurement is
-       simply the right one. The hero is section zero.
-
-       One thing did change. Progress is normalised by the number of gaps rather
-       than being the section index itself, so moving a section to its own page
-       does not take the last state off the end of the timeline. Six is the end
-       of the page whatever the page is made of.
+       It was the page's sections, normalised by the number of gaps so that
+       the end of the page was six whatever the page was made of. That put the
+       one change of shape after the first two thirds of the page. The bands are
+       the unit the cloud changes its mind at, so they are the unit it is
+       counted in.
 
        The measurement is only exact if the boundaries were read after the page
        stopped moving. Fonts change the height of every block of text, and the
@@ -1011,19 +1022,24 @@ test.describe("the particle engine", () => {
     await handleReady(page);
 
     const ids = await page.evaluate(() =>
-      ["hero", "work", "about", "path", "skills", "endorsements", "contact"].filter((id) =>
-        document.getElementById(id),
-      ),
+      Array.from(document.querySelectorAll("[data-band]")).map((band) => band.id),
     );
-    expect(ids.length, "the home page lost a section the timeline is mapped to").toBe(7);
+    expect(
+      ids,
+      "the home page has lost or gained a band the timeline is mapped to",
+    ).toEqual(bandPlan(projects.length).map((band) => band.id));
 
-    /* The top of section n, and a point halfway between two of them, which is
-       what catches a mapping that is right at the boundaries and wrong in
-       between. */
+    /* The top of band n, and a point halfway between two of them, which is what
+       catches a mapping that is right at the boundaries and wrong in between.
+       The last band is left out: its top is further down than the page can
+       scroll, which is what the contract's clamp is for and is asserted by the
+       test after this one. */
     for (const [index, fraction] of [
       [2, 0],
       [4, 0],
       [1, 0.5],
+      [7, 0],
+      [8, 0.5],
     ] as const) {
       const moved = await page.evaluate(
         ([id, next, share]: [string, string, number]) => {
@@ -1037,12 +1053,11 @@ test.describe("the particle engine", () => {
         },
         [ids[index]!, ids[index + 1] ?? ids[index]!, fraction] as [string, string, number],
       );
-      expect(moved, "the section the timeline is mapped to is missing").toBe(true);
+      expect(moved, "the band the timeline is mapped to is missing").toBe(true);
 
-      const expected = ((index + fraction) / (ids.length - 1)) * 6;
       await expect
         .poll(() => scrollReading(page), { timeout: 20_000 })
-        .toBeCloseTo(expected, 1);
+        .toBeCloseTo(index + fraction, 1);
     }
   });
 
@@ -1059,16 +1074,26 @@ test.describe("the particle engine", () => {
        fast the timeline is then allowed to travel is asserted in
        scripts/check-motion.ts, where it can be measured exactly; what is
        asserted here is that the jump is followed at all, which is the part that
-       depends on the boundaries, the anchor and the engine agreeing. */
+       depends on the boundaries, the anchor and the engine agreeing: the
+       timeline arrives at the last band, and the cloud arrives at the last
+       shape in the chain of them, which is ten changes of shape from where it
+       started. */
     await page.addInitScript((key: string) => sessionStorage.setItem(key, "1"), INTRO_KEY);
     await page.goto("/?brainQuality=low&brainDebug=1");
     await handleReady(page);
 
+    const plan = bandPlan(projects.length);
+    const { chain } = chainOf(plan.map((band) => shapeSlot(band.shape)));
+
     expect(await progressReading(page), "the page did not start at the top").toBeLessThan(0.2);
 
     await page.click('a[href="#contact"]');
-    await expect.poll(() => scrollReading(page), { timeout: 20_000 }).toBeGreaterThan(5.5);
-    await expect.poll(() => progressReading(page), { timeout: 20_000 }).toBeGreaterThan(2.4);
+    await expect
+      .poll(() => scrollReading(page), { timeout: 30_000 })
+      .toBeGreaterThan(plan.length - 1.5);
+    await expect
+      .poll(() => progressReading(page), { timeout: 30_000 })
+      .toBeGreaterThan(chain.length - 1.5);
   });
 
   test("turns itself off when asked, leaving the page untouched", async ({ page }) => {

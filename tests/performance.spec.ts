@@ -89,19 +89,26 @@ test.describe("performance budget", () => {
     expect(result.lcp, "largest contentful paint").toBeLessThan(1500);
     expect(result.cls, "cumulative layout shift").toBeLessThan(0.05);
 
-    /* 560KB, up from 500, and the increase is the particle engine: the
-       simulation, the shaders and the geometry. It is loaded only here,
-       dynamically, and largest contentful paint is unchanged because the hero
-       is server rendered text that does not wait for it. Every other route
-       still holds the old 500KB, asserted below, so the engine cannot quietly
-       leak back into a page that has no use for it.
+    /* 570KB, up from 560, which was up from 500. The first increase was the
+       particle engine: the simulation, the shaders and the geometry. It is
+       loaded only here, dynamically, and largest contentful paint is unchanged
+       because the hero is server rendered text that does not wait for it. Every
+       other route still holds the old 500KB, asserted below, so the engine
+       cannot quietly leak back into a page that has no use for it.
+
+       The second is what the page was asked to become, about eight kilobytes of
+       it: the cloud is seven shapes and not four, the page is a plan of bands
+       and not seven sections, and the cloud is sized by measuring where it is
+       drawn and not from a radius. The home page measured 553KB before and 561KB
+       after, over the old ceiling by half a kilobyte, so the ceiling moves by
+       ten and stays a ceiling.
 
        The number before that was 500KB, down from 600. Inlining the command
        palette instead of splitting it measured 580KB on this same page, so the
        ceiling is what stops that 122KB coming back: anything that pulls the
        panel into the first-load
        bundle again fails here rather than quietly shipping. */
-    expect(result.javascriptBytes / 1024, "uncompressed JavaScript, KB").toBeLessThan(560);
+    expect(result.javascriptBytes / 1024, "uncompressed JavaScript, KB").toBeLessThan(570);
 
     console.log(
       `home: LCP ${result.lcp}ms, CLS ${result.cls}, ` +
