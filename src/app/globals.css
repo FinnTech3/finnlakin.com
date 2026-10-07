@@ -685,6 +685,24 @@ body {
     white-space: nowrap;
   }
 
+  /* The lane takes forty percent of the window from 1100 pixels, so the column
+     the work index sits in is 605 pixels wide at 1100 and does not reach the 664
+     the table asked for until 1205. Across that, the last column was cut off
+     mid-word and the table scrolled sideways inside itself. The gaps are tighter
+     while the column is narrow, and the number's is tighter still, which is the
+     one a reader will not miss. */
+  @media (min-width: 1100px) and (max-width: 1239px) {
+    .index-work th,
+    .index-work td {
+      padding-right: 1rem;
+    }
+
+    .index-work .num,
+    .index-work th:first-child {
+      padding-right: 0.5rem;
+    }
+  }
+
   .index-name {
     font-family: var(--font-display);
     font-weight: 600;

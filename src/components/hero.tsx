@@ -155,7 +155,12 @@ export function Hero({ band }: { band: BandPlan }) {
             curve down cannot pin down the premium it draws out of it.
           </p>
 
-          <div className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-10 @3xl:grid-cols-[1.4fr_1fr]">
+          {/* The ledger's column is as wide as its table, and the flagged figure
+              takes what is left. It was a share of the block, and a share is
+              not enough: the block is 773 pixels wide at 920 and again at 1550,
+              the table needs 480 and its share was 427, so the verdict was cut
+              off the edge and the table scrolled sideways. */}
+          <div className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-10 @3xl:grid-cols-[minmax(min-content,1.4fr)_1fr]">
             <figure className="m-0 min-w-0">
               <figcaption className="t-label pb-3">
                 {rebuiltWord} reconstructions, against the published series

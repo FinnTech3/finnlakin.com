@@ -301,14 +301,23 @@ deviation and the verdict, aligned and undecorated. A verdict is carried three
 ways at once, by the word, the weight, and for a result that did not hold, the
 swatch, so that nobody needs the colour. Below 720px it is a list of short blocks
 of the same four things in the same order, and the table is `display: none`, so it
-is not in the accessibility tree twice.
+is not in the accessibility tree twice. Where it sits beside the figure that did
+not hold, its column is as wide as the table is (`minmax(min-content, 1.4fr)`) and
+that figure takes what is left. It was a share of the block, and at 920 and at 1550
+pixels the share was 427 where the table needs 480, so the verdict was cut off the
+edge.
 
 ### The index
 `ProjectIndex`: the work as a listing, a number, the piece and its headline, the
 one figure that carries it, what it is built with, and how far the evidence goes.
-Each piece links to its entry. It scrolls inside itself on a narrow screen, and the
-region is focusable and named so a keyboard can reach the columns that are off the
-edge.
+Each piece links to its entry. It scrolls inside itself below 720px, and the region
+is focusable and named so a keyboard can reach the columns that are off the edge.
+From 720px up it fits the column it is in. The lane leaves 605px at 1100, so the
+piece's column has a floor of 11rem and not 14rem, and the gaps are tighter from
+1100 to 1239 (`.index-work`); on an iPad mini on its side the last column was cut
+off mid-word before that. A table that scrolls inside itself does not make the page
+wider, so nothing that measured the page could have seen it, and
+`tests/tables.spec.ts` measures the tables.
 
 ### An entry
 `ProjectEntry`: name, headline, body, clip, stats, the interval band, **what this
@@ -474,6 +483,7 @@ provenance.
 | `tests/backdrop.spec.ts`, `cloud-overlap.ts`, `crossing.spec.ts` | The cloud never being under a word, and what the cloud is doing: its marks are measured as distance from the flat wall |
 | `tests/bands.spec.ts` | The markup being the plan, five pairs of projects alternating sides, and the engine reading each band's side and shape back off the page |
 | `tests/fit.spec.ts` | The cloud's size on the screens people have: seven iPads upright and on their side, a laptop, an ultrawide, a window dragged tall, a phone on its side |
+| `tests/tables.spec.ts` | Neither table scrolling sideways at any width from 720px up: the widths that failed, the ones around them, and the screens people have |
 | `tests/back-to-top.spec.ts` | The button on every route, and what it does |
 | `tests/a11y.spec.ts`, `print.spec.ts`, `platform.spec.ts` | Contrast (including the call to action's label on its own fill), print, and the platform colours |
 | `tests/performance.spec.ts` | Budgets, and what a late font does to the page |
