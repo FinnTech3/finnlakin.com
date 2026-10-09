@@ -150,11 +150,34 @@ test.describe("icons and manifest", () => {
     }
   });
 
-  test("the theme colour resolves for both colour schemes", async ({ page }) => {
+  /* One theme colour, where there used to be a media-scoped pair. The site does
+     not follow the operating system: the design is one wall, in both. A pair
+     would have been two identical values pretending to be a choice.
+
+     And it is the wall the page is painted on, which is what this asserts. The
+     colour is written in three places that cannot read each other: the
+     stylesheet's custom property, the viewport's theme colour, and the manifest.
+     A test that only checked the head against a literal would pass the day the
+     stylesheet's wall changed and the head's did not, and the browser's own
+     chrome would then meet the page in a different grey. */
+  test("the theme colour is the wall the page is painted on", async ({ page, request }) => {
     await page.goto("/");
-    const light = page.locator('meta[name="theme-color"][media*="light"]');
-    const dark = page.locator('meta[name="theme-color"][media*="dark"]');
-    await expect(light).toHaveAttribute("content", "#f7f7f4");
-    await expect(dark).toHaveAttribute("content", "#101215");
+    const tags = page.locator('meta[name="theme-color"]');
+    await expect(tags).toHaveCount(1);
+    await expect(tags).not.toHaveAttribute("media", /.*/);
+
+    const theme = await tags.getAttribute("content");
+    expect(theme, "the theme colour is not a six digit hex").toMatch(/^#[0-9a-f]{6}$/i);
+    const [r, g, b] = [1, 3, 5].map((at) => Number.parseInt(theme!.slice(at, at + 2), 16));
+    const painted = await page.evaluate(
+      () => getComputedStyle(document.documentElement).backgroundColor,
+    );
+    expect(painted, "the root is not painted in the colour the head announces").toBe(
+      `rgb(${r}, ${g}, ${b})`,
+    );
+
+    const manifest = await (await request.get("/manifest.webmanifest")).json();
+    expect(manifest.theme_color, "the manifest's theme colour is not the head's").toBe(theme);
+    expect(manifest.background_color, "the manifest's background is not the wall").toBe(theme);
   });
 });

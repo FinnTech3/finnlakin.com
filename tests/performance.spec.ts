@@ -89,11 +89,26 @@ test.describe("performance budget", () => {
     expect(result.lcp, "largest contentful paint").toBeLessThan(1500);
     expect(result.cls, "cumulative layout shift").toBeLessThan(0.05);
 
-    /* 500KB, down from 600. Inlining the command palette instead of splitting
-       it measured 580KB on this same page, so this ceiling is what stops that
-       122KB coming back: anything that pulls the panel into the first-load
+    /* 570KB, up from 560, which was up from 500. The first increase was the
+       particle engine: the simulation, the shaders and the geometry. It is
+       loaded only here, dynamically, and largest contentful paint is unchanged
+       because the hero is server rendered text that does not wait for it. Every
+       other route still holds the old 500KB, asserted below, so the engine
+       cannot quietly leak back into a page that has no use for it.
+
+       The second is what the page was asked to become, about eight kilobytes of
+       it: the cloud is seven shapes and not four, the page is a plan of bands
+       and not seven sections, and the cloud is sized by measuring where it is
+       drawn and not from a radius. The home page measured 553KB before and 561KB
+       after, over the old ceiling by half a kilobyte, so the ceiling moves by
+       ten and stays a ceiling.
+
+       The number before that was 500KB, down from 600. Inlining the command
+       palette instead of splitting it measured 580KB on this same page, so the
+       ceiling is what stops that 122KB coming back: anything that pulls the
+       panel into the first-load
        bundle again fails here rather than quietly shipping. */
-    expect(result.javascriptBytes / 1024, "uncompressed JavaScript, KB").toBeLessThan(500);
+    expect(result.javascriptBytes / 1024, "uncompressed JavaScript, KB").toBeLessThan(570);
 
     console.log(
       `home: LCP ${result.lcp}ms, CLS ${result.cls}, ` +
@@ -162,6 +177,9 @@ test.describe("performance budget", () => {
     const frameLoaded = second.frames().length > 1;
     await second.close();
 
+    /* Still 500. A write-up has no particle engine and must never download
+       one: before this was split per route it was shipping the whole thing to
+       render an essay. */
     expect(piece.javascriptBytes / 1024, "write-up JavaScript, KB").toBeLessThan(500);
     expect(piece.cls, "write-up layout shift").toBeLessThan(0.05);
     expect(piece.javascriptBytes).toBeLessThanOrEqual(home.javascriptBytes);
@@ -207,5 +225,120 @@ test.describe("performance budget", () => {
       chunks.length,
       "opening the palette should fetch a chunk that was not loaded before",
     ).toBeGreaterThan(beforeOpen);
+  });
+});
+
+/* What the page does when its fonts land late, which the budget above cannot
+   say.
+
+   Every test above loads the fonts instantly, because the server is on the same
+   machine, so each measures a page whose fonts were there at first paint: a
+   layout shift of nought whatever stands in for them. A reader on a slow
+   connection sees the page painted in the stand-ins and then swapped, and a swap
+   that changes how any text wraps moves everything under it. On a 393 by 727
+   phone with the files two and a half seconds late that was 0.195, which is
+   nearly four times the budget, from the two labels at the top of the hero (one
+   line in the stand-in, two in the real face), a standfirst that lost a line,
+   and measures in ch that are a different width in two faces.
+
+   Run on both projects, because the phone is where it was worst. */
+test.describe("late fonts", () => {
+  const DELAY_MS = 2_500;
+
+  /* Not the 0.05 the budget allows. With the stand-ins in place a swap is
+     measured in ten thousandths here, so this leaves twenty times that for noise
+     and still fails on any line that wraps differently. The case a looser bar
+     would miss is a stand-in that is wrong on a machine with Arial, which
+     measured 0.024 on the phone: inside the budget, and a visible jump. */
+  const CEILING = 0.01;
+
+  type Shift = PerformanceEntry & { value: number; hadRecentInput: boolean };
+
+  test("the page does not move when its fonts land after it has painted", async ({ page }) => {
+    await page.addInitScript(() => {
+      sessionStorage.setItem("fl-intro-played", "1");
+      const store = window as unknown as { __shift: number };
+      store.__shift = 0;
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          const shift = entry as Shift;
+          if (!shift.hadRecentInput) store.__shift += shift.value;
+        }
+      }).observe({ type: "layout-shift", buffered: true });
+    });
+
+    let held = 0;
+    await page.route(/\/_next\/static\/media\/.*\.woff2/, async (route) => {
+      held += 1;
+      await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
+      await route.continue();
+    });
+
+    /* Waits for the load event, which waits for the preloaded fonts: the swap has
+       happened by the time this returns. */
+    await page.goto("/?brainQuality=off", { waitUntil: "load" });
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(1_000);
+
+    const result = await page.evaluate(() => ({
+      shift: (window as unknown as { __shift: number }).__shift,
+      firstPaint: performance.getEntriesByName("first-contentful-paint")[0]?.startTime ?? -1,
+    }));
+
+    /* The two things that make the number mean something. A font that was never
+       held back, or a page that did not paint until the fonts had landed, would
+       report nought for a reason that has nothing to do with the stand-ins. */
+    expect(held, "no font file was held back, so nothing was late").toBeGreaterThan(0);
+    expect(
+      result.firstPaint,
+      "the page had not painted before the fonts landed, so no swap was measured",
+    ).toBeGreaterThan(0);
+    expect(result.firstPaint, "the page waited for its fonts before it painted").toBeLessThan(
+      DELAY_MS,
+    );
+
+    console.log(`late fonts: layout shift ${result.shift.toFixed(4)}, first paint ${Math.round(result.firstPaint)}ms`);
+    expect(result.shift, "layout shift when the fonts arrive").toBeLessThan(CEILING);
+  });
+
+  /* next/font generates a stand-in of its own for the reading face, and the
+     option that turns it off is not honoured by this bundler. The stand-in this
+     site means is the one written in globals.css under the same name, and it
+     replaces the generated one only by coming after it with the same
+     descriptors. That depends on a name and an order, so it is asserted: if
+     either changes, the generated one wins quietly, and on any machine with
+     Arial the labels are a quarter too wide until the real face lands. This
+     cannot be seen as a layout shift on a machine without Arial, which is why it
+     is asserted directly. */
+  test("the stand-in for the reading face is the one this site wrote", async ({ page }) => {
+    await page.goto("/");
+
+    const { rules, family } = await page.evaluate(() => {
+      const found: string[] = [];
+      for (const sheet of Array.from(document.styleSheets)) {
+        for (const rule of Array.from(sheet.cssRules)) {
+          if (rule instanceof CSSFontFaceRule && rule.cssText.includes("Martian Mono Fallback")) {
+            found.push(rule.cssText);
+          }
+        }
+      }
+      return {
+        rules: found,
+        family: getComputedStyle(document.documentElement).getPropertyValue("--font-martian"),
+      };
+    });
+
+    /* The name the generated stand-in actually has, read from the variable that
+       puts it in the font stack. If a bundler change renames it, the hand made
+       one would still be declared and would replace nothing. */
+    expect(
+      family,
+      "the generated stand-in is no longer called Martian Mono Fallback; rename the one in globals.css",
+    ).toContain("Martian Mono Fallback");
+    expect(rules.length, "no stand-in for the reading face is declared at all").toBeGreaterThan(0);
+    expect(
+      rules.at(-1),
+      "the last stand-in declared under the generated name is not the hand made one",
+    ).toMatch(/size-adjust:\s*119%/);
   });
 });

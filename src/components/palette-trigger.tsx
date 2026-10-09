@@ -81,15 +81,38 @@ export function PaletteTrigger() {
         onFocus={warm}
         aria-haspopup="dialog"
         aria-expanded={open}
-        /* min-h-11 keeps this at a real touch target. The shortcut hint is
-           hidden on small screens, where a meta key does not exist, but the
-           button itself is how a phone reaches the palette at all. */
-        className="flex min-h-11 items-center gap-2 border border-rule px-3 font-mono text-[11px] text-muted hover:border-accent hover:text-accent sm:min-h-0 sm:py-1.5"
+        /* min-h-11 keeps this at a real touch target.
+
+           No shortcut hint. It read as a badge bolted to a button rather than
+           as something to type into, and a meta key glyph is meaningless on the
+           half of the traffic that has no meta key. The shortcut itself still
+           works, because it costs nothing and nobody who does not know about it
+           is worse off; what has gone is the label.
+
+           A ruled box with nothing in it: the border reads as a field, and
+           there is no fill, because a fill is an opaque block and the header is
+           above the cloud's lane. Square, like everything else on the wall.
+
+           Not full width on a phone. It was, which gave it a row of its own
+           under the name and pushed the navigation onto a third, and the header
+           ended sixty pixels below where the page had been told it did. */
+        className="t-label flex min-h-11 min-w-[9rem] items-center gap-2.5 border-2 border-carbon px-4 text-left text-ink hover:bg-accent-soft hover:text-carbon sm:min-h-0 sm:py-2.5"
       >
+        {/* A magnifier, so the control reads as a field to search in rather
+            than as a button that says Search. Inline rather than an icon
+            dependency: it is nine numbers. */}
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 16 16"
+          className="size-4 shrink-0"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        >
+          <circle cx="7" cy="7" r="4.5" />
+          <path d="M10.5 10.5 14 14" strokeLinecap="round" />
+        </svg>
         Search
-        <kbd aria-hidden="true" className="hidden font-mono text-[10px] tracking-wider sm:inline">
-          ⌘K
-        </kbd>
       </button>
 
       {mounted ? <PalettePanel open={open} onOpenChange={setOpen} /> : null}

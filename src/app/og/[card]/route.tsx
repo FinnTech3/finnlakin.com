@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { acid, carbon, wall } from "@/lib/colours";
 import { shareCardByKey, shareCards } from "@/lib/share-cards";
 import { person } from "@/lib/site";
 
@@ -11,13 +12,20 @@ export function generateStaticParams() {
 
 export const dynamicParams = false;
 
-/* Share cards have no viewer theme, so the light palette is hard-coded here
-   rather than read from tokens. */
-const PAPER = "#f7f7f4";
-const INK = "#15171a";
-const MUTED = "#5c6167";
-const RULE = "#c9c9c1";
-const ACCENT = "#2e4bd8";
+/* Share cards have no viewer theme and no stylesheet, so the palette comes from
+   src/lib/colours.ts rather than from tokens: the wall, the carbon on it, and a
+   swatch of acid for the kicker, so a link preview looks like the page it
+   opens.
+
+   The type is the renderer's own. The site's headline face is a font file this
+   renderer would have to be handed, and the file is not in this repository: a
+   card set in a face that is nearly right is worse than one that is plainly a
+   preview. Upper case and tight, which is as far as the default goes.
+
+   The quiet colour is the carbon at four fifths over the wall, worked out to an
+   opaque value because the renderer does not blend. It is about 5.4:1 on the
+   wall. */
+const MUTED = "#2f2f2d";
 
 const SIZE = { width: 1200, height: 630 };
 
@@ -46,20 +54,22 @@ export async function GET(
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          background: PAPER,
+          background: wall,
           padding: "72px 80px",
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
           {kicker ? (
             <div
               style={{
                 display: "flex",
-                fontSize: 24,
-                letterSpacing: 3,
+                fontSize: 22,
+                color: carbon,
+                background: acid,
+                padding: "6px 14px",
+                letterSpacing: 4,
                 textTransform: "uppercase",
-                color: ACCENT,
-                marginBottom: 28,
+                marginBottom: 32,
               }}
             >
               {kicker}
@@ -68,11 +78,13 @@ export async function GET(
           <div
             style={{
               display: "flex",
-              fontSize: title.length > 48 ? 68 : 84,
-              lineHeight: 1.08,
+              fontSize: title.length > 48 ? 68 : 88,
+              fontWeight: 700,
+              lineHeight: 1,
               letterSpacing: -2,
-              color: INK,
-              maxWidth: 960,
+              textTransform: "uppercase",
+              color: carbon,
+              maxWidth: 1000,
             }}
           >
             {title}
@@ -80,7 +92,7 @@ export async function GET(
         </div>
 
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", width: "100%", height: 1, background: RULE }} />
+          <div style={{ display: "flex", width: "100%", height: 4, background: carbon }} />
           <div
             style={{
               display: "flex",
@@ -89,10 +101,19 @@ export async function GET(
               marginTop: 24,
             }}
           >
-            <div style={{ display: "flex", fontSize: 28, color: INK }}>{person.name}</div>
-            <div style={{ display: "flex", fontSize: 24, color: MUTED }}>
-              {person.course}
+            <div
+              style={{
+                display: "flex",
+                fontSize: 28,
+                fontWeight: 700,
+                letterSpacing: 3,
+                textTransform: "uppercase",
+                color: carbon,
+              }}
+            >
+              {person.name}
             </div>
+            <div style={{ display: "flex", fontSize: 22, color: MUTED }}>{person.course}</div>
           </div>
         </div>
       </div>

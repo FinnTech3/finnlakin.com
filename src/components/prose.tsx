@@ -1,5 +1,10 @@
 import type { ReactNode } from "react";
 
+/* Editorial furniture for the write-ups. These are not body copy, so each sets
+   its own size and weight instead of inheriting the long-form setting, and they
+   are written against the tokens so they come out right wherever they land: on
+   the chalk sheet the essays are set on, or on the wall. */
+
 /* The correction strip. Every one of Finn's READMEs names the wrong turn before
    it names the result, so it gets a designed slot rather than a footnote.
 
@@ -18,13 +23,13 @@ export function WrongFirst({
   return (
     <div
       role="note"
-      className="my-10 flex flex-col gap-3 border-t border-rule pt-5 sm:flex-row sm:gap-5"
+      className="scored my-12 flex flex-col gap-4 pt-6 sm:flex-row sm:gap-8"
     >
-      <p className="shrink-0 self-start rounded-xs border border-flag px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-flag">
-        Wrong first
+      <p className="t-label shrink-0 self-start">
+        <span className="flag">Wrong first</span>
       </p>
-      <div className="flex max-w-[62ch] flex-col gap-2 font-sans text-[15px] leading-relaxed">
-        <p className="text-muted line-through decoration-flag">{struck}</p>
+      <div className="flex max-w-[62ch] flex-col gap-3 text-[0.9375rem] leading-relaxed">
+        <p className="text-muted line-through decoration-carbon decoration-2">{struck}</p>
         <p className="text-ink-soft">{children}</p>
       </div>
     </div>
@@ -34,11 +39,9 @@ export function WrongFirst({
 /* A note alongside the argument rather than inside it. */
 export function Marginal({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div role="note" className="my-8 max-w-[58ch] border-l-2 border-accent pl-4 font-sans">
-      <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-accent">
-        {label}
-      </p>
-      <div className="mt-1.5 text-sm leading-relaxed text-muted">{children}</div>
+    <div role="note" className="my-10 max-w-[58ch] border-l-2 border-carbon pl-6">
+      <p className="t-label">{label}</p>
+      <div className="mt-2 text-[0.875rem] leading-relaxed text-muted">{children}</div>
     </div>
   );
 }
@@ -50,18 +53,18 @@ export function Figures({
   items: { value: string; label: string; tone?: "pass" | "flag" }[];
 }) {
   return (
-    <dl className="my-10 grid grid-cols-2 gap-x-6 gap-y-5 border-y border-rule py-5 font-sans sm:grid-cols-4">
+    <dl className="my-12 grid grid-cols-2 gap-x-8 gap-y-7 border-y-2 border-rule-strong py-7 sm:grid-cols-4">
       {items.map((item) => (
-        <div key={item.label} className="flex flex-col gap-1">
+        <div key={item.label} className="flex flex-col gap-1.5">
           <dt className="sr-only">{item.label}</dt>
-          <dd
-            className={`font-mono text-[1.35rem] leading-none font-medium tabular-nums tracking-[-0.02em] ${
-              item.tone === "pass" ? "text-pass" : item.tone === "flag" ? "text-flag" : "text-ink"
-            }`}
-          >
-            {item.value}
+          <dd className="font-display text-[2.25rem] leading-none font-bold tracking-[-0.01em] uppercase">
+            {item.tone === "flag" ? (
+              <span className="flag">{item.value}</span>
+            ) : (
+              <span className={item.tone === "pass" ? "held" : "text-ink"}>{item.value}</span>
+            )}
           </dd>
-          <p aria-hidden="true" className="text-xs leading-snug text-muted">
+          <p aria-hidden="true" className="t-caption leading-snug text-muted">
             {item.label}
           </p>
         </div>
@@ -74,7 +77,12 @@ export function Figures({
    weighting here would mean inventing the index data, which is the one thing
    this site must not do. Lazy so it costs nothing until it is scrolled to, and
    always paired with a link out, because a frame can be blocked and the piece
-   still has to work. */
+   still has to work.
+
+   It keeps a visible frame where nothing else on the site has one. The tool is
+   served from another origin and follows the reader's own colour scheme rather
+   than this page's, so a ruled edge is what says "this is a different
+   document" instead of it looking like a rendering fault. */
 export function Embed({
   title,
   src,
@@ -89,8 +97,8 @@ export function Embed({
   note: string;
 }) {
   return (
-    <figure className="my-10 flex flex-col gap-3 font-sans">
-      <div className="overflow-hidden border border-rule bg-panel">
+    <figure className="my-12 flex flex-col gap-4">
+      <div className="overflow-hidden border-2 border-carbon">
         <iframe
           title={title}
           src={src}
@@ -98,11 +106,11 @@ export function Embed({
           className="block h-[32rem] w-full border-0"
         />
       </div>
-      <figcaption className="flex flex-col gap-1 text-[13px] leading-relaxed text-muted">
+      <figcaption className="flex flex-col gap-1.5 text-[0.8125rem] leading-relaxed text-muted">
         <span>{note}</span>
         <a
           href={href}
-          className="text-accent underline underline-offset-[3px]"
+          className="link-arrow self-start underline decoration-2 underline-offset-[3px]"
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -115,11 +123,9 @@ export function Embed({
 
 export function Limits({ children }: { children: ReactNode }) {
   return (
-    <section className="my-10 max-w-[64ch] border-t border-rule-strong pt-5 font-sans">
-      <h2 className="font-mono text-[11px] uppercase tracking-[0.13em] text-ink">
-        What this does not show
-      </h2>
-      <div className="mt-3 flex flex-col gap-3 text-sm leading-relaxed text-muted">
+    <section className="scored my-12 max-w-[64ch] pt-6">
+      <h2 className="t-label">What this does not show</h2>
+      <div className="mt-4 flex flex-col gap-4 text-[0.875rem] leading-relaxed text-muted">
         {children}
       </div>
     </section>

@@ -27,16 +27,19 @@ test.describe("print output", () => {
   });
 
   test("keeps pass and flag distinguishable without colour", async ({ page }) => {
-    /* Both verdict tokens become black in print, deliberately, because a
-       coloured verdict prints as a mid grey fainter than the text around it.
-       That leaves weight to carry the distinction, so weight is what this
-       checks: comparing the colours would pass while saying nothing. */
+    /* A result that did not hold is a swatch of acid on the screen, and a result
+       that did is plain. On paper a swatch of acid is a pale grey behind the
+       words, which says nothing, and a coloured verdict prints as a mid grey
+       fainter than the text around it. So both turn black, deliberately, and
+       the distinction is carried by weight and a box round the flag. Weight and
+       the box are what this checks: comparing the colours would pass while
+       saying nothing. */
     await page.goto("/writing/nanobook");
     await page.emulateMedia({ media: "print" });
     await page.evaluate(() => document.fonts.ready);
 
-    const flag = page.locator(".text-flag").first();
-    const pass = page.locator(".text-pass").first();
+    const flag = page.locator(".flag").first();
+    const pass = page.locator(".held").first();
     await expect(flag).toBeVisible();
     await expect(pass).toBeVisible();
 
@@ -49,12 +52,20 @@ test.describe("print output", () => {
       "a flagged figure must stand out from a passing one on paper",
     ).toBeGreaterThan(passWeight);
 
-    /* And both must still be black, or the weight fix has quietly been
-       undone by something restoring hue. */
+    /* The box is the other half of it, and it has to be there: weight alone is a
+       difference between 500 and 700, which a laser printer does not always
+       show. */
+    const outline = await flag.evaluate((node) => getComputedStyle(node).outlineStyle);
+    expect(outline, "a flagged figure has no box round it on paper").toBe("solid");
+
+    /* And both must still be black, with no swatch behind the words, or the
+       paper rules have quietly been undone by something restoring hue. */
     for (const locator of [flag, pass]) {
       const colour = await locator.evaluate((node) => getComputedStyle(node).color);
       expect(colour).toBe("rgb(0, 0, 0)");
     }
+    const swatch = await flag.evaluate((node) => getComputedStyle(node).backgroundColor);
+    expect(swatch, "the acid swatch survived into print").toBe("rgba(0, 0, 0, 0)");
   });
 
   test("prints the address of a link nobody can click", async ({ page }) => {

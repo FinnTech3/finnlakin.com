@@ -26,6 +26,42 @@ test.describe("every route renders cleanly", () => {
   }
 });
 
+/* The header is laid over the top of every page, so every page has to leave
+   room for it, and on a phone it did not. Below 640 pixels the header stacks
+   into more rows than the space kept for it: measured on a Pixel 5 it ended at
+   164 pixels while the content started at 104 on the home page, 112 on the CV
+   and 152 everywhere else, so the navigation was drawn through the first line
+   of the page, whether that was the name or a page title. Measured on every
+   route, because the space is kept in more than one place. */
+test.describe("the header", () => {
+  for (const route of routes) {
+    test(`leaves the first line of ${route} clear`, async ({ page }) => {
+      await page.addInitScript(() => sessionStorage.setItem("fl-intro-played", "1"));
+      await page.goto(route);
+      await page.evaluate(() => document.fonts.ready);
+      const { header, content, label } = await page.evaluate(() => {
+        const bar = document.querySelector("header.site-header")!.getBoundingClientRect();
+        const first = Array.from(
+          document.querySelectorAll<HTMLElement>("main h1, main h2, main p, main li, main a"),
+        ).find((element) => {
+          const box = element.getBoundingClientRect();
+          return box.height > 0 && box.width > 0 && getComputedStyle(element).visibility !== "hidden";
+        })!;
+        const box = first.getBoundingClientRect();
+        return {
+          header: bar.bottom,
+          content: box.top + window.scrollY,
+          label: (first.textContent ?? "").trim().slice(0, 40),
+        };
+      });
+      expect(
+        content,
+        `the header ends at ${Math.round(header)}px and "${label}" starts at ${Math.round(content)}px`,
+      ).toBeGreaterThanOrEqual(header);
+    });
+  }
+});
+
 test("the page paints its headline with JavaScript disabled", async ({ browser }) => {
   /* Motion's initial="hidden" pattern bakes the hidden transform into the
      server HTML, which ships a hero that never paints if the bundle is blocked.
@@ -57,7 +93,14 @@ test.describe("reduced motion", () => {
     const page = await context.newPage();
     await page.goto("/");
     const row = page.locator(".settle-rows > tr").first();
-    await expect(row).toBeVisible();
+    /* Attached, not visible. Below 720 pixels the table is not shown: each row
+       is a short block in a list instead, because four columns do not fit
+       between the gutters of a phone. The rows are still in the document, the
+       rule that animates them still applies to them and still computes, and what
+       is being asked is whether reduced motion takes the animation off that
+       rule, which does not depend on the screen the page is read on. Without
+       this the phone project reported a failure for a table nobody is shown. */
+    await expect(row).toBeAttached();
     const duration = await row.evaluate((node) => getComputedStyle(node).animationDuration);
     await context.close();
     return Number.parseFloat(duration);

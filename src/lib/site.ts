@@ -20,8 +20,6 @@ export const person = {
   exchange: "Université Paris Dauphine",
   graduation: 2027,
   location: "Oxford, United Kingdom",
-  seeking:
-    "Summer 2026 internships in equity research, quantitative methods and financial technology",
 } as const;
 
 /* Phone number is deliberately absent. Finn asked for it off the site: once a
@@ -34,6 +32,8 @@ export const contact = {
 
 export const nav = [
   { href: "/", label: "Work" },
+  { href: "/path", label: "Path" },
+  { href: "/reel", label: "Reel" },
   { href: "/writing", label: "Writing" },
   { href: "/cv", label: "CV" },
 ] as const;

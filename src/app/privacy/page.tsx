@@ -18,7 +18,7 @@ export default function PrivacyPage() {
       title="What this site measures"
       intro="Short version: page views and how long a page was read, with no cookie, nothing stored on your device, and no way to identify you tomorrow from what was recorded today."
     >
-      <div className="longform max-w-[68ch]">
+      <div className="sheet longform max-w-[60rem]">
         <h2>There is no cookie banner because there is no cookie</h2>
         <p>
           This site sets no cookie, writes nothing to <code>localStorage</code>,

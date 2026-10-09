@@ -114,7 +114,7 @@ doc
   .fontSize(9.5)
   .fillColor(INK)
   .text(
-    `Final-year ${person.course} student at ${person.university}, on track for First-Class Honours, back from an exchange year at ${person.exchange} taught in French. I rebuild published financial and economic series from primitives and report where the reconstruction disagrees, in Python, R, Rust and TypeScript. Seeking ${person.seeking}.`,
+    `Final-year ${person.course} student at ${person.university}, on track for First-Class Honours, back from an exchange year at ${person.exchange} taught in French. I rebuild published financial and economic series from primitives and report where the reconstruction disagrees, in Python, R, Rust and TypeScript.`,
     { width, lineGap: 1.5 },
   );
 

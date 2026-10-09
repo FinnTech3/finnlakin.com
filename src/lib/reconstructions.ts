@@ -1,3 +1,5 @@
+import { numberWord } from "./numbers";
+
 /* The hero table. Four published quantities, rebuilt independently, with the
    deviation reported. The fourth row is the point of the table: the same model
    that nails the yield curve cannot pin down the premium it draws from it. */
@@ -49,3 +51,12 @@ export const reconstructions: Reconstruction[] = [
     projectSlug: "term-premium",
   },
 ];
+
+/* The two numbers every heading about this table quotes, counted from the table
+   so that nobody can edit a row and leave a heading claiming something else. A
+   heading that says three held beside a table that shows two is the exact
+   failure this site exists to argue against. */
+export const held = reconstructions.filter((row) => row.tone === "pass").length;
+
+/* How many rows there are, as a word at the head of a sentence. */
+export const rebuiltWord = numberWord(reconstructions.length, { capital: true });

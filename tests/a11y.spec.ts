@@ -5,14 +5,33 @@ import { dropCrossOriginFrames } from "./axe-scope";
 import { PUBLIC_ROUTES as routes } from "./site-routes";
 
 type Page = import("@playwright/test").Page;
+type Locator = import("@playwright/test").Locator;
 
 async function settle(page: Page) {
   /* axe will catch an element mid-animation and report a contrast failure
      that disappears once the transition finishes, so let everything settle
      before scanning. */
   await page.evaluate(() => document.fonts.ready);
+
   await page.evaluate(async () => {
-    const animations = document.getAnimations();
+    /* Finite, time driven animations only.
+
+       An animation set to run forever has no finish, so awaiting it hangs until
+       the test times out: the call to action on the home page turns its border
+       light continuously, and waiting for that to be over timed this gate out at
+       thirty seconds. A scroll driven animation is the same thing stated the
+       other way round. It is bound to a scroll position rather than to a clock,
+       so it is never finished either, and the stage this site used to have was
+       built out of them. Neither kind is ever mid-transition in the sense this
+       wait exists for, which is a control caught halfway between two states
+       while axe reads its colours.
+
+       This narrows what is waited for and nothing about what is scanned. The
+       sweep still runs every rule at every severity over every element. */
+    const animations = document.getAnimations().filter((animation) => {
+      if (!(animation.timeline instanceof DocumentTimeline)) return false;
+      return animation.effect?.getTiming().iterations !== Infinity;
+    });
     await Promise.all(animations.map((animation) => animation.finished.catch(() => {})));
   });
   await page.waitForTimeout(300);
@@ -140,4 +159,111 @@ test.describe("heading structure", () => {
       expect(skips, `${route} skips heading levels`).toEqual([]);
     });
   }
+});
+
+/* DESIGN.md's lowest emphasis control, the text link, carries its affordance in
+   its colour and its arrow at rest and gains an underline on hover. It is
+   underlined on keyboard focus as well, for whoever cannot hover.
+
+   The rule was written with its selector cut in half. The half left inside the
+   rule matched nothing, so no text link underlined on hover or on focus, and
+   the orphaned half underlined every focused control on the site instead, the
+   call to action included. The build reported it as a warning from the CSS
+   optimiser and nothing else, which is why the workflow now fails on one. */
+test.describe("the text link", () => {
+  /* A machine with no GPU draws this page at three to five frames a second,
+     measured with the brain at its lowest tier, and every hover and keypress
+     here waits on a frame: the desktop case spends about thirty seconds on its
+     ten steps. */
+  test.describe.configure({ timeout: 90_000 });
+
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => sessionStorage.setItem("fl-intro-played", "1"));
+    await page.goto("/");
+    await page.evaluate(() => document.fonts.ready);
+  });
+
+  const decoration = (target: Locator) =>
+    target.evaluate((element) => getComputedStyle(element).textDecorationLine);
+
+  /* Focus arrives by the keyboard, the way it does for a reader who tabs, so
+     :focus-visible matches for the reason it exists rather than by heuristic:
+     step onto the control from the one before it. */
+  async function tabOnto(page: Page, target: Locator) {
+    await target.focus();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Tab");
+    expect(
+      await target.evaluate(
+        (element) => element === document.activeElement && element.matches(":focus-visible"),
+      ),
+      "the keyboard did not land on the control",
+    ).toBe(true);
+  }
+
+  test("is underlined on hover and on keyboard focus, and not at rest", async ({
+    page,
+    isMobile,
+  }) => {
+    const link = page.locator("#contact a.link-arrow").first();
+    await link.scrollIntoViewIfNeeded();
+    expect(await decoration(link), "a text link is underlined at rest").toBe("none");
+
+    if (!isMobile) {
+      await link.hover();
+      expect(await decoration(link), "a text link is not underlined on hover").toBe("underline");
+      await page.mouse.move(0, 0);
+      expect(await decoration(link), "the underline outlasts the hover").toBe("none");
+    }
+
+    await tabOnto(page, link);
+    expect(await decoration(link), "a text link is not underlined on keyboard focus").toBe(
+      "underline",
+    );
+  });
+
+  test("is the only control focus underlines", async ({ page }) => {
+    const cta = page.locator("a.shiny-cta").first();
+    await tabOnto(page, cta);
+    expect(await decoration(cta), "keyboard focus underlines the call to action").toBe("none");
+  });
+});
+
+/* The call to action's label is chalk on a fill that is a gradient layer, and a
+   gradient is the one thing the other two gates cannot take a colour from. axe
+   reports text over a background image as needing review rather than as a
+   failure, and the contrast walk in backdrop.spec.ts photographs the page with
+   its content hidden, so it saw the label as chalk on bare wall, which is 2.2:1,
+   and failed a control that is 16.8:1. So it is asserted here, from the two
+   colours it is made of, and the fill is asserted to be a colour as well as a
+   gradient so that a tool which only reads colours is given the true one. */
+test("the call to action's label clears AA on its own fill", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => document.fonts.ready);
+
+  const measured = await page.locator("a.shiny-cta").first().evaluate((link) => {
+    const numbers = (value: string) => (value.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+    const channel = (value: number) => {
+      const c = value / 255;
+      return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    };
+    const luminance = (rgb: number[]) =>
+      0.2126 * channel(rgb[0]!) + 0.7152 * channel(rgb[1]!) + 0.0722 * channel(rgb[2]!);
+
+    const label = getComputedStyle(link.querySelector("span") ?? link).color;
+    const fill = getComputedStyle(link).backgroundColor;
+    const text = luminance(numbers(label));
+    const ground = luminance(numbers(fill));
+    return {
+      fill,
+      alpha: numbers(fill)[3] ?? 1,
+      ratio: (Math.max(text, ground) + 0.05) / (Math.min(text, ground) + 0.05),
+    };
+  });
+
+  expect(
+    measured.alpha,
+    `the fill is not an opaque colour, it is ${measured.fill}`,
+  ).toBeGreaterThanOrEqual(0.95);
+  expect(measured.ratio, "the call to action's label against its fill").toBeGreaterThanOrEqual(4.5);
 });
