@@ -1013,6 +1013,34 @@ html[data-intro="ending"] .intro {
   transition: opacity 700ms ease-out;
 }
 
+/* Skip, over the veil and over the canvas that comes out in front of it. At least
+   a finger wide and clear of the home indicator, in the veil's own ink on the
+   veil, and there only while the opening runs: a hidden control is not reachable
+   by keyboard or by a screen reader, which is what is wanted before and after. */
+.intro-skip {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 60;
+  visibility: hidden;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--chalk);
+  background: transparent;
+  color: var(--chalk);
+  cursor: pointer;
+}
+
+html[data-intro="running"] .intro-skip {
+  visibility: visible;
+}
+
+.intro-skip:focus-visible {
+  outline: 2px solid var(--chalk);
+  outline-offset: 3px;
+}
+
 /* The particle canvas lives behind the page. While the opening animation owns
    the screen it comes out in front of the veil, which is what makes the words
    the only thing visible, and drops back when the animation hands over. */

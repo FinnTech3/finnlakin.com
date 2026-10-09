@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { frameScheduler } from "@/particles/frame";
 import { createParticleBrain } from "@/particles/engine";
 import { OPENING_CEILING_MS } from "@/particles/opening";
-import { debugRequested, forcedLevel } from "@/particles/quality";
+import { debugRequested, forcedLevel, statsRequested } from "@/particles/quality";
 import { STORAGE_KEY } from "@/components/intro";
 import type { CloudSurface, ParticleBrain as Engine } from "@/particles/types";
 
@@ -119,6 +119,7 @@ function Cloud({ className, surface }: Props) {
         delete root.dataset.intro;
       }, VEIL_FADE_MS);
       window.removeEventListener("keydown", skip);
+      skipButton?.removeEventListener("click", endNow);
       /* The scroll comes back here rather than when the veil finishes fading,
          because the page underneath is complete and the reader is already
          looking at it through a dissolving sheet of carbon. */
@@ -139,11 +140,17 @@ function Cloud({ className, surface }: Props) {
        So the page is held still while it runs and the one way out is the key
        that means "out". The ceiling below and the twelve second timeout in the
        boot script are both still there, so nobody is ever stuck behind it. */
-    const skip = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+    const endNow = () => {
       engine?.endIntro();
       finishIntro();
     };
+    const skip = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      endNow();
+    };
+    /* The button for a screen with no Escape key. The same way out, so the
+       state the page is left in is the same whichever was used. */
+    const skipButton = document.querySelector<HTMLElement>("[data-intro-skip]");
 
     /* Below the breakpoint the canvas covers the page from its top to the
        bottom of the phone's slot, so the slot is inside it whatever height the
@@ -197,6 +204,7 @@ function Cloud({ className, surface }: Props) {
          The ceiling below is the guarantee from here. */
       root.setAttribute("data-intro-owned", "");
       window.addEventListener("keydown", skip);
+      skipButton?.addEventListener("click", endNow);
       /* Held still while it runs.
 
          Not only so that scrolling cannot cut it short. The animation holds the
@@ -399,12 +407,22 @@ function Cloud({ className, surface }: Props) {
     }
     pump();
 
+    /* On demand and only when asked for, so the page pays nothing for it. */
+    let stopStats: (() => void) | null = null;
+    if (statsRequested()) {
+      void import("@/particles/stats").then((module) => {
+        if (running) stopStats = module.mountStats(engine);
+      });
+    }
+
     return () => {
       running = false;
+      stopStats?.();
       pause();
       if (ceiling) clearTimeout(ceiling);
       if (fade) clearTimeout(fade);
       window.removeEventListener("keydown", skip);
+      skipButton?.removeEventListener("click", endNow);
       delete root.dataset.intro;
       root.removeAttribute("data-intro-owned");
       /* The lock has to come off here as well. Unmounting mid-intro, which a

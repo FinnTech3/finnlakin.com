@@ -1063,6 +1063,12 @@ The drawing buffer is capped by area rather than by edge, at 2.2 million pixels.
   The tests use this, because a software rasteriser would otherwise be stepped
   straight down and the top path would never run.
 - `?brainDebug=1` marks the host element.
+- `?brainStats=1` puts a small readout in the corner: the frame rate a reader sees,
+  measured here from the intervals between frames and not taken from the engine,
+  the slowest frame, the quality the engine settled on, the particle count, how the
+  device was classified, the layout and the position down the page. It is for a
+  device nobody has to hand, so that its owner can read the numbers out or
+  photograph them. It is a separate chunk, loaded only when asked for.
 - Shader compilation and framebuffer failures print the full log in development
   and are silent in production, where every route is asserted console clean.
 
