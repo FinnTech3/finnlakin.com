@@ -1099,6 +1099,11 @@ test.describe("the particle engine", () => {
   test("turns itself off when asked, leaving the page untouched", async ({ page }) => {
     await page.goto("/?brainQuality=off");
     await page.evaluate(() => document.fonts.ready);
+    /* With the engine off nothing ends the opening, so its veil and its Skip
+       button stay up until the boot script's failsafe, and a photograph taken
+       now measures them. The button is the way a reader gets past it, which is
+       what is wanted here: pressed, the page is what is left. */
+    await page.getByRole("button", { name: "Skip" }).click();
     await expect(page.locator("h1")).toBeVisible();
     /* The host still renders, because the decision is the engine's, but nothing
        is ever drawn into it. */

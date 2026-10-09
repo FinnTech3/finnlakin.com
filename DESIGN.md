@@ -336,8 +336,13 @@ colour printer and a monochrome one disagree about a pale green.
 heading that counts them and says none is filled. They are the other half of the
 work (painting and drawing, photography and film, 3D and code, graphic design,
 archive and fashion), held open. A placeholder that was somebody else's picture is
-the one thing this site argues against. When a bay is filled, replace the
-component: the heading would be wrong the day one is.
+the one thing this site argues against, so every bay is empty today.
+
+To fill one, put the file in `public/bays/` and add a `piece` to its entry in
+`src/lib/bays.ts`: the path, a description for somebody who cannot see it, and the
+file's pixel size. The heading counts the filled bays from the list, so it stays
+true, and `tests/bays.spec.ts` checks the file exists, has a description and a
+size, and that the heading agrees with the list.
 
 ### Endorsements
 `.quote` in the headline face, upper case, with no marks drawn for it, the name
@@ -369,7 +374,7 @@ seconds, with the veil lifting over 700ms. The schedule is `src/particles/openin
 and `scripts/check-motion.ts` holds the second line to its hold. Both lines are
 drawn in the headline face, read off the page's own `h1`, and the engine waits for
 that face to arrive (up to 1.5 seconds) before it draws the words, so a slow
-connection never gets them in a fallback. The page is held still while it runs. It does not run for a reader who asked for less motion, and it
+connection never gets them in a fallback. The page is held still while it runs, and a Skip button, shown only while it does, ends it the way Escape does, because an iPad has no Escape key and moving content that runs this long should be stoppable. It does not run for a reader who asked for less motion, and it
 is controlled by an attribute set before first paint so that LCP still happens on
 the real content.
 
@@ -471,10 +476,10 @@ provenance.
 | `src/components/hero.tsx` | The name, the standfirst, the controls, the ledger block |
 | `src/components/ledger.tsx` | The reconstruction table, and its phone form |
 | `src/components/project-index.tsx`, `project-entry.tsx` | The work as a listing and as entries |
-| `src/components/bays.tsx` | The five empty bays |
+| `src/components/bays.tsx`, `src/lib/bays.ts` | The bays, and the list a piece is added to |
 | `src/components/shiny-button.tsx` | The animated call to action |
 | `src/components/chrome.tsx`, `nav-links.tsx` | Header and footer |
-| `src/components/intro.tsx` | The veil and the boot script for the opening |
+| `src/components/intro.tsx` | The veil, the Skip button and the boot script for the opening |
 | `src/components/particle-brain-mount.tsx` | Mounts the cloud on `/` and passes it the chalk surface |
 | `src/particles/` | The engine. See `ParticleBrainREADME.md` |
 | `src/app/not-found.tsx` | A bad link, in the same wall |
@@ -483,6 +488,8 @@ provenance.
 | `tests/backdrop.spec.ts`, `cloud-overlap.ts`, `crossing.spec.ts` | The cloud never being under a word, and what the cloud is doing: its marks are measured as distance from the flat wall |
 | `tests/bands.spec.ts` | The markup being the plan, five pairs of projects alternating sides, and the engine reading each band's side and shape back off the page |
 | `tests/fit.spec.ts` | The cloud's size on the screens people have: seven iPads upright and on their side, a laptop, an ultrawide, a window dragged tall, a phone on its side |
+| `tests/widths.spec.ts` | Every route at thirteen widths from 720px to 2560px: nothing cut by the screen's edge, nothing scrolling sideways inside itself, and on the home page nothing visible in the cloud's lane |
+| `tests/bays.spec.ts` | The bays against the disk, and the heading against the list |
 | `tests/tables.spec.ts` | Neither table scrolling sideways at any width from 720px up: the widths that failed, the ones around them, and the screens people have |
 | `tests/back-to-top.spec.ts` | The button on every route, and what it does |
 | `tests/a11y.spec.ts`, `print.spec.ts`, `platform.spec.ts` | Contrast (including the call to action's label on its own fill), print, and the platform colours |
