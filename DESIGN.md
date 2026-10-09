@@ -26,6 +26,12 @@ for the places that cannot read a stylesheet (the viewport's theme colour, the
 manifest, the share cards and the icon generator), and `tests/platform.spec.ts`
 asserts that the wall there is the wall painted on the root.
 
+The share cards (`src/app/og/[card]/route.tsx`) are the opening: the name, in
+chalk, in Big Shoulders Bold, on carbon, with the page's own kicker and title in
+the line under the rule. The renderer cannot reach the page's fonts, so the face
+is vendored in `src/app/og/fonts/` with its SIL Open Font License, and is read at
+build, because every card is prerendered.
+
 | Name | Value | Token | Role |
 |------|-------|-------|------|
 | Wall | `#a7a39b` | `--wall`, `--paper` | The page. Painted on `html`, and on nothing else |

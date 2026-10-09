@@ -181,7 +181,7 @@ export default function HomePage() {
         {...bandOf(plan, "path")}
         eyebrow="Path"
         title="Where I have studied and worked"
-        intro="Four years of it, with what each place was actually for."
+        intro="Each place, with what it was actually for."
       >
         <div className="flex flex-col gap-10">
           <ol className="flex flex-col">
