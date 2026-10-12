@@ -53,7 +53,7 @@ test.describe("internal links resolve", () => {
     expect(failures, "these internal links did not resolve").toEqual([]);
   });
 
-  test("the generated CV is a real PDF, not an error page", async ({ request }) => {
+  test("the CV is a real PDF, not an error page", async ({ request }) => {
     /* A 200 is not enough on its own: a misconfigured host can answer a
        missing file with an HTML error page at status 200. */
     const response = await request.get("/finn-lakin-cv.pdf");
@@ -63,5 +63,14 @@ test.describe("internal links resolve", () => {
     const body = await response.body();
     expect(body.byteLength, "the PDF is implausibly small").toBeGreaterThan(2000);
     expect(body.subarray(0, 5).toString("latin1"), "not a PDF header").toBe("%PDF-");
+  });
+
+  test("the Word copy of the CV is a real document, not an error page", async ({ request }) => {
+    const response = await request.get("/finn-lakin-cv.docx");
+    expect(response.status()).toBe(200);
+    const body = await response.body();
+    expect(body.byteLength, "the document is implausibly small").toBeGreaterThan(2000);
+    /* A .docx is a zip, and a zip starts with PK. */
+    expect(body.subarray(0, 2).toString("latin1"), "not a Word document").toBe("PK");
   });
 });

@@ -83,6 +83,13 @@ export default function CvPage() {
           >
             Download PDF
           </a>
+          <a
+            href="/finn-lakin-cv.docx"
+            data-analytics-event="cv_download"
+            className="pill pill-ghost print-hidden min-h-11"
+          >
+            Download Word
+          </a>
         </div>
       </header>
 
