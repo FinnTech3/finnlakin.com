@@ -21,7 +21,20 @@ export const STORAGE_KEY = "fl-intro-played";
    page that is already complete underneath it: it must not be announced and
    must not take focus. */
 export function Intro() {
-  return <div className="intro" aria-hidden="true" inert />;
+  return (
+    <>
+      <div className="intro" aria-hidden="true" inert />
+      {/* A way out that does not need a keyboard. An iPad has no Escape key, and
+          the opening runs for about eight seconds, which is longer than moving
+          content should run without a way to stop it. A sibling of the veil and
+          not a child, because the veil is aria-hidden and inert and a button
+          inside it would be neither reachable nor honest. Hidden by the
+          stylesheet until the opening is running. */}
+      <button type="button" className="intro-skip t-label" data-intro-skip="">
+        Skip
+      </button>
+    </>
+  );
 }
 
 /* Runs before the first paint, which is the whole point of it being here rather
@@ -42,9 +55,17 @@ export function IntroBoot() {
      arrives within the first three: on a slow connection the engine could
      start at five seconds and have the veil pulled out from under its words at
      twelve, halfway through. From the moment the engine owns it, its own
-     ceiling, ten seconds from its start, is the guarantee. */
+     ceiling, ten seconds from its start, is the guarantee.
+
+     It also answers the Skip button until the engine does. The engine is loaded
+     on demand, and on a slow connection the button is on the screen for some
+     seconds before anything is listening to it, which is exactly when somebody
+     reaches for it. Once the engine owns the animation this stands down and the
+     engine's own handler ends it, so the two never both act. */
   const source = `try{if(location.pathname==="/"&&!sessionStorage.getItem(${JSON.stringify(
     STORAGE_KEY,
-  )})&&!matchMedia("(prefers-reduced-motion: reduce)").matches){var r=document.documentElement;r.dataset.intro="running";setTimeout(function(){if(r.dataset.intro==="running"&&!r.hasAttribute("data-intro-owned")){delete r.dataset.intro}},12000)}}catch(e){}`;
+  )})&&!matchMedia("(prefers-reduced-motion: reduce)").matches){var r=document.documentElement;r.dataset.intro="running";setTimeout(function(){if(r.dataset.intro==="running"&&!r.hasAttribute("data-intro-owned")){delete r.dataset.intro}},12000);document.addEventListener("click",function(e){var t=e.target;if(t&&t.closest&&t.closest("[data-intro-skip]")&&r.dataset.intro==="running"&&!r.hasAttribute("data-intro-owned")){try{sessionStorage.setItem(${JSON.stringify(
+    STORAGE_KEY,
+  )},"1")}catch(x){}delete r.dataset.intro}})}}catch(e){}`;
   return <script dangerouslySetInnerHTML={{ __html: source }} />;
 }

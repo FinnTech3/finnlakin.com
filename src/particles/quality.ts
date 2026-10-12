@@ -213,3 +213,9 @@ export function debugRequested() {
   if (typeof window === "undefined") return false;
   return new URLSearchParams(window.location.search).get("brainDebug") === "1";
 }
+
+/* The readout of frame rate and quality, for a device nobody has here. */
+export function statsRequested() {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("brainStats") === "1";
+}

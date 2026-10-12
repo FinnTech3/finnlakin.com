@@ -12,7 +12,12 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Thirty, where it was twenty. A normal run is twelve to sixteen minutes, and
+    # one run spent fifteen of them downloading the browser, which left the suite
+    # three and a half minutes before the limit cancelled it. That was the
+    # runner and not the code, and a limit that close tells a slow download from
+    # a broken test by cancelling both.
+    timeout-minutes: 30
 
     # A real database, not a mock, because that is what the analytics tests are
     # for: the closed allow-list, the daily-rotating identifier and the
@@ -70,9 +75,27 @@ jobs:
         run: npx tsc --noEmit
 
       # Only Chromium. The suite runs one engine on two viewports, so the other
-      # browsers would be several minutes of download for nothing.
+      # browsers would be several minutes of download for nothing. The browser
+      # is cached by the lockfile, which pins the Playwright version, so most
+      # runs download nothing; its system packages are installed either way.
+      - name: Cache Chromium
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # Its own limit, so a download that hangs fails here and says so, rather
+      # than using up the job's time and being reported as a cancelled suite.
       - name: Install Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 10
         run: npx playwright install --with-deps chromium
+
+      - name: Install Chromium's system packages
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        timeout-minutes: 10
+        run: npx playwright install-deps chromium
 
       - name: Test
         run: npm test
