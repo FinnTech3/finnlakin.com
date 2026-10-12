@@ -23,7 +23,7 @@ test.describe("the letter weight effect", () => {
     await page.addInitScript(() => sessionStorage.setItem("fl-intro-played", "1"));
     await page.goto("/");
     await page.evaluate(() => document.fonts.ready);
-    await expect(page.locator(".proximity-layer")).toHaveCount(1);
+    await expect(page.locator(".proximity-layer")).toHaveCount(2);
     const before = await page.evaluate(() => document.querySelector("main")!.innerHTML);
 
     const standfirst = (await page.locator(".t-sub").first().boundingBox())!;
@@ -31,9 +31,10 @@ test.describe("the letter weight effect", () => {
     await expect.poll(() => drawn(page), { timeout: 5_000 }).toBeGreaterThan(0);
 
     /* The layer is decoration: nothing in it can be heard or clicked. */
-    const layer = page.locator(".proximity-layer");
-    await expect(layer).toHaveAttribute("aria-hidden", "true");
-    expect(await layer.evaluate((node) => getComputedStyle(node).pointerEvents)).toBe("none");
+    for (const layer of await page.locator(".proximity-layer").all()) {
+      await expect(layer).toHaveAttribute("aria-hidden", "true");
+      expect(await layer.evaluate((node) => getComputedStyle(node).pointerEvents)).toBe("none");
+    }
 
     /* The pointer leaving the window, which a test cannot move it to. Any
        point inside the window can be near a word, so this is the only rest. */
@@ -43,6 +44,39 @@ test.describe("the letter weight effect", () => {
       await page.evaluate(() => document.querySelector("main")!.innerHTML),
       "the page's own text was rewritten",
     ).toBe(before);
+  });
+
+  test("a scroll carries the heavier letters with their words, not with the pointer", async ({
+    page,
+    isMobile,
+  }) => {
+    test.skip(Boolean(isMobile), "a finger has no pointer to follow");
+    /* The letters were drawn on a layer fixed to the screen, so between a
+       scroll and the next frame they stayed where they were while the words
+       moved on, which read as the letters being dragged with the pointer. A
+       letter now moves with its word in the scroll itself, before any frame
+       has had the chance to redraw it. */
+    await page.addInitScript(() => sessionStorage.setItem("fl-intro-played", "1"));
+    await page.goto("/");
+    await page.evaluate(() => document.fonts.ready);
+    const standfirst = (await page.locator(".t-sub").first().boundingBox())!;
+    await page.mouse.move(standfirst.x + 60, standfirst.y + 20);
+    await expect.poll(() => drawn(page), { timeout: 5_000 }).toBeGreaterThan(0);
+
+    const moved = await page.evaluate(() => {
+      const glyph = [...document.querySelectorAll<HTMLElement>(".proximity-layer > span")].find(
+        (span) => span.style.display !== "none",
+      )!;
+      const word = document.querySelector(".t-sub")!;
+      const before = { glyph: glyph.getBoundingClientRect().top, word: word.getBoundingClientRect().top };
+      window.scrollBy(0, 120);
+      return {
+        glyph: before.glyph - glyph.getBoundingClientRect().top,
+        word: before.word - word.getBoundingClientRect().top,
+      };
+    });
+    expect(moved.word, "the page did not scroll").toBeGreaterThan(0);
+    expect(moved.glyph, "the letter stayed behind its word").toBeCloseTo(moved.word, 0);
   });
 
   test("is never loaded for a reader who asked for less motion", async ({ browser }) => {

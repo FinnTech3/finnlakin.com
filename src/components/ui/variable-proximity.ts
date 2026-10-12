@@ -39,23 +39,31 @@ const REACH = 360;
 /* The tops of the two faces' weight axes. */
 const ceilingFor = (family: string) => (family.includes("Martian") ? 800 : 900);
 
-type Look = { opacity: number } | null;
+type Look = { opacity: number; pinned: boolean } | null;
 
 export function startVariableProximity(): () => void {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
-  const layer = document.createElement("div");
-  layer.className = "proximity-layer";
-  layer.setAttribute("aria-hidden", "true");
-  layer.dataset.proximityLayer = "";
-  document.body.append(layer);
-
-  const pool: HTMLSpanElement[] = [];
+  /* Two layers. A letter is drawn on the page, in the page's own coordinates,
+     so a scroll carries it with the word it sits on in the same frame: drawn
+     on the screen instead, it stayed where it was until the next frame caught
+     up, and on a scroll that read as the letters being dragged along with the
+     pointer. The second is pinned to the screen for the little text that is
+     pinned there too, which a scroll does not move. */
+  const makeLayer = (pinned: boolean) => {
+    const element = document.createElement("div");
+    element.className = pinned ? "proximity-layer proximity-layer-pinned" : "proximity-layer";
+    element.setAttribute("aria-hidden", "true");
+    element.dataset.proximityLayer = "";
+    document.body.append(element);
+    return { element, pool: [] as HTMLSpanElement[], drawn: 0 };
+  };
+  const onPage = makeLayer(false);
+  const onScreen = makeLayer(true);
   const texts = new Map<Element, Text[]>();
   let dirty = true;
   let ready = false;
   let point: { x: number; y: number } | null = null;
   let frame = 0;
-  let drawn = 0;
 
   function rebuild() {
     dirty = false;
@@ -83,9 +91,11 @@ export function startVariableProximity(): () => void {
      letter. */
   function appearance(element: Element): Look {
     let opacity = 1;
+    let pinned = false;
     for (let at: Element | null = element; at && at !== document.documentElement; at = at.parentElement) {
       const style = getComputedStyle(at);
       opacity *= Number(style.opacity);
+      if (style.position === "fixed" || style.position === "sticky") pinned = true;
       if (opacity < 0.02 || style.visibility === "hidden") return null;
       const transform = style.transform;
       if (transform !== "none") {
@@ -94,7 +104,7 @@ export function startVariableProximity(): () => void {
         if (!v || v[0] !== 1 || v[1] !== 0 || v[2] !== 0 || v[3] !== 1) return null;
       }
     }
-    return { opacity };
+    return { opacity, pinned };
   }
 
   const range = document.createRange();
@@ -129,6 +139,7 @@ export function startVariableProximity(): () => void {
     weight: number;
     style: CSSStyleDeclaration;
     opacity: number;
+    pinned: boolean;
   };
 
   function collect(): Glyph[] {
@@ -198,6 +209,7 @@ export function startVariableProximity(): () => void {
             weight,
             style,
             opacity: look.opacity,
+            pinned: look.pinned,
           });
         }
       }
@@ -206,18 +218,26 @@ export function startVariableProximity(): () => void {
   }
 
   function draw(glyphs: Glyph[]) {
-    glyphs.forEach((glyph, index) => {
-      let span = pool[index];
+    const counts = new Map([[onPage, 0], [onScreen, 0]]);
+    /* Read once, before any letter is written, so the writes cannot make the
+       browser lay the page out again to answer. */
+    const sx = window.scrollX;
+    const sy = window.scrollY;
+    for (const glyph of glyphs) {
+      const target = glyph.pinned ? onScreen : onPage;
+      const index = counts.get(target)!;
+      counts.set(target, index + 1);
+      let span = target.pool[index];
       if (!span) {
         span = document.createElement("span");
-        pool.push(span);
-        layer.append(span);
+        target.pool.push(span);
+        target.element.append(span);
       }
       const s = span.style;
       span.textContent = glyph.char;
       s.display = "block";
-      s.left = `${glyph.x}px`;
-      s.top = `${glyph.top}px`;
+      s.left = `${glyph.x + (glyph.pinned ? 0 : sx)}px`;
+      s.top = `${glyph.top + (glyph.pinned ? 0 : sy)}px`;
       s.height = `${glyph.height}px`;
       s.lineHeight = `${glyph.height}px`;
       s.fontFamily = glyph.style.fontFamily;
@@ -228,9 +248,11 @@ export function startVariableProximity(): () => void {
       s.fontWeight = String(Math.round(glyph.weight));
       s.setProperty("color", glyph.style.getPropertyValue("color"));
       s.opacity = String(glyph.opacity);
-    });
-    for (let index = glyphs.length; index < drawn; index++) pool[index].style.display = "none";
-    drawn = glyphs.length;
+    }
+    for (const [target, count] of counts) {
+      for (let index = count; index < target.drawn; index++) target.pool[index].style.display = "none";
+      target.drawn = count;
+    }
   }
 
   function paint() {
@@ -265,7 +287,13 @@ export function startVariableProximity(): () => void {
   /* The page's own text changing, on a navigation or a panel opening. The
      layer's own letters are not the page's and do not count. */
   const watcher = new MutationObserver((records) => {
-    if (records.some((record) => !layer.contains(record.target))) dirty = true;
+    if (
+      records.some(
+        (record) => !onPage.element.contains(record.target) && !onScreen.element.contains(record.target),
+      )
+    ) {
+      dirty = true;
+    }
   });
   watcher.observe(document.body, { childList: true, subtree: true, characterData: true });
 
@@ -292,6 +320,7 @@ export function startVariableProximity(): () => void {
     window.removeEventListener("scroll", onScroll, { capture: true });
     window.removeEventListener("resize", schedule);
     reduced.removeEventListener("change", schedule);
-    layer.remove();
+    onPage.element.remove();
+    onScreen.element.remove();
   };
 }
