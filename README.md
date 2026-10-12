@@ -17,10 +17,9 @@ npm install
 npm run dev
 ```
 
-`npm run build` runs `scripts/build-cv-pdf.ts` first, which generates
-`public/finn-lakin-cv.pdf` from the same typed content the site renders, so the
-CV and the site cannot drift apart. The PDF is gitignored precisely because it
-is generated rather than authored.
+The CV download is Finn's own document, kept as authored: `public/finn-lakin-cv.docx`
+is the source and `public/finn-lakin-cv.pdf` is that file exported to PDF. Nothing
+generates either, so when the CV changes, replace both together.
 
 ## Layout
 

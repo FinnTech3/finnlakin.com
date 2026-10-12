@@ -8,10 +8,9 @@ import { extname, join, relative } from "node:path";
 /* Everything that renders or generates copy. This used to be src/lib and
    src/content only, which meant the components and the pages were never
    checked: the CV page and the timeline were both printing an em dash in a
-   date range, sixteen of them reached the built home page, and the generator
-   put more into the PDF. A guard that does not cover the files that produce
-   the output is not a guard. scripts is here because build-cv-pdf.ts writes
-   copy into a document nobody re-reads. */
+   date range, sixteen of them reached the built home page. A guard that does
+   not cover the files that produce the output is not a guard. scripts is here
+   because the scripts in it write copy into files nobody re-reads. */
 const ROOTS = ["src", "scripts"];
 
 /* Test fixtures deliberately contain bad style. */
