@@ -779,18 +779,34 @@ body {
   color: var(--acid);
 }
 
-/* The letter weight effect's layer, over everything and part of nothing: it
-   cannot be clicked, selected, heard or printed, and its contents are laid out
-   apart from the page so drawing in it never moves a word. Empty at rest. See
-   components/ui/variable-proximity.ts. */
+/* The letter weight effect's layers, over everything and part of nothing:
+   they cannot be clicked, selected, heard or printed, and their contents are
+   laid out apart from the page so drawing in them never moves a word. Empty at
+   rest. See components/ui/variable-proximity.ts. */
+/* On the page, at its top left corner and with no size of its own, so the
+   letters in it scroll with the words under them. A letter is only ever drawn
+   over a word that is already there, so nothing in it can make the page
+   longer or wider. */
 .proximity-layer {
-  position: fixed;
-  inset: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
   z-index: 90;
   pointer-events: none;
   user-select: none;
-  contain: strict;
+  contain: layout style;
+}
+
+/* Pinned to the screen, for text that is. */
+.proximity-layer-pinned {
+  position: fixed;
+  inset: 0;
+  width: auto;
+  height: auto;
   overflow: hidden;
+  contain: strict;
 }
 
 .proximity-layer > span {
