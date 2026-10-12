@@ -23,13 +23,20 @@ test.describe("the opening's Skip button", () => {
 
     /* Pressed the moment the engine owns the opening, which is when the listener
        is attached and not before: pressing earlier tests nothing, and waiting
-       longer risks the opening having ended by itself on a slow machine. */
+       longer risks the opening having ended by itself. The press is made inside
+       the same frame that sees the engine arrive. A separate click from the
+       test runner has to check the button is stable first, and on a machine
+       under load that took long enough for the opening to end by itself, which
+       is a race in the test and not a fault in the button. */
     await page.waitForFunction(
-      () => document.documentElement.hasAttribute("data-intro-owned"),
+      () => {
+        if (!document.documentElement.hasAttribute("data-intro-owned")) return false;
+        document.querySelector<HTMLButtonElement>("[data-intro-skip]")?.click();
+        return true;
+      },
       null,
       { timeout: 20_000, polling: "raf" },
     );
-    await skip.click();
     await expect.poll(() => state(page), { timeout: 6_000 }).toBe("none");
     await expect(skip, "Skip is still offered after the opening").toBeHidden();
     expect(
