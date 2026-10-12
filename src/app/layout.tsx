@@ -3,6 +3,7 @@ import { Big_Shoulders, Martian_Mono } from "next/font/google";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { Intro, IntroBoot } from "@/components/intro";
 import { ParticleBrainMount } from "@/components/particle-brain-mount";
+import { ProximityMount } from "@/components/proximity-mount";
 import { wall } from "@/lib/colours";
 import { ogImageUrl } from "@/lib/metadata";
 import { siteDescription, siteTitle, siteUrl } from "@/lib/site";
@@ -122,6 +123,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </main>
         <SiteFooter />
         <Intro />
+        <ProximityMount />
         {/* Static and deferred rather than a React component, so a page view
             is recorded as soon as the document is parsed instead of waiting
             for hydration. See the note at the top of the file. */}

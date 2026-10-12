@@ -763,6 +763,49 @@ body {
   color: var(--carbon);
 }
 
+/* The testimonials, highlighted the way a selection is and left that way: the
+   same acid behind the same carbon, broken line by line as a selection is
+   rather than drawn as one block. Selecting inside it inverts, or a selection
+   of highlighted text would be acid on acid and could not be seen. */
+.highlight {
+  background: var(--acid);
+  color: var(--carbon);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.highlight::selection {
+  background: var(--carbon);
+  color: var(--acid);
+}
+
+/* The letter weight effect's layer, over everything and part of nothing: it
+   cannot be clicked, selected, heard or printed, and its contents are laid out
+   apart from the page so drawing in it never moves a word. Empty at rest. See
+   components/ui/variable-proximity.ts. */
+.proximity-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  user-select: none;
+  contain: strict;
+  overflow: hidden;
+}
+
+.proximity-layer > span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: pre;
+  font-synthesis: none;
+}
+
+@media print {
+  .proximity-layer {
+    display: none;
+  }
+}
+
 /* A jump to #work should not put the heading hard against the top edge. */
 :target,
 section[id],
