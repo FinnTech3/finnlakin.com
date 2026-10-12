@@ -16,7 +16,9 @@ export function Endorsements() {
     <div className="grid gap-12 @3xl:grid-cols-2">
       {endorsements.map((endorsement) => (
         <figure key={endorsement.id} className="scored m-0 flex flex-col gap-6 pt-5">
-          <blockquote className="quote text-pretty">{endorsement.quote}</blockquote>
+          <blockquote className="quote text-pretty">
+            <span className="highlight">{endorsement.quote}</span>
+          </blockquote>
 
           <figcaption className="mt-auto flex flex-col gap-1">
             <span className="t-label text-ink">{endorsement.name}</span>
