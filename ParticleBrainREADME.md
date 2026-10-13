@@ -1,6 +1,6 @@
 # The particle brain
 
-A GPU particle engine: thirty two thousand instanced three dimensional
+A GPU particle engine: forty thousand instanced three dimensional
 pyramids whose positions and velocities live in floating point textures, driven
 by a spring solver that runs entirely on the graphics card, morphing between
 seven shapes as the page scrolls. A phone builds fourteen thousand.
@@ -50,9 +50,9 @@ scroll ─┐
 pointer ┘                                 │
                                           ▼
       velocity pass  ──swap──→  position pass  ──swap──→  position texture
-       (180 x 180)               (180 x 180)                     │
+       (200 x 200)               (200 x 200)                     │
                                                                  ▼
-                                             instanced draw, 32,400 pyramids
+                                             instanced draw, 40,000 pyramids
                                                                  │
                                           ┌──────────────────────┤
                                           ▼                      ▼
@@ -118,8 +118,8 @@ once per drawn frame they describe a different animation on every machine.
 
 Sizes are given as a rule rather than as numbers, because the grid is
 configurable and the numbers were wrong in this table within a week of being
-written. `G` is `gridSize` on a desktop and `gridSizeCompact` on a phone: 180 and
-120, for 32,400 and 14,400 particles.
+written. `G` is `gridSize` on a desktop and `gridSizeCompact` on a phone: 200 and
+120, for 40,000 and 14,400 particles.
 
 | Texture | Size | Holds |
 |---|---|---|
@@ -388,6 +388,18 @@ angles to it makes the particles stream around the obstruction. Nothing pulls
 them back, because the spring that holds the shape already does, so the hole
 closes on its own as the pointer leaves.
 
+**Everything under the cursor moves, at every depth.** The distance is measured
+from the line the reader looks down through the cursor, not from one point on
+it. It used to be measured from a single point at the depth of the cloud's
+middle, so only particles that happened to sit near that depth were reached: on
+the cortex, which is a shell, the front and back of it ignored the cursor, and on
+a structure turned to lie back into the screen most of what was drawn under the
+cursor did not move at all. Measured in a disc of the reach on the screen, the
+brain went from losing a fifth of its marks under the cursor to losing most of
+them, and the sheet in the Path band from a twentieth to two fifths. The push is
+sideways across the screen, which is the direction a hole opens in.
+`tests/backdrop.spec.ts` asks the brain and two of the structures.
+
 **How much of the cloud it moves is a number, not an impression.** `pointerReach`
 is in the space the shapes are built in, where the furthest particle sits at an
 extent of 0.34. It was 0.18, which is 53% of the cloud's radius, and a comment in
@@ -400,6 +412,11 @@ extent of 0.34. It was 0.18, which is 53% of the cloud's radius, and a comment i
 | 0.13 | 19.6% |
 | 0.055 | 3.0% |
 | **0.085** | **7.9%** |
+
+Those shares were counted in a ball, before the reach became a column. Counted
+in the column, as the shader measures it now, 0.085 touches at most 20.4% of the
+cloud: the patch on the screen is the same size, and the column through it holds
+the front and the back of the cloud as well.
 
 0.055 went too far the other way, and that is worth recording as much as the
 original fault. It answered the complaint exactly and produced a dimple a
@@ -1038,7 +1055,7 @@ Everything in `DEFAULTS` in `src/particles/types.ts`:
 
 | Level | Desktop | Mobile | Post chain |
 |---|---|---|---|
-| high | 32,400 | 14,400 | bloom, bokeh, vignette, grain |
+| high | 40,000 | 14,400 | bloom, bokeh, vignette, grain |
 | medium | 14,000 | 7,000 | bloom, vignette, grain |
 | low | 6,000 | 3,500 | vignette, grain |
 
@@ -1142,10 +1159,16 @@ The rules that keep it from reacting to the wrong things:
   frames** rather than after a whole window. The run is not reset by a window
   closing, which it was, so a run that straddled a close went unanswered.
 
-**Nothing on the site registers as decoration now.** The gradient backdrop was
+**The letter weight effect is the decoration now.** The gradient backdrop was
 the only client of the first two rungs, and it went with the black stage it was a
-background for, so on the site the ladder is one rung: the cloud steps itself
-down. The scheduler keeps the other two, and its tests drive them with a stand-in
+background for. The effect that draws heavier letters near the pointer
+(`components/ui/variable-proximity.ts`) joins the ladder at the top rank on the
+page with the cloud, and only once the pointer moves after the opening, so a
+machine that cannot keep up gives up the letters, at half rate first, before the
+cloud loses a particle. It first shipped asking for frames of its own, outside
+the ladder, and its cost was charged to the cloud: a machine that had held the
+top tier stepped down to under half the particles while the pointer moved, and a
+cloud that has stepped down is never offered them back. The scheduler keeps the other two, and its tests drive them with a stand-in
 called the backdrop, on purpose: they are the only thing that proves the ordering
 holds, and a decoration that joins the ladder later (it should register at thirty
 frames a second, time gated, so it draws thirty times a second on a 60, 120 or

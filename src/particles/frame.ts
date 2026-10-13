@@ -324,11 +324,18 @@ export function createFrameScheduler(
 }
 
 /* One per document. The two callers are mounted by different components that
-   do not know about each other, which is the whole reason this is a module
-   level value rather than something passed down. */
-let shared: FrameScheduler | null = null;
+   do not know about each other, which is the whole reason this is a shared
+   value rather than something passed down.
+
+   Kept on the window and not in a module level variable. The bundler copies
+   this file into each chunk that imports it, so a module level variable in two
+   chunks is two schedulers: two ladders, each blind to the other's cost, which
+   is the arrangement this file exists to end. On the window, the letter weight
+   effect (components/ui/variable-proximity.ts) finds the cloud's ladder by
+   this name without bundling a copy of its own. */
+const SHARED = "__frameScheduler";
 
 export function frameScheduler(): FrameScheduler {
-  if (!shared) shared = createFrameScheduler();
-  return shared;
+  const holder = window as unknown as Record<string, FrameScheduler | undefined>;
+  return (holder[SHARED] ??= createFrameScheduler());
 }

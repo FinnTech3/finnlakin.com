@@ -561,6 +561,14 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
       width / Math.max(1, height),
     );
 
+    /* And the line the reader is looking down through it: the same screen
+       point resolved a world unit nearer the camera, so the shader can measure
+       a particle's distance from the cursor as it appears on the screen. */
+    const nearer = pointerInCloudSpace(mouse.value.current, state, width / Math.max(1, height), 1);
+    const along = nearer.map((value, axis) => value - pointer[axis]!);
+    const length = Math.hypot(...along) || 1;
+    const pointerRay = along.map((value) => value / length) as [number, number, number];
+
     const pointerActive = introActive || reducedMotion ? 0 : mouse.active;
     /* How fast the pointer is moving, as a number the shader can scale by.
        MouseState.delta has been computed, smoothed and clamped every frame since
@@ -578,6 +586,7 @@ export function createParticleBrain(options: EngineOptions): ParticleBrain | nul
       explode: state.explode,
       show,
       pointer,
+      pointerRay,
       /* No parting during the opening animation: the words are being read. */
       pointerActive,
       pointerSpeed: speed,

@@ -342,24 +342,32 @@ for (let slot = 0; slot < names.length; slot++) {
 
      Not a style check. The complaint it answers is that the cursor moved too
      much of the brain, and a share of the particles is the only form of that
-     statement which can be held to. */
+     statement which can be held to.
+
+     Counted in a column, as the shader measures it now: the distance is from
+     the line the reader looks down through the cursor, so everything drawn
+     under the cursor is reached, front and back, and not only what sits near
+     one depth. Looked at square on, which is down the shape's own depth. */
   const reach = DEFAULTS.pointerReach;
   let worst = 0;
   for (let s = 0; s < COUNT; s += 37) {
     const cx = shape[s * 3]!;
     const cy = shape[s * 3 + 1]!;
-    const cz = shape[s * 3 + 2]!;
     let near = 0;
     for (let i = 0; i < COUNT; i += 7) {
       const dx = shape[i * 3]! - cx;
       const dy = shape[i * 3 + 1]! - cy;
-      const dz = shape[i * 3 + 2]! - cz;
-      if (dx * dx + dy * dy + dz * dz < reach * reach) near += 1;
+      if (dx * dx + dy * dy < reach * reach) near += 1;
     }
     worst = Math.max(worst, (near * 7) / COUNT);
   }
+  /* A quarter, where it was an eighth while the reach was a ball at one depth.
+     The patch on the screen is the same size, a disc of the same radius; the
+     column under it holds more of the cloud because it runs through the front
+     and the back of it, which is the point of the change. Most of the cloud
+     is still nowhere near it: the complaint was 47%. */
   check(
-    worst < 0.12,
+    worst < 0.25,
     "the pointer parts a patch of the cloud rather than most of it",
     `${(worst * 100).toFixed(1)}% of the particles are inside the reach at its worst`,
   );

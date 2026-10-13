@@ -117,7 +117,7 @@ function gapHalf(page: Page) {
 }
 
 test.describe("crossing a column", () => {
-  /* Thirty six photographs of a page with a thirty two thousand particle cloud
+  /* Thirty six photographs of a page with a forty thousand particle cloud
      on it, on a machine with no GPU. */
   test.describe.configure({ timeout: 600_000 });
 

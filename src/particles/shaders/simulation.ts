@@ -46,6 +46,7 @@ uniform float u_explode;
 uniform float u_show;
 uniform float u_entryWindow;
 uniform vec3 u_pointer;
+uniform vec3 u_pointerRay;
 uniform float u_pointerReach;
 uniform float u_pointerPush;
 uniform float u_pointerSwirl;
@@ -127,7 +128,19 @@ void main() {
 
      Nothing pulls them back: the spring above already does that, so the hole
      closes on its own as the pointer leaves. */
-  vec3 away = previous - u_pointer;
+  /* Measured from the line the reader is looking down, not from one point on
+     it. The pointer is a place on the screen, and the screen point is every
+     depth at once: everything drawn under the cursor is under the cursor,
+     whichever side of the cloud's middle it sits. Measured from a single point
+     at the middle's depth, only the particles that happened to be near that
+     depth moved, so on a shell like the cortex, or a sheet turned to lie back
+     into the screen, most of what was under the cursor ignored it. Taking out
+     the part of the offset that runs along the line leaves how far a particle
+     is from the cursor as the reader sees it, and the push is sideways across
+     the screen, which is the direction a hole opens in. A ray of nought, which
+     is what the processor sends when it has none, leaves the offset whole. */
+  vec3 offset = previous - u_pointer;
+  vec3 away = offset - u_pointerRay * dot(offset, u_pointerRay);
   float gap = length(away);
   vec3 direction = gap > 0.0001 ? away / gap : vec3(0.0, 1.0, 0.0);
   /* One minus a forward smoothstep, not a reversed one.

@@ -30,6 +30,17 @@ function proximityWeight(distance: number, radius: number, from: number, to: num
   return from + (to - from) * p * p * (3 - 2 * p);
 }
 
+import type { FrameScheduler } from "@/particles/frame";
+
+/* The page's frame ladder, which the cloud puts on the window under this name
+   (see frameScheduler in particles/frame.ts). Read from there and not
+   imported: an import copies the scheduler into this chunk as well, which is
+   bytes the home page's budget does not have, and the one that matters is the
+   one the cloud is already on. tests/frame-budget.spec.ts fails if the two
+   names drift apart, because the effect then runs a loop of its own. */
+const ladder = () =>
+  (window as unknown as Record<string, FrameScheduler | undefined>).__frameScheduler;
+
 /* Text that is not prose, or not drawn as a line of letters in the page. */
 const SKIP = "script,style,noscript,template,svg,canvas,textarea,input,select,[contenteditable],[data-proximity-layer]";
 
@@ -64,6 +75,10 @@ export function startVariableProximity(): () => void {
   let ready = false;
   let point: { x: number; y: number } | null = null;
   let frame = 0;
+  let pending = false;
+  /* Given up by the page's frame ladder, for the rest of the visit. */
+  let shed = false;
+  let leaveLadder: (() => void) | null = null;
 
   function rebuild() {
     dirty = false;
@@ -257,13 +272,49 @@ export function startVariableProximity(): () => void {
 
   function paint() {
     frame = 0;
-    const running = ready && point && !reduced.matches && !document.documentElement.dataset.intro;
+    pending = false;
+    const running =
+      !shed && ready && point && !reduced.matches && !document.documentElement.dataset.intro;
     if (running && dirty) rebuild();
     draw(running ? collect() : []);
   }
 
+  /* On the page with the brain, this is decoration on the page's one frame
+     ladder (particles/frame.ts), at a rank above everything else, so when
+     frames run long it is thinned and then given up before the cloud loses a
+     single particle. It used to ask for frames of its own, which the ladder
+     could not see: its cost was charged to the cloud, the cloud was stepped
+     down from its full count to under half of it, and a cloud that has stepped
+     down is never offered its particles back. Elsewhere there is no ladder and
+     nothing to protect, and it asks for a frame of its own when it needs one. */
+  const brainLive = () => document.querySelector('[data-brain="live"]') !== null;
+
   const schedule = () => {
-    if (!frame) frame = requestAnimationFrame(paint);
+    if (shed) return;
+    pending = true;
+    /* Not while the opening runs, when nothing is drawn anyway: a struggling
+       opening would give up the letters before it relieved the cloud, and the
+       first move after it brings them in. */
+    if (document.documentElement.dataset.intro) return;
+    const page = ladder();
+    if (page && brainLive()) {
+      leaveLadder ??= page.add({
+        rank: 1000,
+        draw() {
+          /* The cloud has gone, on a navigation: off the ladder, so a page
+             without it is not left running a loop for nothing. */
+          if (!brainLive()) {
+            leaveLadder?.();
+            leaveLadder = null;
+          }
+          if (pending) paint();
+        },
+        onShed() {
+          shed = true;
+          draw([]);
+        },
+      });
+    } else if (!frame) frame = requestAnimationFrame(paint);
   };
 
   const onMove = (event: PointerEvent) => {
@@ -313,6 +364,7 @@ export function startVariableProximity(): () => void {
 
   return () => {
     cancelAnimationFrame(frame);
+    leaveLadder?.();
     watcher.disconnect();
     document.removeEventListener("pointermove", onMove);
     document.removeEventListener("mouseout", onLeave);
