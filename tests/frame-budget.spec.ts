@@ -399,6 +399,69 @@ test.describe("the page's frame loop", () => {
     ).toBeLessThanOrEqual(1);
   });
 
+  test("the letter weight effect joins the cloud's loop rather than running its own", async ({
+    page,
+    isMobile,
+  }) => {
+    /* It first shipped asking for frames of its own, so while the pointer
+       moved over the words its cost was a second loop the ladder could not
+       see, and the cloud paid for it in particles. Counted the same way as
+       above, with the pointer moving over the words the whole time. */
+    test.skip(Boolean(isMobile), "the effect follows a cursor, and a phone has none");
+    await page.addInitScript(() => sessionStorage.setItem("fl-intro-played", "1"));
+    await page.goto("/?brainQuality=low");
+    await page.evaluate(() => document.fonts.ready);
+    await expect
+      .poll(() => page.locator("[data-brain]").getAttribute("data-brain"), {
+        timeout: 20_000,
+      })
+      .toBe("live");
+    const standfirst = (await page.locator(".t-sub").first().boundingBox())!;
+    await page.mouse.move(standfirst.x + 40, standfirst.y + 20);
+    await expect
+      .poll(() => page.locator(".proximity-layer > span").count(), { timeout: 10_000 })
+      .toBeGreaterThan(0);
+
+    const outstanding = await page.evaluate(
+      ({ x, y }) =>
+        new Promise<number>((resolve) => {
+          const real = window.requestAnimationFrame.bind(window);
+          let inFlight = 0;
+          let peak = 0;
+          window.requestAnimationFrame = (callback: FrameRequestCallback) => {
+            inFlight += 1;
+            peak = Math.max(peak, inFlight);
+            return real((time) => {
+              inFlight -= 1;
+              callback(time);
+            });
+          };
+          let step = 0;
+          const moving = setInterval(() => {
+            step += 1;
+            document.dispatchEvent(
+              new PointerEvent("pointermove", {
+                clientX: x + (step % 40) * 4,
+                clientY: y,
+                pointerType: "mouse",
+              }),
+            );
+          }, 8);
+          setTimeout(() => {
+            clearInterval(moving);
+            window.requestAnimationFrame = real;
+            resolve(peak);
+          }, 700);
+        }),
+      { x: standfirst.x + 20, y: standfirst.y + 20 },
+    );
+
+    expect(
+      outstanding,
+      "the letter weight effect is running a loop of its own beside the cloud's",
+    ).toBeLessThanOrEqual(1);
+  });
+
   test("only the most visible clip is decoding", async ({ page }) => {
     await page.goto("/?brainQuality=low");
     await page.evaluate(() => document.fonts.ready);

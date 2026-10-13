@@ -30,6 +30,9 @@ export type SimulationInputs = {
   /* Where the pointer is, in the simulation's own space, and how open the hole
      around it should be. */
   pointer: [number, number, number];
+  /* The direction the reader is looking along through the pointer, in the same
+     space and of unit length, or nought for none. */
+  pointerRay?: [number, number, number];
   pointerActive: number;
   /* How fast the pointer is moving, nought to one. */
   pointerSpeed: number;
@@ -116,6 +119,7 @@ export class ParticleSimulation {
       "u_show",
       "u_entryWindow",
       "u_pointer",
+      "u_pointerRay",
       "u_pointerReach",
       "u_pointerPush",
       "u_pointerSwirl",
@@ -355,6 +359,8 @@ export class ParticleSimulation {
       inputs.pointer[1],
       inputs.pointer[2],
     );
+    const ray = inputs.pointerRay ?? [0, 0, 0];
+    gl.uniform3f(this.velocityUniforms.u_pointerRay ?? null, ray[0], ray[1], ray[2]);
     gl.uniform1f(this.velocityUniforms.u_pointerReach ?? null, config.pointerReach);
     gl.uniform1f(this.velocityUniforms.u_pointerPush ?? null, config.pointerPush);
     gl.uniform1f(this.velocityUniforms.u_pointerSwirl ?? null, config.pointerSwirl);

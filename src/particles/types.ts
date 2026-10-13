@@ -113,8 +113,15 @@ export const DEFAULTS: ParticleBrainConfig = {
      The cost is about a hundred and fifty milliseconds more of sampling at
      startup, which happens behind the intro, and two and a quarter times the
      instances, which is nothing on a desktop GPU. A phone builds a smaller
-     cloud rather than paying for particles its tier will not draw. */
-  gridSize: 180,
+     cloud rather than paying for particles its tier will not draw.
+
+     Two hundred, up from a hundred and eighty: forty thousand particles at the
+     top tier where there were thirty two thousand four hundred, a little under
+     a quarter more in every shape and in the opening's words. Building it takes
+     about a sixth longer, still behind the intro, and the instances are still
+     nothing to a desktop card. The tiers below draw the same counts as before,
+     so a machine that steps down loses nothing it had. */
+  gridSize: 200,
   gridSizeCompact: 120,
   factorLane: 5.15,
   /* Down from 2.5. The cloud has to fit between the call to action and a

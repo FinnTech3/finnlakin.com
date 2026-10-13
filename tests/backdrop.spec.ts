@@ -853,6 +853,69 @@ test.describe("the particle engine", () => {
     await decoder.close();
   });
 
+  test("parts the other forms around the pointer too, not only the brain", async ({
+    page,
+    isMobile,
+  }) => {
+    /* The force runs on every particle in the simulation, whatever shape it is
+       in, and the pointer is carried into the cloud's space through whatever
+       transform the timeline has it at. The test above only ever asks the
+       brain at the top of the page; this asks two of the structures down it,
+       measured the same way. */
+    test.skip(Boolean(isMobile), "no hover pointer on a touch device, and no lane for the forms");
+    test.setTimeout(420_000);
+    await page.goto("/?brainQuality=low&brainDebug=1");
+    await settled(page);
+    const decoder = await decoderFor(page);
+
+    for (const band of ["path", "endorsements"]) {
+      await page.evaluate((id) => {
+        const section = document.getElementById(id)!;
+        const box = section.getBoundingClientRect();
+        window.scrollTo(0, window.scrollY + box.top + box.height / 2 - window.innerHeight / 2);
+      }, band);
+      await page.mouse.move(5, 5);
+      await page.waitForTimeout(4_000);
+      await page.addStyleTag({
+        content: "body > header, body > main, body > footer { visibility: hidden !important }",
+      });
+      await page.waitForTimeout(400);
+      const photograph = async () =>
+        (await page.locator("[data-brain] canvas").screenshot()).toString("base64");
+
+      const found = await marksCentroid(decoder, await photograph());
+      expect(found.count, `could not find the cloud in ${band}`).toBeGreaterThan(200);
+      const centre = { x: found.x, y: found.y };
+      const spread = await marksRadius(decoder, await photograph(), centre);
+      const radius = Math.max(24, Math.round((spread * DEFAULTS.pointerReach) / 0.34));
+      const before = await paintedWithin(page, decoder, centre.x, centre.y, radius);
+      expect(before, `nothing painted where the form should be in ${band}`).toBeGreaterThan(50);
+
+      let during = before;
+      await expect
+        .poll(
+          async () => {
+            for (let step = 0; step < 8; step++) {
+              await page.mouse.move(centre.x + (step % 3), centre.y + (step % 2));
+              await page.waitForTimeout(100);
+            }
+            during = await paintedWithin(page, decoder, centre.x, centre.y, radius);
+            return during;
+          },
+          { timeout: 120_000, message: `the pointer did not part the form in ${band}` },
+        )
+        .toBeLessThan(before * 0.9);
+      console.log(`${band}: ${before} marked, ${during} with the pointer on it`);
+
+      await page.evaluate(() => {
+        const sheets = Array.from(document.head.querySelectorAll("style"));
+        const last = sheets[sheets.length - 1];
+        if (last && last.textContent?.includes("visibility: hidden")) last.remove();
+      });
+    }
+    await decoder.close();
+  });
+
   test("flies the opening in from outside the frame", async ({ page }) => {
     /* Generous, because everything here is counted in frames and this
        environment draws about two a second with one page open and fewer with
@@ -1164,7 +1227,7 @@ test.describe("contrast where the words actually are", () => {
      page to eight scroll positions, and at each one it hides the page, takes a
      full page screenshot, restores it, and then walks every run of text on the
      page measuring the composited pixels behind it. On a box with no GPU, where
-     a thirty two thousand particle cloud is rasterised in software, that
+     a forty thousand particle cloud is rasterised in software, that
      measured 72 seconds run on its own, and it went over ninety as soon as the
      run shared the machine with other workers.
 

@@ -444,7 +444,7 @@ function Cloud({ className, surface }: Props) {
     /* Once, and the surface is deliberately not a dependency. It is the page's
        medium, fixed for as long as that page is mounted, and it arrives as a
        fresh object on every render: in the dependency list it would tear down
-       thirty two thousand particles and rebuild them on any parent re-render.
+       forty thousand particles and rebuild them on any parent re-render.
        A page that wants to change medium without remounting would call the
        engine's own setConfig. */
     // eslint-disable-next-line react-hooks/exhaustive-deps
