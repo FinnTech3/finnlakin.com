@@ -7,6 +7,15 @@ import { createParticleBrain } from "@/particles/engine";
 import { OPENING_CEILING_MS } from "@/particles/opening";
 import { debugRequested, forcedLevel, statsRequested } from "@/particles/quality";
 import { STORAGE_KEY } from "@/components/intro";
+import {
+  hexToRgb,
+  rgbToHex,
+  ROOM_EVENT,
+  rooms,
+  type Rgb,
+  type Room,
+  type RoomName,
+} from "@/lib/rooms";
 import type { CloudSurface, ParticleBrain as Engine } from "@/particles/types";
 
 /* The host. It owns a canvas, a frame loop and five listeners, and nothing
@@ -238,8 +247,63 @@ function Cloud({ className, surface }: Props) {
     let release: (() => void) | null = null;
     let frame: number | null = null;
 
+    /* The room's tint.
+
+       The cloud is drawn in the pigments of the room it is in, and the page says
+       when the room changes (room-watcher.tsx), so a change of shape is a change
+       of light as well. The pigments move a share of the way to the new room's
+       each frame and arrive in a little under a second, which is the wall's own
+       transition, so the two land together and neither is a cut. Only the ink
+       surface has pigments to move.
+
+       Read once here as well as listened for, because a page reloaded halfway
+       down is already in a room the watcher announced before the engine
+       existed. */
+    const inks = surface?.kind === "ink" ? surface : null;
+    let pale: Rgb = hexToRgb(inks?.pale ?? "#000000");
+    let deep: Rgb = hexToRgb(inks?.deep ?? "#000000");
+    let paleTo = pale;
+    let deepTo = deep;
+    let tintMoving = false;
+    let tintAt = 0;
+    const inRoom = rooms[root.dataset.room as RoomName];
+    if (inks && inRoom) {
+      pale = paleTo = hexToRgb(inRoom.pale);
+      deep = deepTo = hexToRgb(inRoom.deep);
+      engine.setConfig({ surface: { ...inks, pale: inRoom.pale, deep: inRoom.deep } });
+    }
+    const onRoom = (event: Event) => {
+      if (!inks) return;
+      const room = (event as CustomEvent<Room>).detail;
+      paleTo = hexToRgb(room.pale);
+      deepTo = hexToRgb(room.deep);
+      tintMoving = true;
+    };
+    window.addEventListener(ROOM_EVENT, onRoom);
+
+    const turn = (from: Rgb, to: Rgb, share: number): Rgb => [
+      from[0] + (to[0] - from[0]) * share,
+      from[1] + (to[1] - from[1]) * share,
+      from[2] + (to[2] - from[2]) * share,
+    ];
+
     const draw = (now: number) => {
       if (!running) return;
+      if (inks && tintMoving) {
+        /* Capped, so a frame that took a second does not finish the turn in
+           one step. */
+        const share = 1 - Math.exp(-Math.min(0.1, Math.max(0, (now - tintAt) / 1000)) / 0.28);
+        pale = turn(pale, paleTo, share);
+        deep = turn(deep, deepTo, share);
+        const near = (a: Rgb, b: Rgb) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) < 1;
+        if (near(pale, paleTo) && near(deep, deepTo)) {
+          pale = paleTo;
+          deep = deepTo;
+          tintMoving = false;
+        }
+        engine.setConfig({ surface: { ...inks, pale: rgbToHex(pale), deep: rgbToHex(deep) } });
+      }
+      tintAt = now;
       engine.frame(now);
     };
 
@@ -418,6 +482,7 @@ function Cloud({ className, surface }: Props) {
     return () => {
       running = false;
       stopStats?.();
+      window.removeEventListener(ROOM_EVENT, onRoom);
       pause();
       if (ceiling) clearTimeout(ceiling);
       if (fade) clearTimeout(fade);

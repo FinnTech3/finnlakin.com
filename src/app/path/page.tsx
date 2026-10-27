@@ -1,6 +1,8 @@
+import { RoomMarker } from "@/components/room-marker";
 import { Section } from "@/components/section";
 import { Timeline } from "@/components/timeline";
 import { buildMetadata } from "@/lib/metadata";
+import { pageRoom, roomViewport } from "@/lib/page-rooms";
 import { person } from "@/lib/site";
 import { timeline } from "@/lib/timeline";
 
@@ -9,6 +11,8 @@ export const metadata = buildMetadata({
   title: "Path",
   description: `Where ${person.name} has studied and worked: ${person.course} at ${person.university}, an exchange year at ${person.exchange}, and the work either side of it.`,
 });
+
+export const viewport = roomViewport(pageRoom.path);
 
 /* The narrative version of the same entries the CV renders.
 
@@ -26,14 +30,17 @@ export default function PathPage() {
   const years = timeline.length;
 
   return (
-    <Section
-      id="path"
-      eyebrow="Path"
-      title="Where I have studied and worked"
-      level={1}
-      intro={`${years} entries, most recent first. The CV is the same history at a tenth of the length, if that is what you are here for.`}
-    >
-      <Timeline level={2} />
-    </Section>
+    <>
+      <RoomMarker room={pageRoom.path} />
+      <Section
+        id="path"
+        eyebrow="Path"
+        title="Where I have studied and worked"
+        level={1}
+        intro={`${years} entries, most recent first. The CV is the same history at a tenth of the length, if that is what you are here for.`}
+      >
+        <Timeline level={2} />
+      </Section>
+    </>
   );
 }

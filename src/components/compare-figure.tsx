@@ -68,9 +68,9 @@ export function CompareFigure({
                   )}
                 </span>
               </div>
-              <div className="relative h-3 w-full overflow-hidden border-2 border-carbon bg-rule">
+              <div className="relative h-3 w-full overflow-hidden rounded-full border border-rule-strong bg-rule">
                 <div
-                  className={`h-full ${row.tone === "flag" ? "bg-flag" : "bg-carbon"}`}
+                  className={`h-full rounded-full ${row.tone === "flag" ? "bg-flag" : "bg-ink"}`}
                   style={{ width: `max(0.5rem, ${share}%)` }}
                 />
               </div>

@@ -8,13 +8,13 @@ import { nav } from "@/lib/site";
    pathname and nothing else does, so the rest of the header stays server
    rendered.
 
-   The current page is underlined, because on a wall the only things that can
-   say where you are are weight and a line. */
+   One pill holds them all and the current page is filled in cream, so where you
+   are is carried by a shape and a weight and not by a colour alone. */
 export function NavLinks() {
   const pathname = usePathname();
 
   return (
-    <ul className="flex items-center gap-6">
+    <ul className="glass flex items-center gap-1 rounded-full p-1">
       {nav.map((item) => {
         const current =
           item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
@@ -24,8 +24,10 @@ export function NavLinks() {
             <Link
               href={item.href}
               aria-current={current ? "page" : undefined}
-              className={`t-label hover:bg-accent-soft hover:text-carbon ${
-                current ? "text-ink underline decoration-2 underline-offset-4" : "text-muted"
+              className={`block rounded-full px-4 py-2 text-[0.8125rem] font-semibold tracking-[0.01em] ${
+                current
+                  ? "bg-cream text-carbon"
+                  : "text-muted hover:bg-accent-soft hover:text-carbon"
               }`}
             >
               {item.label}

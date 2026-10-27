@@ -76,7 +76,7 @@ export type CloudSurface =
   | { kind: "light" }
   /* One pigment on any page. `pale` is a thin laydown and `deep` a heavy one,
      `gain` how fast the sheet saturates. Dark pigments read as a drawing on
-     paper; pale ones on a mid grey page read as chalk. */
+     paper; pale ones on a dark page read as chalk. */
   | { kind: "ink"; pale: string; deep: string; gain: number }
   /* Two pigments, printed one after the other with the second a little out of
      register and both screened, which is what a risograph does and what gives

@@ -14,7 +14,7 @@ type BuildMetadataOptions = {
 /* Link previews are cached by the image's address and kept for days, so a card
    that is redrawn at the same address goes on showing the old one. Raise this
    when a card is redrawn; the route ignores it and the address is new. */
-const CARD_VERSION = 2;
+const CARD_VERSION = 3;
 
 /* The card is addressed by page, not by text. See src/lib/share-cards.ts for
    why the endpoint no longer takes a title. */

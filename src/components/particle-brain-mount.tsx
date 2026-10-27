@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
+import { homeRoom } from "@/lib/rooms";
 
 /* Loads the particle engine only on the page that has one.
 
@@ -18,21 +19,21 @@ const ParticleBrain = dynamic(
   { ssr: false },
 );
 
-/* The cloud, in chalk.
+/* The cloud, in chalk, tinted by the room it is in.
 
-   The engine draws light: particles accumulate additively, and an accumulation
-   of light is only ever visible over something dark. The wall is mid grey, so
-   the final pass reads the same buffer as a saturating coverage instead and
-   lays it down as pigment. Pale where the cloud is thin and near white where it
-   piles up, over a grey wall, that is chalk dust, which is the one medium that
-   suits a wall. See the Surfaces section of ParticleBrainREADME.md.
+   The engine draws light: particles accumulate additively, and the final pass
+   reads the same buffer as a saturating coverage instead and lays it down as
+   pigment. Pale where the cloud is thin and near white where it piles up, over
+   a dark wall, that is chalk dust. See the Surfaces section of
+   ParticleBrainREADME.md.
 
-   The pigments are not the page's chalk. They are a touch darker at the thin
-   end so a sparse edge sits in the wall instead of floating above it. */
+   The pigments are the first room's, midnight, and they are only where it
+   starts: the cloud turns to the pigments of each room as the page changes
+   rooms (see room-watcher.tsx and the tint in particle-brain.tsx). */
 const surface = {
   kind: "ink",
-  pale: "#cfccc4",
-  deep: "#f6f4f0",
+  pale: homeRoom.pale,
+  deep: homeRoom.deep,
   gain: 5.2,
 } as const;
 

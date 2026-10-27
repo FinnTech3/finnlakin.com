@@ -6,20 +6,20 @@
    What is not the original's is where it is drawn. The component splits one
    headline into a span per letter inside a panel of its own, with its own
    fonts, its own tokens and a reset for everything under [data-slot]. Applied
-   to every word on this site that would have replaced the two faces (its token
-   sheet defines --font-display, which is this site's headline face), loaded
-   fonts from a host the content security policy refuses, and rewritten the
-   text of every page into letters, which React owns and a screen reader reads.
+   to every word on this site that would have replaced the site's faces (its
+   token sheet defines --font-display, which is this site's headline face),
+   loaded fonts from a host the content security policy refuses, and rewritten
+   the text of every page into letters, which React owns and a screen reader
+   reads.
 
    So the page is never touched. A layer over everything, which nothing can
    click, hear or select, draws the heavier letter on top of the real one, in
    the real one's face, size, colour and place, and only while the pointer is
    near it. At rest the layer is empty and the page is exactly what it was. The
    weight runs from the text's own weight to the top of its face's axis, so a
-   letter only ever gets heavier, and the faces are the two already loaded:
-   Martian Mono is monospaced, so a heavier letter takes no more room, and the
-   heavier Big Shoulders is drawn centred over the lighter one, which it
-   covers. */
+   letter only ever gets heavier. All three faces on the site are variable and
+   all three stop at 800, and the heavier letter is drawn centred over the
+   lighter one, which it covers. */
 
 const bounded = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
@@ -47,8 +47,8 @@ const SKIP = "script,style,noscript,template,svg,canvas,textarea,input,select,[c
 /* The furthest any letter is reached from the pointer. */
 const REACH = 360;
 
-/* The tops of the two faces' weight axes. */
-const ceilingFor = (family: string) => (family.includes("Martian") ? 800 : 900);
+/* The top of the weight axis, which is the same in all three faces. */
+const CEILING = 800;
 
 type Look = { opacity: number; pinned: boolean } | null;
 
@@ -179,7 +179,7 @@ export function startVariableProximity(): () => void {
         continue;
       }
       const from = parseFloat(style.fontWeight);
-      const to = ceilingFor(style.fontFamily);
+      const to = CEILING;
       if (!(to - from >= 4)) continue;
       const look = appearance(element);
       if (!look) continue;
@@ -334,6 +334,14 @@ export function startVariableProximity(): () => void {
   const onScroll = () => {
     if (point) schedule();
   };
+  /* Something has moved under the pointer: a tool chip stepping away from it, or
+     a block arriving at the end of its transition. The letters are drawn where
+     the words were when they were measured, so a word that moves afterwards
+     would leave the heavier letter behind where it was, and with the pointer
+     still nothing would measure it again. Painted once more after it moves. */
+  const onMoved = () => {
+    if (point) schedule();
+  };
 
   /* The page's own text changing, on a navigation or a panel opening. The
      layer's own letters are not the page's and do not count. */
@@ -353,6 +361,8 @@ export function startVariableProximity(): () => void {
   window.addEventListener("blur", onBlur);
   window.addEventListener("scroll", onScroll, { passive: true, capture: true });
   window.addEventListener("resize", schedule);
+  window.addEventListener("fl-moved", onMoved);
+  document.addEventListener("transitionend", onMoved, { passive: true });
   reduced.addEventListener("change", schedule);
 
   /* The letters are measured in the real faces, so nothing is drawn until they
@@ -371,6 +381,8 @@ export function startVariableProximity(): () => void {
     window.removeEventListener("blur", onBlur);
     window.removeEventListener("scroll", onScroll, { capture: true });
     window.removeEventListener("resize", schedule);
+    window.removeEventListener("fl-moved", onMoved);
+    document.removeEventListener("transitionend", onMoved);
     reduced.removeEventListener("change", schedule);
     onPage.element.remove();
     onScreen.element.remove();

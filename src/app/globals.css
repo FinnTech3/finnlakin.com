@@ -1,86 +1,138 @@
 @import "tailwindcss";
 
-/* Concrete.
+/* Rooms.
 
-   One wall, and everything written on it is one of four colours: carbon for
-   type and rules, chalk for the two surfaces that are not wall, and acid for
-   the one thing that is allowed to shout. Nothing floats. There are no cards,
-   no radius, no shadow and no gradient, so the only depth on the site is a
-   scored line and a block of a different material.
+   One page, seven rooms and one brain. The wall is not one colour any more: it
+   is the colour of the room the cloud is in, and the room changes when the
+   cloud changes shape, so a change of shape is a change of weather. Every room
+   is dark and none is black, type is cream in all of them, and one colour is
+   the same in every room: acid, the colour of the highlight, the link and the
+   result that did not hold.
 
-   Two families, each at one end of the scale and nowhere in between: Big
-   Shoulders, condensed and upper case, for anything that is a headline, and
-   Martian Mono, wide and small, for everything that is read. DESIGN.md has the
-   whole system and this file is where it is enforced.
+   Three families, each with one job. Bricolage Grotesque is the voice of the
+   page: the name, the headings, the labels and the paragraphs. Newsreader is
+   for what is read slowly. JetBrains Mono is for a listing or a clock.
+   DESIGN.md has the whole system and this file is where it is enforced.
 
-   Three roles must never merge, and they are tokens so that a block of another
-   material can turn them over in one place:
+   Three roles must never merge, and they are tokens so that a surface of
+   another material can turn them over in one place:
      --accent  interactive text: links, and nothing else.
      --action  the one filled control per view. Never text.
      --pass / --flag  measurement verdicts only. A verdict is never carried by
                       its colour alone: the word and the weight say it too. */
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  /* The four colours. src/lib/colours.ts holds the same four for the places
-     that cannot read a stylesheet (the viewport, the manifest, the share cards
-     and the icons), and tests/platform.spec.ts asserts the wall is the same in
-     both. */
-  --wall: #a7a39b;
+  /* The room the page starts in, and the colours that are not a room's. The
+     wall and the tone here are the first room's and are what every room
+     overrides below. src/lib/rooms.ts holds the same table for the places that
+     cannot read a stylesheet, and scripts/check-rooms.ts fails the lint if the
+     two disagree or if any room is moved somewhere type cannot be read. */
+  --wall: #0b1230;
+  --tone: #8fa6ff;
+
   --carbon: #121212;
   --chalk: #f4f2ee;
+  --cream: #f4efe6;
   --acid: #d4ff3a;
 
   /* The page, and what is written on it.
 
-     Carbon at an alpha rather than a set of greys, because the wall is one flat
-     colour and any grey that is not the wall's own would be a fifth colour. The
-     ratios are worked out against the wall: ink 7.45:1, ink-soft 6.64, and the
-     two quiet steps 5.32. Small text needs 4.5. The first version of this wall
-     had its labels at 0.66, which axe measured at 3.9. */
+     Cream at an alpha rather than a set of greys, because the wall is one flat
+     colour per room and a grey that is not the wall's own would be a colour
+     from nowhere. The alphas are worked out against the lightest room: ink is
+     at least 10.7 to 1, the two quiet steps at least 6.6 and 5.5. Small type
+     needs 4.5. */
   --paper: var(--wall);
-  --ink: var(--carbon);
-  --ink-soft: rgb(18 18 18 / 0.92);
-  --muted: rgb(18 18 18 / 0.8);
-  --faint: rgb(18 18 18 / 0.8);
+  --ink: var(--cream);
+  --ink-soft: rgb(244 239 230 / 0.9);
+  --muted: rgb(244 239 230 / 0.74);
+  --faint: rgb(244 239 230 / 0.66);
 
-  /* A rule is scored into the wall, not drawn on it: the thin one is the
-     carbon at a quarter, the strong one is the carbon itself. */
-  --rule: rgb(18 18 18 / 0.28);
-  --rule-strong: var(--carbon);
+  /* A rule is a hairline of cream, light enough to be a line and not a wall. */
+  --rule: rgb(244 239 230 / 0.24);
+  --rule-strong: rgb(244 239 230 / 0.82);
 
-  /* Links are carbon like the type around them and carry an arrow, with an
-     underline and an acid highlight on hover and on keyboard focus. The filled
-     control is carbon with chalk on it. */
-  --accent: var(--carbon);
+  /* Links are acid, which on a dark room is at least 10 to 1. The filled
+     control is acid with carbon on it. A pass is plain; a flag is a swatch of
+     acid with carbon on it, as it always was. */
+  --accent: var(--acid);
   --accent-soft: var(--acid);
-  --action: var(--carbon);
-  --action-ink: var(--chalk);
-  --action-soft: rgb(18 18 18 / 0.12);
-
-  /* Held is plain. Not held is a swatch of acid with carbon on it: acid type on
-     the wall is 2.2:1 and cannot be read at any size this site uses, however
-     loud it is. */
-  --pass: var(--carbon);
+  --action: var(--acid);
+  --action-ink: var(--carbon);
+  --action-soft: rgb(244 239 230 / 0.12);
+  --pass: var(--cream);
   --flag: var(--acid);
 
-  /* There are no cards and no tinted bands, so these are nothing. They stay as
-     tokens so that a component that asks for a surface gets none rather than
-     an opaque box laid over the cloud. */
+  /* A panel of the room's own light: cream at a few percent, over a wall that
+     is one flat colour, so what is written on it is as readable as on the wall.
+     Only inside the column the words are in, never in the cloud's lane. */
+  --glass: rgb(244 239 230 / 0.06);
+  --glass-edge: rgb(244 239 230 / 0.16);
+
   --card: transparent;
   --band: transparent;
 
-  /* The two surfaces that are not wall. A dialog is chalk. The veil over the
-     opening animation is carbon, so the cloud is chalk on a slate for the
-     seven seconds it is the only thing on the screen. */
+  /* The two surfaces that are paper. A dialog is cream. The veil over the
+     opening animation is the first room's wall, so the cloud is chalk on
+     midnight for the seconds it is the only thing on the screen and the page
+     comes up out of the same colour. */
   --panel: var(--chalk);
-  --veil: var(--carbon);
+  --veil: var(--wall);
 
-  --text-label: 0.6875rem;
-  --text-caption: 0.75rem;
-  --text-body: 0.875rem;
-  --text-body-lg: 1rem;
+  --radius: 1.25rem;
+  --radius-lg: 1.75rem;
+
+  --text-label: 0.75rem;
+  --text-caption: 0.8125rem;
+  --text-body: 1rem;
+  --text-body-lg: 1.125rem;
+}
+
+/* The other six rooms. Only the wall and the tone move: everything else on the
+   page asks for a token and gets the room it is in. The same seven are in
+   src/lib/rooms.ts, which also holds the pigments the cloud is drawn in.
+
+   A room is asked for in two ways, and they say the same thing. The root's
+   attribute is what the room watcher sets as the home page changes room. The
+   marker is what a page that is one room throughout carries in its own markup,
+   and it is found with :has() so that the wall is right in the first paint and
+   not after the scripts have run. */
+html[data-room="lagoon"],
+html:has([data-page-room="lagoon"]) {
+  --wall: #06353a;
+  --tone: #5ff0cf;
+}
+
+html[data-room="indigo"],
+html:has([data-page-room="indigo"]) {
+  --wall: #1c1468;
+  --tone: #b9a6ff;
+}
+
+html[data-room="ember"],
+html:has([data-page-room="ember"]) {
+  --wall: #4a1a08;
+  --tone: #ffb36b;
+}
+
+html[data-room="orchid"],
+html:has([data-page-room="orchid"]) {
+  --wall: #4a0f57;
+  --tone: #ff9be4;
+}
+
+html[data-room="forest"],
+html:has([data-page-room="forest"]) {
+  --wall: #0b3d27;
+  --tone: #a8f07a;
+}
+
+html[data-room="wine"],
+html:has([data-page-room="wine"]) {
+  --wall: #59102e;
+  --tone: #ff9c9c;
 }
 
 @theme inline {
@@ -101,21 +153,22 @@
   --color-action-soft: var(--action-soft);
   --color-pass: var(--pass);
   --color-flag: var(--flag);
+  --color-glass: var(--glass);
+  --color-glass-edge: var(--glass-edge);
+  --color-tone: var(--tone);
 
-  /* The four, by name, for the few places that mean a colour rather than a
-     role: a control that is carbon whatever surface it sits on. */
+  /* The fixed colours, by name, for the few places that mean a colour rather
+     than a role: a control that is carbon whatever surface it sits on. */
   --color-wall: var(--wall);
   --color-carbon: var(--carbon);
   --color-chalk: var(--chalk);
+  --color-cream: var(--cream);
   --color-acid: var(--acid);
 
-  --font-display: var(--font-shoulders), "Shoulders Fallback", "Arial Narrow", ui-sans-serif, sans-serif;
-  --font-mono: var(--font-martian), ui-monospace, "SFMono-Regular", "Menlo", monospace;
-  /* There is no third face. These two names exist so that a class asking for
-     the default sans or serif gets one of the two that are here, instead of
-     the browser's. */
-  --font-sans: var(--font-martian), ui-monospace, "SFMono-Regular", "Menlo", monospace;
-  --font-serif: var(--font-shoulders), "Shoulders Fallback", "Arial Narrow", ui-sans-serif, sans-serif;
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", "Menlo", monospace;
 
   --container-page: 90rem;
   /* How much of the screen is given over to the lane the brain travels down,
@@ -134,90 +187,19 @@
   --lane: 40vw;
 }
 
-/* What each face is stood in for while it arrives.
-
-   next/font makes a stand-in of its own for each face and they are wrong for
-   this pair, so these are made by hand, from the real faces and not from a
-   guess. For Big Shoulders it cannot make one (the build says "Failed to find
-   font override values" and carries on). For Martian Mono it makes Arial at 157
-   percent, and the stand-in is a monospace in this one on any machine without
-   Arial and Arial on any machine with it. Measured with Liberation Sans, which
-   is metric compatible with Arial, standing in for it, that one is 6 percent
-   narrow across a paragraph and 21 to 24 percent wide across the labels, which
-   are set wider and tracked out: a hero whose two labels fit on one line in the
-   stand-in and not in the real face.
-
-   Measured on a phone with the fonts two and a half seconds late, and without
-   the fixes below, the page moved by 0.195 when they landed, against a budget
-   of 0.05: the two labels at the top of the hero started on one line and
-   wrapped onto two, the standfirst lost a line, and everything under them moved.
-
-   Big Shoulders is condensed, so its stand-in is Arial scaled down. The scale is
-   how wide it is against Arial over the 2,576 characters the site sets in it,
-   measured in a browser: 0.667 at weight 500, 0.689 at 600 and 0.769 at 700, and
-   the two rules are the two groups of weight those fall into.
-
-   Martian Mono is monospaced, which makes the arithmetic exact instead of
-   statistical: every character is 0.714 of the size across, a plain monospace is
-   0.6, and so scaling one by 119 percent puts every character where the real
-   face will. That is true of the labels too, which are set wider (a width axis
-   the stand-in does not have): scaled the same, a label and the navigation row
-   come out the same width in the stand-in as in the real face, to the pixel
-   (301 and 215 pixels, measured), against 366 and 267 in the one next/font
-   makes. The exception is the call to action, whose labels are set at a heavier
-   weight and are about ten percent narrower in the stand-in, which moves one
-   button's edge and nothing else.
-
-   The Martian rule is named for the face next/font generates, "Martian Mono
-   Fallback", which is already the second name in --font-martian. The option
-   that turns the generated one off is not honoured by this bundler, so the
-   generated rule is replaced instead: two rules for one name with the same
-   descriptors, and the later one wins. That relies on this file coming after
-   the generated rules in the stylesheet, which it does in a production build
-   and which tests/performance.spec.ts asserts, so a change in either the name
-   or the order fails there instead of going unnoticed.
-
-   The ascent and descent are the real face's, divided by the scale because the
-   overrides are applied after it, so the baseline is where it will be once the
-   face is in. If none of the local faces in a rule exists, the rule does nothing
-   and the stack falls through to the next name, which is where it was before.
-   Re-measure if the faces or the headlines change a great deal. */
-@font-face {
-  font-family: "Shoulders Fallback";
-  src: local("Arial"), local("Helvetica Neue"), local("Helvetica"), local("Liberation Sans");
-  font-weight: 100 650;
-  size-adjust: 68.5%;
-  ascent-override: 143.9%;
-  descent-override: 31.4%;
-  line-gap-override: 0%;
-}
-
-@font-face {
-  font-family: "Shoulders Fallback";
-  src: local("Arial"), local("Helvetica Neue"), local("Helvetica"), local("Liberation Sans");
-  font-weight: 651 900;
-  size-adjust: 76.5%;
-  ascent-override: 128.9%;
-  descent-override: 28.1%;
-  line-gap-override: 0%;
-}
-
-@font-face {
-  font-family: "Martian Mono Fallback";
-  src: local("Menlo"), local("DejaVu Sans Mono"), local("Courier New"), local("Liberation Mono");
-  size-adjust: 119%;
-  ascent-override: 84%;
-  descent-override: 16.8%;
-  line-gap-override: 0%;
-}
-
 /* The wall goes on the root element, and it has to. The cloud's canvas is fixed
    at a negative z-index, which paints above the root's background and below
    every block in the page, so a wrapper carrying the wall colour would cover
    the cloud completely. Nothing between the root and the content may paint an
-   opaque background, which is also why the body is transparent. */
+   opaque background, which is also why the body is transparent.
+
+   The wall is turned over by a transition on the root's own background, so the
+   change of room is a slow dissolve and not a cut. It is one flat colour at
+   every moment of it: nothing here is a gradient, and that is load bearing for
+   the tests that read the wall off a photograph as its commonest colour. */
 html {
-  background: var(--wall);
+  background-color: var(--wall);
+  transition: background-color 900ms ease;
 }
 
 body {
@@ -226,11 +208,11 @@ body {
   font-family: var(--font-sans);
   font-size: var(--text-body);
   font-weight: 400;
+  font-optical-sizing: auto;
   line-height: 1.6;
 }
 
-/* The header is in the flow now, above the content, where it used to be laid
-   over a full height black stage. */
+/* The header is in the flow, above the content. */
 .site-header {
   position: relative;
   z-index: 40;
@@ -311,7 +293,7 @@ body {
 @layer components {
   /* A page that has no lane: the same left edge as the bands, so the name,
      the headings and the first word of every route start where the home page's
-     do. It is not centred. A wall has a left edge and the work hangs from it. */
+     do. It is not centred. */
   .shell {
     width: 100%;
     max-width: var(--container-page);
@@ -348,8 +330,8 @@ body {
      figure out into it was written and then taken out again: the cloud is in
      one lane or the other at every scroll position on the home page, so a
      figure that reaches into either is a figure with a brain drawn over it.
-     The same goes for a scored line. A rule belongs to the block it is inside,
-     never to the band, or it would run through the lane under the cloud. */
+     The same goes for a rule: it belongs to the block it is inside, never to
+     the band, or it would run through the lane under the cloud. */
 
   /* The space above and below a section's content. It is also the seam: the
      engine reads each section's first child's padding as the room the cloud has
@@ -380,84 +362,80 @@ body {
     max-width: 48ch;
   }
 
-  /* Headlines are Big Shoulders, upper case, at a few sizes that are nowhere
-     near the body's. The hierarchy is the gap, not the steps.
+  /* Headlines are Bricolage at a few sizes that are nowhere near the body's.
+     Tight, because at this size the default spacing is a gap you could park a
+     car in, and heavy enough that a letter swelling under the cursor has
+     somewhere to go. */
 
-     A measure on headline text is written in em, never ch. A ch is the width of
-     a zero in whatever face is being used, and while this one is arriving the
-     page is set in the stand-in below, whose zero is wider than its letters are
-     by a different proportion: a box sized in ch is a different width in the two
-     faces, so the same words wrap differently, and the page moves when the real
-     face lands. An em is the same in both. The numbers are the old ch measures
-     worked out in the real face. */
-
-  /* The name, and nothing else. Set at the size of the wall.
+  /* The name, and nothing else. Upper case, because the opening draws it in
+     upper case out of particles and the page it hands over to is the same word.
 
      Sized by the shorter of the window's width and its height. The width alone
      is right for a phone and wrong for a laptop: at 1440 by 900 it put two
-     lines of 240 pixel type, the standfirst and its controls past the bottom of
-     the first screen, and a first screen that has to be scrolled to reach the
-     controls is not carrying them. A quarter of the window's height leaves room
-     for all of it. */
+     lines of the largest type, the standfirst and its controls past the bottom
+     of the first screen, and a first screen that has to be scrolled to reach
+     the controls is not carrying them. */
   .t-display-lg {
     font-family: var(--font-display);
     font-weight: 700;
     text-transform: uppercase;
-    font-size: clamp(4.5rem, min(17vw, 24svh), 15rem);
-    /* Tight, and no tighter. At 0.78 the two lines overlapped by a few pixels
-       and the legs of FINN fused into the top of LAKIN, which is carbon on
-       carbon. */
+    font-size: clamp(4rem, min(15.5vw, 23svh), 13.5rem);
     line-height: 0.86;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
+
+    /* One column, so the name has the width of the screen and not the share of
+       it the lane leaves. At the desktop factor it was sixty four pixels on a
+       phone, a third of the width, which is a name that looks like it is
+       apologising. A little over a fifth of the width on a phone, still held
+       by the window's height so a short screen keeps its controls. */
+    @media (max-width: 1099px) {
+      font-size: clamp(4rem, min(22vw, 26svh), 9rem);
+    }
   }
 
   /* A page's own title, where the page is not the home page. */
   .t-hlg {
     font-family: var(--font-display);
     font-weight: 700;
-    text-transform: uppercase;
     font-size: clamp(3rem, 8vw, 6.5rem);
-    line-height: 0.88;
-    letter-spacing: -0.015em;
+    line-height: 0.9;
+    letter-spacing: -0.03em;
   }
 
   /* A section's heading. */
   .t-h {
     font-family: var(--font-display);
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: clamp(2.25rem, 6vw, 4.5rem);
-    line-height: 0.9;
-    letter-spacing: -0.01em;
+    font-weight: 650;
+    font-size: clamp(2.5rem, 6.2vw, 5.25rem);
+    line-height: 0.95;
+    letter-spacing: -0.03em;
   }
 
   /* An entry's name. */
   .t-hsm {
     font-family: var(--font-display);
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: clamp(1.875rem, 3.6vw, 2.75rem);
-    line-height: 0.95;
-    letter-spacing: -0.005em;
+    font-weight: 650;
+    font-size: clamp(1.9rem, 3.8vw, 3.1rem);
+    line-height: 1;
+    letter-spacing: -0.028em;
   }
 
   /* The one sentence a section leads with. */
   .t-sub {
     font-family: var(--font-display);
     font-weight: 500;
-    text-transform: uppercase;
-    font-size: clamp(1.25rem, 2.6vw, 2rem);
-    line-height: 1.05;
+    font-size: clamp(1.375rem, 2.7vw, 2.25rem);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
   }
 
-  /* The smallest thing that is still a heading. */
+  /* The smallest thing that is still a heading, and the wordmark. */
   .t-h3 {
     font-family: var(--font-display);
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 1.375rem;
+    font-weight: 700;
+    font-size: 1.25rem;
     line-height: 1.05;
-    letter-spacing: 0;
+    letter-spacing: -0.02em;
   }
 
   .t-body-lg {
@@ -466,14 +444,13 @@ body {
     line-height: 1.6;
   }
 
-  /* The terminal's own voice: wide, spaced out, small and upper case. Every
-     label on the site is this, whether it names a material or a data source. */
+  /* A label: small, upper case and tracked, in the page's own face. Every label
+     on the site is this, whether it names a material or a data source. */
   .t-label {
-    font-family: var(--font-mono);
-    font-variation-settings: "wdth" 112;
+    font-family: var(--font-display);
     font-size: var(--text-label);
-    font-weight: 400;
-    letter-spacing: 0.16em;
+    font-weight: 600;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     line-height: 1.35;
     color: var(--faint);
@@ -485,15 +462,24 @@ body {
     line-height: 1.55;
   }
 
+  /* The listing's voice, for a stack of tools or a line of code. */
+  .t-mono {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 1.5;
+  }
+
   /* Figures that get compared down a column have to line up. */
   .tnum {
     font-variant-numeric: tabular-nums;
-    font-weight: 600;
+    font-weight: 650;
   }
 
-  /* A line scored into the wall. */
+  /* A hairline, scored under whatever it belongs to. */
   .scored {
-    border-top: 2px solid var(--rule-strong);
+    border-top: 1px solid var(--rule-strong);
   }
 
   .scored-thin {
@@ -503,12 +489,13 @@ body {
   /* A result that did not hold: the words on a swatch of acid, set on the words
      themselves and not on a table cell. On a cell, the swatch stretches down
      the whole height of a row with a paragraph in it and reads as a rendering
-     fault. Carbon is stated here, on the swatch, because a block that turns the
-     text chalk would otherwise put chalk on acid, which is 1.03:1. */
+     fault. Carbon is stated here, on the swatch, because a surface that turns
+     the text cream would otherwise put cream on acid, which is 1.03 to 1. */
   .flag {
     color: var(--carbon);
     background: var(--acid);
-    padding: 0.1rem 0.4rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 0.35rem;
     font-weight: 700;
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
@@ -521,69 +508,77 @@ body {
     font-weight: 500;
   }
 
-  /* A block of carbon on the wall, and the one inverted surface on the site. It
-     is used where something has to be read before anything else. The tokens turn
-     over inside it, so the same markup that is carbon on the wall is chalk on
-     carbon here without restating a single rule. */
-  .chalk-block,
-  .on-carbon {
-    --paper: var(--carbon);
-    --ink: var(--chalk);
-    --ink-soft: rgb(244 242 238 / 0.9);
-    --muted: rgb(244 242 238 / 0.7);
-    --faint: rgb(244 242 238 / 0.7);
-    --rule: rgb(244 242 238 / 0.24);
-    --rule-strong: var(--chalk);
-    --accent: var(--chalk);
-    --action: var(--chalk);
-    --action-ink: var(--carbon);
-    --action-soft: rgb(244 242 238 / 0.14);
-    color: var(--chalk);
-  }
-
+  /* A sheet of paper laid on the room, and the one inverted surface: the
+     ledger, the sentence a project does not show, and anything that has to be
+     read before anything else. The tokens turn over inside it, so the same
+     markup that is cream on the wall is carbon on paper here without restating
+     a single rule. */
   .chalk-block {
-    background: var(--carbon);
+    color-scheme: light;
+    --paper: var(--chalk);
+    --ink: var(--carbon);
+    --ink-soft: rgb(18 18 18 / 0.9);
+    --muted: rgb(18 18 18 / 0.74);
+    --faint: rgb(18 18 18 / 0.7);
+    --rule: rgb(18 18 18 / 0.22);
+    --rule-strong: rgb(18 18 18 / 0.85);
+    --accent: var(--carbon);
+    --action: var(--carbon);
+    --action-ink: var(--chalk);
+    --action-soft: rgb(18 18 18 / 0.1);
+    color: var(--carbon);
+    background: var(--chalk);
+    border-radius: var(--radius-lg);
     padding: clamp(1.5rem, 3vw, 2.5rem);
   }
 
-  /* The other surface: a sheet of chalk pasted on the wall, for anything that is
-     read for a long time. Mid grey is not the most legible setting for twenty
-     minutes of prose, and a poster on a wall is the most natural thing in the
-     world. */
+  /* The other paper: a sheet for anything read for a long time, which is where
+     the essays and the privacy page are. Paper is the most natural thing in the
+     world to read twenty minutes of prose on. */
   .sheet,
   .palette {
+    color-scheme: light;
     --paper: var(--chalk);
     --ink: var(--carbon);
     --ink-soft: rgb(18 18 18 / 0.88);
     --muted: rgb(18 18 18 / 0.72);
     --faint: rgb(18 18 18 / 0.72);
-    --rule: rgb(18 18 18 / 0.24);
-    --rule-strong: var(--carbon);
+    --rule: rgb(18 18 18 / 0.2);
+    --rule-strong: rgb(18 18 18 / 0.8);
+    --accent: var(--carbon);
     color: var(--carbon);
   }
 
   .sheet {
     background: var(--chalk);
-    border: 2px solid var(--carbon);
+    border-radius: var(--radius-lg);
     padding: clamp(1.25rem, 4vw, 3.5rem);
   }
 
-  /* A control. Square, ruled, and set in the terminal's voice. The filled one is
-     carbon with chalk on it and there is one per view. */
+  /* A glass panel: a few percent of cream over the room, with a hairline round
+     it, for a figure or a group of figures that should sit together. Inside the
+     column the words are in and never in the lane. */
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--glass-edge);
+    border-radius: var(--radius);
+  }
+
+  /* A control. Pill shaped, set in the page's own face, and at least 44 pixels
+     tall. The filled one is acid with carbon on it and there is one per view. */
   .pill {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
     min-height: 2.75rem;
-    padding: 0.75rem 1.25rem;
-    border: 2px solid var(--carbon);
-    font-family: var(--font-mono);
-    font-variation-settings: "wdth" 112;
-    font-size: var(--text-caption);
-    font-weight: 500;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+    padding: 0.7rem 1.35rem;
+    border: 1.5px solid var(--ink);
+    border-radius: 999px;
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
+    font-weight: 650;
+    letter-spacing: -0.005em;
     line-height: 1;
   }
 
@@ -594,26 +589,27 @@ body {
   }
 
   .pill-filled:hover {
-    background: var(--acid);
-    border-color: var(--carbon);
+    background: var(--cream);
+    border-color: var(--cream);
     color: var(--carbon);
   }
 
   .pill-ghost {
     background: transparent;
-    border-color: var(--ink);
+    border-color: rgb(244 239 230 / 0.5);
     color: var(--ink);
   }
 
   .pill-ghost:hover {
     background: var(--acid);
+    border-color: var(--acid);
     color: var(--carbon);
   }
 
   /* The lowest emphasis interactive element: a link with an arrow after it.
-     Carbon like everything else, no underline at rest, and an underline with an
-     acid highlight on hover and on keyboard focus, so a reader who cannot hover
-     has the same signal. The arrow is part of the label and is marked
+     Acid on the room, no underline at rest, and an underline with a swatch of
+     acid behind carbon on hover and on keyboard focus, so a reader who cannot
+     hover has the same signal. The arrow is part of the label and is marked
      decorative so it is not read out as a word. */
   .link-arrow {
     color: var(--accent);
@@ -638,7 +634,7 @@ body {
     overflow-x: auto;
   }
 
-  /* A terminal's listing: everything aligned, nothing decorated. */
+  /* A listing: everything aligned, nothing decorated. */
   .index-table {
     width: 100%;
     border-collapse: collapse;
@@ -647,20 +643,19 @@ body {
 
   .index-table th {
     text-align: left;
-    font-family: var(--font-mono);
-    font-variation-settings: "wdth" 112;
+    font-family: var(--font-display);
     font-size: var(--text-label);
-    font-weight: 400;
-    letter-spacing: 0.16em;
+    font-weight: 600;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--faint);
     /* Room on the right of every column, or two headings read as one word. */
-    padding: 0 1.25rem 0.6rem 0;
-    border-bottom: 2px solid var(--rule-strong);
+    padding: 0 1.25rem 0.7rem 0;
+    border-bottom: 1px solid var(--rule-strong);
   }
 
   .index-table td {
-    padding: 0.8rem 1.25rem 0.8rem 0;
+    padding: 1rem 1.25rem 1rem 0;
     border-bottom: 1px solid var(--rule);
     vertical-align: top;
   }
@@ -685,6 +680,28 @@ body {
     white-space: nowrap;
   }
 
+  /* The listing notices where the pointer is: the row it is on lights like
+     glass and its number takes the room's tone. Only for a pointer that can
+     hover, because on a touch screen the highlight would stay on the last row
+     touched. */
+  .index-work tbody tr {
+    transition: background-color 200ms ease;
+  }
+
+  .index-work .num {
+    transition: color 200ms ease;
+  }
+
+  @media (hover: hover) {
+    .index-work tbody tr:hover {
+      background: var(--glass);
+    }
+
+    .index-work tbody tr:hover .num {
+      color: var(--tone);
+    }
+  }
+
   /* The lane takes forty percent of the window from 1100 pixels, so the column
      the work index sits in is 605 pixels wide at 1100 and does not reach the 664
      the table asked for until 1205. Across that, the last column was cut off
@@ -705,20 +722,77 @@ body {
 
   .index-name {
     font-family: var(--font-display);
-    font-weight: 600;
-    text-transform: uppercase;
+    font-weight: 650;
     font-size: 1.375rem;
-    line-height: 1;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
   }
 
-  /* A bay cut into the wall, empty, and saying so. */
+  /* Shown from a tablet's width up and not on a phone, for a column of a table
+     that does not fit across a phone. A class and not the utilities it is made
+     of, because there are forty four of them in the home page's HTML and the
+     document has a budget. The same goes for the next four. */
+  .from-tablet {
+    display: none;
+  }
+
+  @media (min-width: 720px) {
+    .from-tablet {
+      display: table-cell;
+    }
+  }
+
+  /* One statistic on an entry: the figure, and what it is a figure of. */
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .stat-value {
+    font-family: var(--font-display);
+    font-size: clamp(1.9rem, 3.4vw, 2.6rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.035em;
+  }
+
+  .stat-label {
+    font-size: var(--text-caption);
+    font-weight: 400;
+    line-height: 1.375;
+    color: var(--muted);
+  }
+
+  /* The sentence an entry leads with, where the entry does not set it as a
+     poster. */
+  .lede {
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 2.1vw, 1.625rem);
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    text-wrap: pretty;
+    color: var(--ink);
+  }
+
+  /* A bay held open for the other half of the work, empty, and saying so. */
   .bay {
-    border: 2px solid var(--rule-strong);
+    border: 1.5px dashed var(--rule-strong);
+    border-radius: var(--radius);
     aspect-ratio: 1 / 1;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 0.75rem;
+    padding: 0.85rem;
+    transition:
+      border-color 200ms ease,
+      background-color 200ms ease;
+  }
+
+  .bay:hover {
+    border-color: var(--tone);
+    background: var(--glass);
   }
 
   .bay-no {
@@ -726,36 +800,40 @@ body {
     font-weight: 700;
     font-size: 2.5rem;
     line-height: 0.8;
-    /* Large type, so three to one is the bar, and this is 3.9. It was the
-       colour of a scored line, which is a line and not a number somebody has to
-       read. */
-    color: rgb(18 18 18 / 0.66);
+    letter-spacing: -0.04em;
+    color: var(--tone);
   }
 
-  /* Somebody else speaking, which is why it changes voice: the headline face,
-     upper case, with no quotation marks drawn for it. */
+  /* Somebody else speaking, which is why it changes voice: the serif, set
+     large, with no quotation marks drawn for it. */
   .quote {
-    font-family: var(--font-display);
+    font-family: var(--font-serif);
     font-weight: 500;
-    font-size: clamp(1.125rem, 2.1vw, 1.5rem);
-    line-height: 1.2;
-    text-transform: uppercase;
-    max-width: 14.5em;
+    font-size: clamp(1.25rem, 2.2vw, 1.75rem);
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    max-width: 22em;
     margin: 0;
   }
 }
 
 :focus-visible {
-  outline: 2px solid var(--carbon);
+  outline: 2px solid var(--acid);
   outline-offset: 3px;
 }
 
-/* Carbon on carbon is nothing, so anything that is carbon turns the ring to
-   acid. The call to action is carbon on the wall and its ring sits outside it
-   at an offset, so it keeps the carbon one. */
+/* Inside paper the ring is carbon: acid on cream is nothing. */
 .chalk-block :focus-visible,
-.on-carbon :focus-visible {
-  outline-color: var(--acid);
+.sheet :focus-visible,
+.palette :focus-visible {
+  outline-color: var(--carbon);
+}
+
+/* The search field is the width of the dialog and has its rule under it, so a
+   ring three pixels outside it was a second line under the first. Inside, it is
+   a ring and nothing else. */
+.palette input:focus-visible {
+  outline-offset: -4px;
 }
 
 ::selection {
@@ -833,14 +911,15 @@ main[id] {
 /* Long-form body. Element styles rather than a utility on every tag, so the
    essays stay readable as prose in the source too.
 
-   Weight 400 and ink, at a size and a line height chosen for reading rather
-   than for listing: the essays are the part of this site somebody reads for
-   twenty minutes, so they get the most legible setting it has. They are set on
-   a sheet of chalk, which is where the contrast comes from. */
+   Newsreader, at a size and a line height chosen for reading rather than for
+   listing: the essays are the part of this site somebody reads for twenty
+   minutes, so they get the most legible setting it has. They are set on a sheet
+   of paper, which is where the contrast comes from. */
 .longform {
-  font-size: 0.9375rem;
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
   font-weight: 400;
-  line-height: 1.75;
+  line-height: 1.7;
   color: var(--ink);
 }
 
@@ -857,20 +936,19 @@ main[id] {
 
 /* The room above a heading separates it from what came before, and the first
    heading has nothing before it: on a page that opens with one, the sheet had a
-   hundred pixels of bare chalk above its first line. */
+   hundred pixels of bare paper above its first line. */
 .longform > h2:first-child {
   margin-top: 0;
 }
 
 .longform > h2 {
-  margin-top: 2.6em;
-  max-width: 10.4em;
+  margin-top: 2.4em;
+  max-width: 12em;
   font-family: var(--font-display);
   font-size: clamp(1.875rem, 3.6vw, 2.75rem);
-  font-weight: 600;
-  line-height: 0.95;
-  letter-spacing: -0.005em;
-  text-transform: uppercase;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.035em;
   color: var(--ink);
   text-wrap: balance;
 }
@@ -884,10 +962,9 @@ main[id] {
   font-style: italic;
 }
 
-/* A link inside a paragraph has no arrow suffix to carry the affordance and no
-   colour of its own to signal with, since links here are carbon like the text
-   around them. An underline is what is left, and it is the right answer for
-   running prose anyway. */
+/* A link inside a paragraph has no arrow suffix to carry the affordance, so an
+   underline is what is left, and it is the right answer for running prose
+   anyway. */
 .longform > p a,
 .longform > ul a {
   color: var(--ink);
@@ -916,7 +993,7 @@ main[id] {
 
 .longform code {
   font-family: var(--font-mono);
-  font-size: 0.9em;
+  font-size: 0.84em;
   font-weight: 400;
 }
 
@@ -937,12 +1014,12 @@ main[id] {
   color: var(--ink);
 }
 
-/* Motion is CSS rather than a library. The budget here is small (rows settling
-   once on load, and hover feedback) and CSS covers all of it with no bundle.
-   It also makes one specific failure impossible rather than merely avoided:
-   a library that parks elements at an initial hidden transform bakes that
-   transform into the server HTML, and the page then never paints if the script
-   is blocked. A CSS animation needs no script to finish.
+/* Motion is CSS rather than a library. The budget here is small and CSS covers
+   all of it with no bundle. It also makes one specific failure impossible
+   rather than merely avoided: a library that parks elements at an initial
+   hidden transform bakes that transform into the server HTML, and the page then
+   never paints if the script is blocked. A CSS animation needs no script to
+   finish.
 
    The h1 is deliberately not animated. It is the first thing a reader needs
    and it should be painted, not arriving. */
@@ -965,8 +1042,7 @@ main[id] {
 .settle-rows > tr:nth-child(3) { animation-delay: 200ms; }
 .settle-rows > tr:nth-child(4) { animation-delay: 270ms; }
 
-/* There are no cards, so there is nothing to raise on hover. A row lights its
-   own rule instead. */
+/* A row lights its own rule when it has the pointer. */
 .row-hover {
   transition: border-color 180ms ease;
 }
@@ -983,36 +1059,37 @@ button {
     opacity 140ms ease;
 }
 
-/* The search dialog: a square sheet of chalk with a carbon edge and no blur
-   behind it. The wall behind is dimmed by a flat carbon at a little over half. */
+/* The search dialog: a sheet of paper with rounded corners. The room behind it
+   is dimmed by a flat black at a little over half and nothing is blurred. */
 .palette {
   margin: 0 auto;
   margin-top: min(12vh, 7rem);
   width: min(38rem, calc(100vw - 2rem));
   max-height: 80vh;
   padding: 0;
-  border: 2px solid var(--carbon);
-  border-radius: 0;
+  border: 0;
+  border-radius: var(--radius-lg);
   background: var(--panel);
+  overflow: hidden;
 }
 
 .palette::backdrop {
-  background: rgb(18 18 18 / 0.62);
+  background: rgb(5 6 14 / 0.66);
 }
 
 /* A caption over a moving picture needs a known surface between the two, and
-   this is it: carbon, strongest where the words are and gone by two thirds of
-   the way up, so the clip is not dimmed for the sake of two lines. */
+   this is it: the room's darkest, strongest where the words are and gone by two
+   thirds of the way up, so the clip is not dimmed for the sake of two lines. */
 .clip-scrim {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background: linear-gradient(
     to top,
-    rgb(18 18 18 / 0.92) 0%,
-    rgb(18 18 18 / 0.72) 22%,
-    rgb(18 18 18 / 0.25) 46%,
-    rgb(18 18 18 / 0) 68%
+    rgb(8 9 20 / 0.92) 0%,
+    rgb(8 9 20 / 0.72) 22%,
+    rgb(8 9 20 / 0.25) 46%,
+    rgb(8 9 20 / 0) 68%
   );
 }
 
@@ -1084,10 +1161,11 @@ html[data-intro="ending"] .intro {
   visibility: hidden;
   min-width: 44px;
   min-height: 44px;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--chalk);
+  padding: 0.5rem 1.1rem;
+  border: 1px solid var(--cream);
+  border-radius: 999px;
   background: transparent;
-  color: var(--chalk);
+  color: var(--cream);
   cursor: pointer;
 }
 
@@ -1096,7 +1174,7 @@ html[data-intro="running"] .intro-skip {
 }
 
 .intro-skip:focus-visible {
-  outline: 2px solid var(--chalk);
+  outline: 2px solid var(--cream);
   outline-offset: 3px;
 }
 
@@ -1121,13 +1199,13 @@ html[data-intro="ending"] [data-brain] {
 
 /* Print. The CV is the page somebody will actually put on paper or save as a
    PDF from the browser, and without this it would print the site chrome, a
-   navigation bar that cannot be clicked, and a full page of wall. Long-form
+   navigation bar that cannot be clicked, and a full page of dark room. Long-form
    gets the same treatment because a reader who prints an essay wants the
    essay.
 
    Colours are forced to ink on white rather than left to the tokens. The site
-   is a grey wall with carbon on it, with no light theme at all, so without
-   this block every print would be a full page of toner. */
+   is dark on a screen, so without this block every print would be a full page
+   of toner. */
 @media print {
   :root {
     --paper: #ffffff;
@@ -1143,6 +1221,9 @@ html[data-intro="ending"] [data-brain] {
     --action-ink: #ffffff;
     --pass: #000000;
     --flag: #ffffff;
+    --glass: transparent;
+    --glass-edge: #bbbbbb;
+    --tone: #000000;
   }
 
   /* Pass and flag are verdicts, not decoration: one says a reconstruction held
@@ -1174,19 +1255,21 @@ html[data-intro="ending"] [data-brain] {
     color: #000000;
   }
 
-  /* The wall's own weight is for a screen. */
+  /* The screen's own weight is for a screen. */
   body,
   .longform {
     font-weight: 400;
   }
 
-  /* A block of carbon or chalk is a screen idea. On paper it is a page with a
+  /* A block of paper or glass is a screen idea. On paper it is a page with a
      border round it. */
   .chalk-block,
-  .sheet {
+  .sheet,
+  .glass {
     background: #ffffff;
     color: #000000;
     border: 1px solid #000000;
+    border-radius: 0;
     padding: 1rem;
     --ink: #000000;
     --ink-soft: #1a1a1a;
@@ -1197,7 +1280,8 @@ html[data-intro="ending"] [data-brain] {
   }
 
   /* Nothing behind the text on paper. */
-  .intro {
+  .intro,
+  .cursor-light {
     display: none !important;
   }
 
@@ -1242,29 +1326,14 @@ html[data-intro="ending"] [data-brain] {
 
 /* The animated call to action, from the component Finn supplied.
 
-   Five things changed on the way in, and each is a fault the original would
-   have shipped into this codebase rather than a matter of taste.
-
-   It arrived as styled-jsx. Every other control on this site is a class in this
-   file, and styled-jsx would put a <style> element inside the hero carrying
-   rules that never change, plus a runtime, to style two links.
-
-   It arrived with `@import url(...)` for Inter from Google Fonts. This site
-   loads its faces through next/font, subset and self hosted, specifically so
-   that no reader's address is handed to a third party to render a paragraph.
-   That import would have been a second copy of a font from someone else,
-   blocking the render. The button inherits the page's face instead.
-
-   Its highlight was the CSS keyword `blue` with `#8484ff` behind it. Those are
-   nobody's colours. On the wall the light running round the border is acid,
-   which is the one colour on this site that means look here.
-
-   It animated unconditionally. Anyone who has asked their system for less
-   motion now gets the border and the label and none of the movement.
-
-   And it was a pill with a glow. The wall has no radius and no shadow, so it is
-   a square now, and the glow inside it is gone. The light and the dot field are
-   what is left, and they are the part that was worth keeping. */
+   It arrived as styled-jsx and as a pill with a glow and an import of a font
+   from somebody else's server. Every other control on this site is a class in
+   this file and loads its faces through next/font, so it was brought in line:
+   the styles live here, it inherits the page's face, and anyone who has asked
+   their system for less motion gets the border and the label and none of the
+   movement. What is left is the ring of light running round the edge and the
+   field of dots masked to a sweeping arc, which were the part worth keeping.
+   The light is acid, the one colour that means look here in every room. */
 @property --shiny-angle {
   syntax: "<angle>";
   initial-value: 0deg;
@@ -1291,10 +1360,15 @@ html[data-intro="ending"] [data-brain] {
 
 @layer components {
   .shiny-cta {
-    --shiny-bg: var(--carbon);
-    --shiny-bg-subtle: #2b2b2b;
+    /* The room's own wall with a little cream in it, as a solid, because the
+       fill is one layer of a two layer border trick and a see-through one would
+       show the conic sweep behind it. It follows the room, so the control is the
+       same step lighter than the wall wherever it is. */
+    --shiny-bg: color-mix(in srgb, var(--wall) 86%, var(--cream));
+    --shiny-bg-subtle: color-mix(in srgb, var(--wall) 74%, var(--cream));
     --shiny-highlight: var(--acid);
     --shiny-highlight-subtle: #eeffa8;
+    --shiny-dot: var(--cream);
     --shiny-duration: 3s;
     --shiny-shadow: 2px;
     --shiny-transition: 800ms cubic-bezier(0.25, 1, 0.5, 1);
@@ -1312,25 +1386,22 @@ html[data-intro="ending"] [data-brain] {
     min-height: 2.75rem;
     /* Narrow enough that the pair sits on one line in the left half of the
        first screen: at two rem a side they were 195 pixels each and stacked. */
-    padding: 1rem 1.5rem;
-    font-family: var(--font-mono);
-    font-variation-settings: "wdth" 112;
-    font-size: var(--text-caption);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    padding: 1rem 1.6rem;
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
+    letter-spacing: -0.005em;
     line-height: 1.2;
-    font-weight: 500;
+    font-weight: 650;
 
     /* Two to a row on a phone. At the desktop padding the pair did not fit
        between the gutters of a Pixel 5, so they stacked, and the second row was
        sixty five pixels the phone's first screen needed for the brain. */
     @media (max-width: 639px) {
       padding: 0.875rem 1.25rem;
-      letter-spacing: 0.1em;
     }
     border: 2px solid transparent;
-    border-radius: 0;
-    color: var(--chalk);
+    border-radius: 999px;
+    color: var(--cream);
     text-decoration: none;
     /* The border is the gradient. The fill is painted into the padding box and
        the conic sweep into the border box, so the ring of light is the border
@@ -1347,15 +1418,26 @@ html[data-intro="ending"] [data-brain] {
         )
         border-box;
     /* The fill is a gradient layer, which a tool that reads computed colours
-       cannot see: to axe and to the contrast walk the label is chalk on
-       nothing, and on the wall behind it that is 2.2:1. The same carbon again
+       cannot see: to axe and to the contrast walk the label is cream on
+       nothing, and on a light room that would be wrong. The same carbon again
        as a colour, after the shorthand so it is not reset by it, says what is
-       under the label. Where the ring of light is clear, the edge of the border
-       box is carbon too, which is the control being as big as it looks. */
+       under the label. */
     background-color: var(--shiny-bg);
     box-shadow: inset 0 0 0 1px var(--shiny-bg-subtle);
     transition: var(--shiny-transition);
     transition-property: --shiny-offset, --shiny-percent, --shiny-shine;
+  }
+
+  /* The one filled control in the first screen: acid under carbon, with the
+     ring of light in cream so that it still shows against the wall, which an
+     acid ring on an acid fill would not. */
+  .shiny-primary {
+    --shiny-bg: var(--acid);
+    --shiny-bg-subtle: #b9df2c;
+    --shiny-highlight: var(--cream);
+    --shiny-highlight-subtle: #ffffff;
+    --shiny-dot: var(--carbon);
+    color: var(--carbon);
   }
 
   .shiny-cta::before {
@@ -1379,9 +1461,10 @@ html[data-intro="ending"] [data-brain] {
     --space: calc(var(--position) * 2);
     width: var(--size);
     height: var(--size);
+    border-radius: 999px;
     background: radial-gradient(
         circle at var(--position) var(--position),
-        var(--chalk) calc(var(--position) / 4),
+        var(--shiny-dot) calc(var(--position) / 4),
         transparent 0
       )
       padding-box;
@@ -1397,12 +1480,6 @@ html[data-intro="ending"] [data-brain] {
     z-index: -1;
   }
 
-  /* There was a shimmer that turned inside the control as well, a soft acid
-     wash masked to its lower edge. Acid over carbon at any strength worth
-     seeing goes to olive, which is a colour that is nobody's, and a wash is a
-     gradient, and the wall has none. The ring of light and the dots are what is
-     left. */
-
   .shiny-cta > span {
     position: relative;
     z-index: 1;
@@ -1413,9 +1490,9 @@ html[data-intro="ending"] [data-brain] {
      These animate a custom property that feeds a conic-gradient border and a
      mask, so every frame is a real paint of the element rather than a transform
      the compositor can do on its own. Two of them, running forever, on the one
-     page that also draws a thirty two thousand particle cloud. Scrolled past
-     the hero the reader cannot see them and the machine was still painting
-     them sixty times a second.
+     page that also draws a forty thousand particle cloud. Scrolled past the
+     hero the reader cannot see them and the machine was still painting them
+     sixty times a second.
 
      The root carries `data-cta` from the hero's own observer. Paused rather
      than removed so the border keeps the colour it stopped on instead of
@@ -1453,5 +1530,232 @@ html[data-intro="ending"] [data-brain] {
 @keyframes shiny-angle {
   to {
     --shiny-angle: 360deg;
+  }
+}
+
+/* The wordmark's light: a dot in the room's own colour that beats slowly, which
+   is the one thing in the header that moves. It takes the room's tone as the
+   room changes, with the wall. */
+.wordmark-dot {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: var(--tone);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--tone) 55%, transparent);
+  animation: beat 2.8s ease-out infinite;
+  transition: background-color 900ms ease;
+}
+
+@keyframes beat {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--tone) 55%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 0.75rem color-mix(in srgb, var(--tone) 0%, transparent);
+  }
+}
+
+/* Things arrive. An element marked data-reveal sits a little low until it has
+   come into view and then settles into place, which is a transform and nothing
+   else: it is never transparent, so every word on the page is at full contrast
+   whether it has arrived yet or not, and the accessibility gate and the contrast
+   walk read the same colours in either state. The pre-arrival state is only
+   applied once the document has said scripts are running (data-js), so a reader
+   whose script is blocked gets the page where it is, and a reader who asked for
+   less motion gets it where it is as well. */
+[data-reveal] {
+  transition: transform 900ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: calc(var(--i, 0) * 90ms);
+}
+
+html[data-js] [data-reveal]:not([data-in]) {
+  transform: translateY(1.75rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-js] [data-reveal]:not([data-in]) {
+    transform: none;
+  }
+}
+
+/* The number that carries a project, as large as a number can be set. In the
+   room's own tone, so it takes the colour of the room with the wall; a result
+   that did not hold is the swatch, as it always is. */
+.figure-xl {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(4rem, 11vw, 9.5rem);
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--tone);
+  transition: color 900ms ease;
+}
+
+/* An inline swatch is as tall as the font's own ascent and descent, which at a
+   line height of 0.9 is taller than the line, so the acid ran up into the name
+   above it and down over the caption below. An inline block is as tall as it is
+   told to be and holds its line open round it. */
+.figure-xl .flag {
+  display: inline-block;
+  padding: 0.07em 0.12em 0.03em;
+  border-radius: 0.14em;
+  line-height: 1;
+  color: var(--carbon);
+}
+
+/* The sentence a project is about, set as the biggest type on the entry. */
+.poster-headline {
+  font-family: var(--font-display);
+  font-weight: 650;
+  font-size: clamp(2rem, 4.6vw, 3.75rem);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+
+/* A tool, as a pill. Weighted like a label and lit like glass, and it takes the
+   room's tone on its edge when it has the pointer, so a tool you are near is a
+   tool that has noticed you. */
+.chip {
+  border: 1px solid var(--glass-edge);
+  border-radius: 999px;
+  padding: 0.5rem 0.95rem;
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  font-weight: 550;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: var(--ink);
+  background: rgb(244 239 230 / 0.04);
+  transition:
+    border-color 200ms ease,
+    background-color 200ms ease;
+  will-change: transform;
+}
+
+.chip:hover {
+  border-color: var(--tone);
+  background: rgb(244 239 230 / 0.1);
+}
+
+/* The about section, set as a letter. Serif, with the opening line as large as a
+   headline and the closing one pulled out with the room's own colour beside it,
+   so the section has a top, a body and an end and is not four paragraphs of the
+   same weight. */
+.letter {
+  font-family: var(--font-serif);
+  color: var(--ink-soft);
+}
+
+.letter > p {
+  max-width: 36em;
+  font-size: clamp(1.125rem, 1.5vw, 1.3125rem);
+  line-height: 1.7;
+}
+
+.letter > p + p {
+  margin-top: 1.5em;
+}
+
+.letter > p:first-child {
+  max-width: 24em;
+  font-size: clamp(1.625rem, 2.9vw, 2.4rem);
+  line-height: 1.22;
+  letter-spacing: -0.02em;
+  font-weight: 450;
+  color: var(--ink);
+}
+
+.letter > p:last-child {
+  border-left: 2px solid var(--tone);
+  padding-left: 1.25rem;
+  font-style: italic;
+  color: var(--ink);
+  transition: border-color 900ms ease;
+}
+
+/* The way into the work, set large: an address as a headline. */
+.contact-mail {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-weight: 650;
+  font-size: clamp(1.5rem, 3.9vw, 3.4rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--tone);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.14em;
+}
+
+.contact-mail:hover,
+.contact-mail:focus-visible {
+  background: var(--acid);
+  color: var(--carbon);
+  text-decoration-color: var(--carbon);
+}
+
+/* The lantern that follows the pointer: a fixed square, a radial gradient in the
+   room's own tone, and nothing else. It sits behind every block and above the
+   canvas, so it lights the wall and the cloud's room and never a word. See
+   components/cursor-light.tsx. */
+.cursor-light {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 46rem;
+  height: 46rem;
+  margin: -23rem 0 0 -23rem;
+  z-index: -5;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at center,
+    color-mix(in srgb, var(--tone) 17%, transparent) 0%,
+    color-mix(in srgb, var(--tone) 6%, transparent) 38%,
+    transparent 68%
+  );
+  opacity: 0;
+  transition: opacity 500ms ease;
+  will-change: transform;
+}
+
+.cursor-light[data-on] {
+  opacity: 1;
+}
+
+/* How far through the page you are, as a line along the very top edge in the
+   room's own colour. Drawn by the scroll itself where the browser can tie an
+   animation to one, so it costs no script at all, and left out where it cannot:
+   a progress line that does not move is worse than none. It is inside the
+   header, which the tests that photograph the wall hide, and it is above the
+   cloud's frame by thirty pixels, so it is never over it. */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 45;
+  pointer-events: none;
+  background: var(--tone);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  transition: background-color 900ms ease;
+}
+
+@supports (animation-timeline: scroll()) {
+  .scroll-progress {
+    animation: progress linear both;
+    animation-timeline: scroll(root block);
+  }
+}
+
+@keyframes progress {
+  to {
+    transform: scaleX(1);
   }
 }

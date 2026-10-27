@@ -41,7 +41,7 @@ function BarList({ rows, unit }: { rows: Row[]; unit?: string }) {
           </div>
           <div className="h-1.5 bg-rule">
             <div
-              className="h-1.5 bg-carbon"
+              className="h-1.5 rounded-full bg-ink"
               style={{ width: `${Math.max((row.count / max) * 100, 1)}%` }}
             />
           </div>

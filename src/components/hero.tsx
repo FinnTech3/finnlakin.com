@@ -1,5 +1,6 @@
 import { CtaVisibility } from "@/components/cta-visibility";
 import { Ledger } from "@/components/ledger";
+import { LiveTime } from "@/components/live-time";
 import { ShinyButton } from "@/components/shiny-button";
 import type { BandPlan } from "@/lib/bands";
 import { projects } from "@/lib/projects";
@@ -59,7 +60,9 @@ export function Hero({ band }: { band: BandPlan }) {
             the real one arrived, which moved the name and everything under it by
             a line. A row that cannot wrap does not change its mind. */}
         <div className="flex flex-col gap-y-2 min-[640px]:flex-row min-[640px]:items-baseline min-[640px]:justify-between min-[640px]:gap-x-6">
-          <span className="t-label">{person.location}</span>
+          <span className="t-label">
+            {person.location} <span aria-hidden="true">&middot;</span> <LiveTime />
+          </span>
           <span className="t-label">Index 01 to {String(projects.length).padStart(2, "0")}</span>
         </div>
 
@@ -73,7 +76,7 @@ export function Hero({ band }: { band: BandPlan }) {
             bearing of the capital F at this size. Without it the stem of the
             letter starts a dozen pixels in from the line of everything else on
             the page, and at this size that reads as a mistake. */}
-        <h1 className="t-display-lg mt-8 -ml-[0.05em] w-fit text-ink">
+        <h1 className="t-display-lg mt-8 -ml-[0.04em] w-fit text-ink">
           {first} <span className="block">{last}</span>
         </h1>
 
@@ -93,22 +96,21 @@ export function Hero({ band }: { band: BandPlan }) {
             screen this layout is used on. The paragraph is the one thing that
             is allowed to run past the fold. */}
         <div className="scored mt-10 grid gap-x-8 gap-y-8 pt-6 min-[720px]:grid-cols-2">
-          <p className="t-sub max-w-[9.9em] text-ink">
+          <p className="t-sub max-w-[13em] text-ink">
             I rebuild published numbers from primitives and report the gap.
           </p>
 
-          {/* Both controls on the component Finn supplied, re-skinned for the
-              wall: square, carbon, with acid light running round the edge.
+          {/* Both controls are on the component Finn supplied, with the ring of
+              light running round the edge of each.
 
-              It replaces the brief's matched pair, one filled and one ghost,
-              and that pair was carrying the hierarchy: contact was the primary
-              action and the work was the secondary one. Two identical animated
-              controls say the two are equally weighted. That is worth knowing
-              rather than quietly fixing, because the instruction was to use it
-              on both, and a muted second variant is a small change if the
-              flattening turns out to be wrong. */}
+              The brief's matched pair, one filled and one ghost, carried the
+              hierarchy: contact was the primary action and the work was the
+              secondary one. Two identical animated controls would say the two
+              are equally weighted, so the first is filled in acid, which is the
+              one filled control in the view, and the second is the room lifted
+              a step. */}
           <div data-cta-watch="" className="flex flex-wrap items-start gap-3 min-[720px]:self-start">
-            <ShinyButton href="#contact">Get in touch</ShinyButton>
+            <ShinyButton href="#contact" className="shiny-primary">Get in touch</ShinyButton>
             <ShinyButton href="#work">See the work</ShinyButton>
           </div>
           <CtaVisibility />
@@ -127,7 +129,7 @@ export function Hero({ band }: { band: BandPlan }) {
               content and not half of it. */}
           <div className="brain-slot min-[720px]:col-span-2" data-brain-slot="" aria-hidden="true" />
 
-          <p className="measure text-[0.875rem] leading-[1.7] text-ink-soft min-[720px]:col-span-2">
+          <p className="measure text-[1.0625rem] leading-[1.65] text-ink-soft min-[720px]:col-span-2">
             Sometimes the gap is the finding. Economics, finance and software on one side; film,
             print, drawing and clothes on the other. It is one habit either way: take the finished
             thing apart, work out what it is made of, and write down what you found.
@@ -171,7 +173,7 @@ export function Hero({ band }: { band: BandPlan }) {
             {flagged && against ? (
               <figure className="m-0 flex min-w-0 flex-col gap-3 @3xl:border-l-2 @3xl:border-rule @3xl:pl-8">
                 <figcaption className="t-label">{flagged.quantity}, ten year</figcaption>
-                <p className="font-display text-[4.5rem] leading-[0.85] font-bold uppercase">
+                <p className="font-display text-[clamp(3.5rem,8vw,5.5rem)] leading-[0.85] font-bold tracking-[-0.04em]">
                   {flagged.deviation}
                 </p>
                 <p className="t-caption leading-snug text-muted">

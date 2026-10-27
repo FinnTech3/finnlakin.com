@@ -151,15 +151,17 @@ test.describe("icons and manifest", () => {
   });
 
   /* One theme colour, where there used to be a media-scoped pair. The site does
-     not follow the operating system: the design is one wall, in both. A pair
-     would have been two identical values pretending to be a choice.
+     not follow the operating system: it is dark in both. A pair would have been
+     two identical values pretending to be a choice.
 
-     And it is the wall the page is painted on, which is what this asserts. The
-     colour is written in three places that cannot read each other: the
-     stylesheet's custom property, the viewport's theme colour, and the manifest.
-     A test that only checked the head against a literal would pass the day the
-     stylesheet's wall changed and the head's did not, and the browser's own
-     chrome would then meet the page in a different grey. */
+     And it is the wall the page is painted on, which is what this asserts, for
+     the room the home page starts in. The colour is written in three places that
+     cannot read each other: the stylesheet's custom property, the viewport's
+     theme colour, and the manifest. A test that only checked the head against a
+     literal would pass the day the stylesheet's wall changed and the head's did
+     not, and the browser's own chrome would then meet the page in a different
+     colour. The other rooms, and the pages that are in them, are in
+     tests/rooms.spec.ts. */
   test("the theme colour is the wall the page is painted on", async ({ page, request }) => {
     await page.goto("/");
     const tags = page.locator('meta[name="theme-color"]');

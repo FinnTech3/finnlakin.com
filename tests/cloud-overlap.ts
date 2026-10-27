@@ -267,12 +267,12 @@ export function luminanceRangeIn(
    one flat wall a pixel of the cloud is a pixel that is not the wall.
 
    They were once counts of pixels brighter than a threshold, which was a fair
-   question over black and is no question at all over a mid grey wall: every
+   question over black and is no question at all over a wall of colour: every
    pixel of the wall is brighter than the threshold, so the count was the area of
    the frame, the engine passed "painted something" with the engine off, and a
    hole in the middle of the cloud changed nothing a test could see. The ground
    is read off the photograph as it is above, so the same measure is right over
-   the carbon veil during the opening.
+   the veil during the opening.
 
    Take the photograph with the page hidden (photographBehind, or a test's own
    style), or the words and the controls are marks as well. */
@@ -281,8 +281,8 @@ export function luminanceRangeIn(
    what is behind a word. MARK_CEILING is the least that counts as a mark at
    all, and it is small on purpose: it is there to prove nothing is behind a
    piece of content. A faint edge of chalk is not what a test asking where the
-   cloud is wants to find. The thinnest pigment the site draws with is 0.16 from
-   the wall at full strength, and this is about a third of that. */
+   cloud is wants to find. The thinnest pigment of any room is well over half of
+   the way from its wall at full strength, and this is under a tenth of that. */
 export const VISIBLE_MARK = 0.05;
 
 export type Disc = { x: number; y: number; radius: number };

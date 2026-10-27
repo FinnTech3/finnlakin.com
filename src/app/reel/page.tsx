@@ -1,6 +1,8 @@
 import { ClipPlayer } from "@/components/clip";
+import { RoomMarker } from "@/components/room-marker";
 import { buildMetadata } from "@/lib/metadata";
 import { clipById, reelClips } from "@/lib/media";
+import { pageRoom, roomViewport } from "@/lib/page-rooms";
 
 export const metadata = buildMetadata({
   path: "/reel",
@@ -8,6 +10,8 @@ export const metadata = buildMetadata({
   description:
     "A full-bleed scroller: one clip a screen, each with what it is doing here. Scaffolding for the video work to come.",
 });
+
+export const viewport = roomViewport(pageRoom.reel);
 
 /* The reel: one clip a screen, edge to edge.
 
@@ -30,6 +34,7 @@ export const metadata = buildMetadata({
 export default function ReelPage() {
   return (
     <div className="flex w-full flex-col">
+      <RoomMarker room={pageRoom.reel} />
       <header className="band-inner py-16 sm:py-24">
         <div className="scored pt-3">
           <p className="t-label">Reel</p>
@@ -52,15 +57,15 @@ export default function ReelPage() {
             <figure className="relative m-0 h-[70svh] w-full overflow-hidden sm:h-[88svh]">
               <ClipPlayer clip={clip} full />
 
-              {/* The scrim is not decoration. A caption in chalk over a bright
+              {/* The scrim is not decoration. A caption in cream over a bright
                 frame of a clip is a caption whose contrast changes every frame,
                 and the only honest way to hold it is to put a known surface
-                between the two. The caption turns its tokens over, so it is
-                chalk on the carbon the scrim lays down and not carbon on
-                carbon. */}
+                between the two. The scrim lays down the darkest colour the
+                site has, and the caption keeps the page's own tokens, so it is
+                cream on that and never anything that depends on the frame. */}
               <div aria-hidden="true" className="clip-scrim" />
 
-              <figcaption className="on-carbon band-inner absolute inset-x-0 bottom-0 pb-10 sm:pb-14">
+              <figcaption className="band-inner absolute inset-x-0 bottom-0 pb-10 sm:pb-14">
                 <p className="t-label">{String(index + 1).padStart(2, "0")}</p>
                 <p className="measure mt-3 text-[1rem] leading-snug text-ink text-pretty sm:text-[1.125rem]">
                   {clip.caption}
