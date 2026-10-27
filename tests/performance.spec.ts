@@ -89,7 +89,8 @@ test.describe("performance budget", () => {
     expect(result.lcp, "largest contentful paint").toBeLessThan(1500);
     expect(result.cls, "cumulative layout shift").toBeLessThan(0.05);
 
-    /* 570KB, up from 560, which was up from 500. The first increase was the
+    /* 579KB, up from 572, which was up from 570, which was up from 560, which
+       was up from 500. The first increase was the
        particle engine: the simulation, the shaders and the geometry. It is
        loaded only here, dynamically, and largest contentful paint is unchanged
        because the hero is server rendered text that does not wait for it. Every
@@ -114,8 +115,15 @@ test.describe("performance budget", () => {
        the page then measured 570.12 against a ceiling of 570 that it had been
        sitting a few hundredths under. Two kilobytes of room, so the next patch
        does not fail it for the same reason, and still a ceiling: the command
-       palette alone was 122. */
-    expect(result.javascriptBytes / 1024, "uncompressed JavaScript, KB").toBeLessThan(572);
+       palette alone was 122.
+
+       The last move, to 579, is the redesign's own code: the room watcher, the
+       lantern that follows the pointer, the tools that shy from it, the
+       arrivals, the clock and the cloud's tint. Six small client components, and
+       about seven kilobytes between them: the page measured 576.9 against the
+       572 it had been sitting two under. The ceiling is moved to leave two again
+       and not further, and every other route still holds its own. */
+    expect(result.javascriptBytes / 1024, "uncompressed JavaScript, KB").toBeLessThan(579);
 
     console.log(
       `home: LCP ${result.lcp}ms, CLS ${result.cls}, ` +
@@ -308,44 +316,51 @@ test.describe("late fonts", () => {
     expect(result.shift, "layout shift when the fonts arrive").toBeLessThan(CEILING);
   });
 
-  /* next/font generates a stand-in of its own for the reading face, and the
-     option that turns it off is not honoured by this bundler. The stand-in this
-     site means is the one written in globals.css under the same name, and it
-     replaces the generated one only by coming after it with the same
-     descriptors. That depends on a name and an order, so it is asserted: if
-     either changes, the generated one wins quietly, and on any machine with
-     Arial the labels are a quarter too wide until the real face lands. This
-     cannot be seen as a layout shift on a machine without Arial, which is why it
-     is asserted directly. */
-  test("the stand-in for the reading face is the one this site wrote", async ({ page }) => {
+  /* The cause of what the test above measures. next/font generates a stand-in
+     for each of the three faces from the face's own metrics: the system face
+     nearest to it, scaled, with its ascent and descent moved to match, so the
+     words fill the same space before the real face arrives as after. Each is in
+     its face's font stack under the variable that puts the face there, and
+     declared by a rule that carries the adjustments.
+
+     The shift above is measured on this machine, and a machine that happens to
+     have a system face close to a face's own would show a small shift whether or
+     not the adjustments were there. This asserts them directly, so a change that
+     drops one is found here and not by a reader whose machine does not. The
+     earlier version of this site had to write one by hand, because next/font had
+     no metrics for the face it used; all three of these have them. */
+  test("each face has a stand-in cut to its own metrics", async ({ page }) => {
     await page.goto("/");
 
-    const { rules, family } = await page.evaluate(() => {
-      const found: string[] = [];
+    const faces = await page.evaluate(() => {
+      const declared = new Map<string, string>();
       for (const sheet of Array.from(document.styleSheets)) {
         for (const rule of Array.from(sheet.cssRules)) {
-          if (rule instanceof CSSFontFaceRule && rule.cssText.includes("Martian Mono Fallback")) {
-            found.push(rule.cssText);
+          if (rule instanceof CSSFontFaceRule) {
+            declared.set(rule.style.getPropertyValue("font-family").replace(/"/g, ""), rule.cssText);
           }
         }
       }
-      return {
-        rules: found,
-        family: getComputedStyle(document.documentElement).getPropertyValue("--font-martian"),
-      };
+      const root = getComputedStyle(document.documentElement);
+      return ["--font-bricolage", "--font-newsreader", "--font-jetbrains"].map((name) => {
+        const stack = root
+          .getPropertyValue(name)
+          .split(",")
+          .map((family) => family.trim().replace(/"/g, ""));
+        const standIn = stack.find((family) => family.endsWith(" Fallback"));
+        return { name, stack, standIn, rule: standIn ? declared.get(standIn) : undefined };
+      });
     });
 
-    /* The name the generated stand-in actually has, read from the variable that
-       puts it in the font stack. If a bundler change renames it, the hand made
-       one would still be declared and would replace nothing. */
-    expect(
-      family,
-      "the generated stand-in is no longer called Martian Mono Fallback; rename the one in globals.css",
-    ).toContain("Martian Mono Fallback");
-    expect(rules.length, "no stand-in for the reading face is declared at all").toBeGreaterThan(0);
-    expect(
-      rules.at(-1),
-      "the last stand-in declared under the generated name is not the hand made one",
-    ).toMatch(/size-adjust:\s*119%/);
+    for (const face of faces) {
+      expect(
+        face.standIn,
+        `${face.name} has no stand-in in its font stack: ${face.stack.join(", ")}`,
+      ).toBeTruthy();
+      expect(face.rule, `${face.name}: no rule declares ${face.standIn}`).toBeTruthy();
+      expect(face.rule, `${face.name}: the stand-in is not scaled to its face`).toMatch(/size-adjust:/);
+      expect(face.rule, `${face.name}: the stand-in's ascent is not matched`).toMatch(/ascent-override:/);
+      expect(face.rule, `${face.name}: the stand-in's descent is not matched`).toMatch(/descent-override:/);
+    }
   });
 });

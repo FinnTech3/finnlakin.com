@@ -1,165 +1,192 @@
-# Concrete: style reference
-> one wall, four colours, two faces, nothing floating
+# Rooms: style reference
+> seven rooms, one brain, three faces, one colour that never changes
 
-**Theme:** light, and only one. There is no dark mode and no toggle.
+**Theme:** dark, and only one kind. There is no light mode and no toggle. Every room
+is dark and none of them is black.
 
-Concrete treats the site as a wall that work is pinned to. The page is a warm mid
-grey, `#a7a39b`, and everything on it is one of three other colours: carbon for
-type and rules, chalk for the two surfaces that are not wall, and a single acid
-yellow-green that is allowed to shout. Nothing floats. There are no cards, no
-radius, no shadow and no gradient used as a surface, so the only depth on the site
-is a scored line and a block of a different material. Headlines are Big Shoulders,
-condensed, upper case and enormous, and on the home page the name is large enough
-for the screen to crop it. Everything that is read is Martian Mono, small, wide
-and spaced, the way a terminal prints a listing. The work is an index with a
-verdict column rather than a grid of pictures, and the brain behind it is chalk
-dust on the wall.
+The page is a sequence of rooms and the brain goes through all of them. The wall is
+not one colour: it is the colour of the room the cloud is in, and the room changes
+when the cloud changes shape, so a change of shape is a change of weather. The page
+opens in midnight with the brain, goes to lagoon for the mark surface, indigo for
+the estimates, ember for the order book, orchid for the network of trade, forest
+for the compounding strand, comes back to midnight for the about section, and goes
+through wine for the tools and orchid again for the people who vouch for the work
+before it closes on midnight, the colour it opened with.
 
-It came out of the three directions built for Finn to choose between (Archive,
-Print room, Concrete), and he picked this one. The other two are in the history at
-`b29e2b0` and nowhere in the tree.
+Three things do not change from room to room. Type is cream. The highlight, the
+link and the result that did not hold are acid, `#d4ff3a`. And the wall is always
+one flat colour, because the tests that prove the cloud is never under a word read
+the wall off a photograph as its commonest colour.
+
+Headlines are Bricolage Grotesque, wide and heavy and tight, and on the home page the
+name is large enough that the screen is mostly name. What is read slowly is
+Newsreader, a serif: the essays, the letter that is the about section, a caveat
+set as a quotation. The work is an index with a verdict column and ten entries that
+are not the same page ten times, and the brain behind it is chalk dust, tinted to
+whichever room it is in.
+
+It replaced a one-wall design (a warm grey, carbon type, Big Shoulders and Martian
+Mono) that was asked to change on the grounds that the layout, the colours and the
+type all felt repetitive on the way down. The brain, the opening, and the contract
+between the page and the engine are exactly what they were; everything around them
+is new.
 
 ## Tokens: colours
 
-The four colours are the whole palette. `src/lib/colours.ts` holds the same four
-for the places that cannot read a stylesheet (the viewport's theme colour, the
-manifest, the share cards and the icon generator), and `tests/platform.spec.ts`
-asserts that the wall there is the wall painted on the root.
+Seven rooms and four colours that are not a room's. `src/lib/rooms.ts` is the table
+for the places that cannot read a stylesheet (the cloud, which tints itself, the
+theme colour, the share cards, the icons) and `src/app/globals.css` has the same
+seven for the page. `scripts/check-rooms.ts` runs in `npm run lint`, reads the
+stylesheet back and fails if the two disagree, and works out the contrast of every
+step of type against every wall.
 
-The share cards (`src/app/og/[card]/route.tsx`) are the opening: the name, in
-chalk, in Big Shoulders Bold, on carbon, with the page's own kicker and title in
-the line under the rule. The renderer cannot reach the page's fonts, so the face
-is vendored in `src/app/og/fonts/` with its SIL Open Font License, and is read at
-build, because every card is prerendered.
+| Room | Wall | Tone | Cloud, thin / heavy | Shape | Where |
+|------|------|------|---------------------|-------|-------|
+| midnight | `#0b1230` | `#8fa6ff` | `#9db1ff` / `#f5f7ff` | brain | The hero, the about section, the contact section, and `/cv`, `/privacy`, `/admin` |
+| lagoon | `#06353a` | `#5ff0cf` | `#83f2d9` / `#f1fffb` | surface | Projects 1 and 2 with the index, the path, and `/path` |
+| indigo | `#1c1468` | `#b9a6ff` | `#c0aeff` / `#fbf8ff` | field | Projects 3 and 4, and `/reel` |
+| ember | `#4a1a08` | `#ffb36b` | `#ffbe82` / `#fff4e5` | skyline | Projects 5 and 6, and `/writing` |
+| orchid | `#4a0f57` | `#ff9be4` | `#ffa8e8` / `#fff1fc` | network | Projects 7 and 8, and the endorsements |
+| forest | `#0b3d27` | `#a8f07a` | `#b4f28b` / `#f8fff1` | helix | Projects 9 and 10 |
+| wine | `#59102e` | `#ff9c9c` | `#ffa9a9` / `#fff2f2` | drape | The tools, and the 404 |
+
+One room for every shape the cloud takes and one shape for every room, so a shape
+that comes back brings its room back with it. An essay is in the room of the project
+it is about, which is where that project's entry is on the home page: so
+`marked-to-model` and `nanobook` are lagoon, `term-premium` is indigo and
+`whose-inflation` is orchid.
 
 | Name | Value | Token | Role |
 |------|-------|-------|------|
-| Wall | `#a7a39b` | `--wall`, `--paper` | The page. Painted on `html`, and on nothing else |
-| Carbon | `#121212` | `--carbon`, `--ink` | Type, scored lines, the filled control, the inverted block |
-| Chalk | `#f4f2ee` | `--chalk`, `--panel` | The sheet, the dialog, and type on carbon |
-| Acid | `#d4ff3a` | `--acid`, `--flag`, `--accent-soft` | A result that did not hold, and the highlight under a link or control that has focus or a pointer on it |
+| Cream | `#f4efe6` | `--cream`, `--ink` | Type, in every room |
+| Acid | `#d4ff3a` | `--acid`, `--accent`, `--action`, `--flag` | The link, the highlight, the filled control and a result that did not hold. The same in every room |
+| Carbon | `#121212` | `--carbon`, `--action-ink` | Type on acid, and type on paper |
+| Chalk | `#f4f2ee` | `--chalk`, `--panel` | The two sheets of paper, and the cloud's pigment in the first room's veil |
 
-Every other colour on the site is one of those four at an alpha, so a grey that is
-not the wall's own never appears. The semantic tokens are what components ask
-for. Components never name a colour, which is how one block can turn the whole
-palette over.
+The wall is `--wall`, painted on `html` and on nothing else. The room's own colour for
+what is decoration is `--tone`: a numeral, a rule that lights, the dot beside the
+name, the line that shows how far down the page you are. It is never the only thing
+saying something. Every other colour on the site is cream, carbon or acid at an
+alpha, so a grey that is not the room's own never appears. Components ask for tokens,
+never for a colour, which is how a block of paper can turn the whole palette over.
 
-| Token | On the wall | Role |
-|-------|-------------|------|
-| `--ink` | carbon | Body and headings |
-| `--ink-soft` | carbon at 0.92 | Paragraphs that sit beside a headline |
-| `--muted`, `--faint` | carbon at 0.8 | Captions and labels |
-| `--rule` | carbon at 0.28 | A thin scored line. A line, not text, so it is exempt from the text ratios |
-| `--rule-strong` | carbon | The heavy scored line |
-| `--accent` | carbon | Interactive text: links, and nothing else |
-| `--accent-soft` | acid | The highlight under a link on hover and focus |
-| `--action`, `--action-ink` | carbon, chalk | The filled control, one per view. Never text |
-| `--pass` | carbon | A result that held. Plain |
+| Token | In a room | Role |
+|-------|-----------|------|
+| `--ink` | cream | Body and headings |
+| `--ink-soft` | cream at 0.9 | Paragraphs that sit beside a headline |
+| `--muted` | cream at 0.74 | Captions and notes |
+| `--faint` | cream at 0.66 | Labels |
+| `--rule` | cream at 0.24 | A hairline. A line, not text, so it is exempt from the text ratios |
+| `--rule-strong` | cream at 0.82 | The heavy hairline |
+| `--glass`, `--glass-edge` | cream at 0.06 and 0.16 | A panel of the room's own light, and its edge |
+| `--accent` | acid | Interactive text: links, and nothing else |
+| `--accent-soft` | acid | The highlight behind a link on hover and focus |
+| `--action`, `--action-ink` | acid, carbon | The filled control, one per view. Never text |
+| `--pass` | cream | A result that held. Plain |
 | `--flag` | acid | A result that did not. A swatch behind carbon, never a text colour |
 | `--card`, `--band` | transparent | Nothing. They are tokens so that a component asking for a surface gets none rather than an opaque box laid over the cloud |
-| `--veil` | carbon | The sheet over the opening animation |
+| `--panel` | chalk | A dialog |
+| `--veil` | the first room's wall | The sheet over the opening animation |
 
 ### Contrast, worked out
 
-Small text needs 4.5:1 and large text needs 3:1. These are computed, not eyeballed,
-and `tests/a11y.spec.ts` runs axe at critical, serious and moderate on every route.
+Small text needs 4.5:1 and large text needs 3:1. These are computed by
+`scripts/check-rooms.ts` for all seven rooms with the cream laid over the wall at its
+alpha as the browser does it, and they are the worst of the seven. The room that is
+lightest by luminance is forest, so it is the worst for nearly everything.
+`tests/a11y.spec.ts` runs axe at critical, serious and moderate on every route.
 
-| Pair | Ratio | Used for |
-|------|-------|----------|
-| Carbon on wall | 7.45 | Everything |
-| Carbon at 0.92 on wall | 6.64 | `--ink-soft` |
-| Carbon at 0.8 on wall | 5.32 | `--muted`, `--faint`, and the lowest text on the site |
-| Carbon at 0.66 on wall | 3.92 | The bay numerals only, which are large type |
-| Carbon on acid | 16.20 | The `.flag` swatch |
-| Carbon on chalk | 16.76 | The sheet, and the dialog |
-| Chalk on carbon | 16.76 | The inverted block |
-| Chalk at 0.7 on carbon | 8.54 | `--muted` inside the inverted block |
-| Acid on wall | 2.17 | **Never text.** This is why a flag is a swatch |
-| Chalk on wall | 2.25 | **Never text.** It is the colour of the brain |
-| Chalk on acid | 1.03 | Never. Carbon is stated on `.flag` itself so a block that turns type to chalk cannot put chalk on acid |
+| Pair | Worst ratio | Used for |
+|------|-------------|----------|
+| Cream on the wall | 10.72 (forest) | Everything |
+| Cream at 0.9 on the wall | 8.98 (forest) | `--ink-soft` |
+| Cream at 0.74 on the wall | 6.60 (forest) | `--muted` |
+| Cream at 0.66 on the wall | 5.58 (forest) | `--faint`, and the lowest text on the site |
+| The same four on glass | 9.14, 7.74, 5.81, 4.97 (forest) | Text in a glass panel |
+| Tone on the wall | 6.82 (wine) | A numeral, an eyebrow, a label that lights |
+| Acid on the wall | 10.62 (forest) | A link, a highlight |
+| Cream on the lifted control | 7.30 (forest) | The second button in the hero, which is the wall with a little cream in it |
+| The cloud's thin pigment on the wall | 7.48 (wine) | The cloud is not text, and it is held to 7 as well |
+| The cloud's heavy pigment on the wall | 12.02 (forest) | |
+| Carbon on acid | 16.2 | The `.flag` swatch, and the filled control |
+| Carbon on chalk | 16.76 | The sheet, the ledger block and the dialog |
+| Carbon at 0.74 and 0.7 on chalk | at least 4.5 | `--muted` and `--faint` on paper |
 
-The wall is as dark as it can be and still hold small text above 4.5:1 once the
-alphas are raised. The first version of this wall had its labels at 0.66, which
-axe measured at 3.9. If the wall is ever moved, it is moved lighter, not darker,
-and the alphas above are re-derived against it.
+If a wall is ever moved it is moved darker, not lighter, and the alphas are
+re-derived against it: the lighter a room is the less the quiet steps of type have
+to give. See Changing a room.
 
 ## Tokens: typography
 
-Two families, each at one end of the scale and nowhere between. A third face would
-be a step in the middle of a scale whose point is that it has none. Both load once,
-in `src/app/layout.tsx`, through `next/font/google`, subset and self hosted (the
-content security policy allows `font-src 'self'`, and no reader's address is handed
-to a third party to render a paragraph).
+Three families, and each has one job. All three are variable fonts, so one file
+covers each axis rather than a static face per weight, and all three load once in
+`src/app/layout.tsx` through `next/font/google`, subset and self hosted (the content
+security policy allows `font-src 'self'`, and no reader's address is handed to a
+third party to render a paragraph).
 
-**Big Shoulders** is the headline face, `--font-shoulders`. Condensed, upper case
-and heavy. Loaded as the variable font, so one file covers the weights 500, 600 and
-700 that the scale uses. It is for anything that is a heading, a name, a lead
-sentence or a quotation, and for nothing small.
+**Bricolage Grotesque** is the voice of the page, `--font-bricolage`: the name, every
+heading, the labels and the paragraphs. Weight 200 to 800, width 75 to 100, and an
+optical size axis from 12 to 96, so small type is cut for small sizes and the name is
+cut for its own. The weight axis is the reason it was chosen: the letter weight
+effect has to be a real change of weight and not a smear.
 
-**Martian Mono** is the reading face, `--font-martian`, with its width axis loaded
-because the labels are set wider than the body (`wdth` 112). It is for everything
-else, and it is the default on `body`.
+**Newsreader** is for what is read slowly, `--font-newsreader`. A serif with an
+optical size axis and an italic that is drawn and not slanted. The essays on their
+sheet, the letter that is the about section, the caveat on a poster entry, and what
+somebody else said about the work.
 
-Both are `display: swap`, so text is never invisible, and a face that arrives late
-changes the page's metrics. What stands in for each while it arrives is therefore
-part of the system and is made by hand in `src/app/globals.css`, from measurements
-of the real faces:
+**JetBrains Mono** is for a line of code, `--font-jetbrains`, where code appears in an
+essay.
 
-- **`Shoulders Fallback`** is Arial scaled to 68.5% under weight 650 and 76.5%
-  above it, with the real face's ascent and descent. Big Shoulders is about 0.69 of
-  Arial's width over the text the site sets in it.
-- **`Martian Mono Fallback`** is a plain monospace scaled to 119%, because every
-  character of the real face is 0.714 of the size across and a monospace is 0.6, so
-  the arithmetic is exact. It takes the name of the stand-in next/font generates,
-  which is Arial at 157% and 21 to 24% too wide across the labels, and replaces it
-  by coming later in the stylesheet with the same descriptors.
-- **Measures on headline text are in `em`, never `ch`.** A `ch` is the width of a
-  zero in whichever face is showing, so a box sized in them wraps the same words
-  differently in the stand-in and in the real face.
-- **The two labels at the top of the hero stack on a phone** and do not wrap, for
-  the same reason: a row that cannot wrap does not change its mind when the face
-  lands.
-
-With the font files held back 2.5 seconds, a swap now moves the page by 0.0001 on a
-laptop and 0.0005 on a phone, against 0.195 on the phone before. `tests/performance.spec.ts`
-asserts under 0.01 on both projects, and asserts separately that the hand-made
-Martian rule is the last one declared under the generated name, because on a
-machine without Arial the generated one is never used and the difference cannot be
-seen as a shift.
+Both fall back to the stand-ins `next/font` generates from the real faces' metrics,
+which it has for all three, and `tests/performance.spec.ts` holds the page to a shift
+of under 0.01 on a laptop and on a phone when the font files arrive late. There is no
+hand made fallback in the stylesheet any more; the one for Martian Mono was only
+there because next/font had no metrics for it.
 
 ### Type scale
 
 | Class | Face | Size | Weight | Line height | Used for |
 |-------|------|------|--------|-------------|----------|
-| `.t-display-lg` | Big Shoulders | `clamp(4.5rem, min(17vw, 24svh), 15rem)` | 700 | 0.86 | The name, on the home page only. Sized by the shorter of the window's width and a quarter of its height, so the controls are on the first screen on a laptop |
-| `.t-hlg` | Big Shoulders | `clamp(3rem, 8vw, 6.5rem)` | 700 | 0.88 | A page's own title where the page is not the home page |
-| `.t-h` | Big Shoulders | `clamp(2.25rem, 6vw, 4.5rem)` | 600 | 0.9 | A section's heading |
-| `.t-hsm` | Big Shoulders | `clamp(1.875rem, 3.6vw, 2.75rem)` | 600 | 0.95 | An entry's name, and a long-form heading |
-| `.t-sub` | Big Shoulders | `clamp(1.25rem, 2.6vw, 2rem)` | 500 | 1.05 | The one sentence a section leads with |
-| `.t-h3` | Big Shoulders | 1.375rem | 600 | 1.05 | The smallest thing that is still a heading, and the wordmark |
-| `.quote` | Big Shoulders | `clamp(1.125rem, 2.1vw, 1.5rem)` | 500 | 1.2 | Somebody else speaking. It changes voice instead of drawing quotation marks |
-| body | Martian Mono | 0.875rem | 400 | 1.6 | Paragraphs |
-| `.t-body-lg` | Martian Mono | 1rem | 400 | 1.6 | A lead paragraph |
-| `.t-caption` | Martian Mono | 0.75rem | 400 | 1.55 | Captions and notes |
-| `.t-label` | Martian Mono, `wdth` 112 | 0.6875rem | 400 | 1.35 | Labels: tracked at 0.16em, upper case, in `--faint` |
-| `.longform` | Martian Mono | 0.9375rem | 400 | 1.75 | The essays, at 62ch. The most legible setting the site has, on the chalk sheet |
+| `.t-display-lg` | Bricolage | `clamp(4rem, min(15.5vw, 23svh), 13.5rem)`, and below 1100px `clamp(4rem, min(22vw, 26svh), 9rem)` | 700, upper case | 0.86 | The name, on the home page only. Sized by the shorter of the window's width and its height, so the controls are on the first screen on a laptop |
+| `.t-hlg` | Bricolage | `clamp(3rem, 8vw, 6.5rem)` | 700 | 0.9 | A page's own title where the page is not the home page |
+| `.t-h` | Bricolage | `clamp(2.5rem, 6.2vw, 5.25rem)` | 650 | 0.95 | A section's heading |
+| `.figure-xl` | Bricolage | `clamp(4rem, 11vw, 9.5rem)` | 700 | 0.9 | The number that carries a project, in the room's tone |
+| `.poster-headline` | Bricolage | `clamp(2rem, 4.6vw, 3.75rem)` | 650 | 1.02 | The sentence a project is about, as the biggest type on its entry |
+| `.contact-mail` | Bricolage | `clamp(1.5rem, 3.9vw, 3.4rem)` | 650 | 1.05 | The address, as a headline |
+| `.t-hsm` | Bricolage | `clamp(1.9rem, 3.8vw, 3.1rem)` | 650 | 1 | An entry's name, and a long-form heading |
+| `.t-sub` | Bricolage | `clamp(1.375rem, 2.7vw, 2.25rem)` | 500 | 1.12 | The one sentence a section leads with |
+| `.t-h3` | Bricolage | 1.25rem | 700 | 1.05 | The smallest thing that is still a heading, and the wordmark |
+| `.letter` | Newsreader | `clamp(1.125rem, 1.5vw, 1.3125rem)`, and its first line `clamp(1.625rem, 2.9vw, 2.4rem)` | 400, and 450 | 1.7, and 1.22 | The about section |
+| `.quote` | Newsreader | `clamp(1.25rem, 2.2vw, 1.75rem)` | 500 | 1.3 | Somebody else speaking. It changes voice instead of drawing quotation marks |
+| `.longform` | Newsreader | 1.125rem | 400 | 1.7 | The essays, on the sheet. The most legible setting the site has |
+| body | Bricolage | 1rem | 400 | 1.6 | Paragraphs |
+| `.t-body-lg` | Bricolage | 1.125rem | 400 | 1.6 | A lead paragraph |
+| `.t-caption` | Bricolage | 0.8125rem | 400 | 1.55 | Captions and notes |
+| `.t-label` | Bricolage | 0.75rem | 600 | 1.35 | Labels: tracked at 0.12em, upper case, in `--faint` |
+| `.t-mono` | JetBrains Mono | 0.78rem | 400 | 1.5 | A line of code, where one is needed |
 
-The hierarchy is the gap between the two ends, not a ladder of steps. Do not add a
-size in the middle.
+Headings are set tight, at about -0.03em, because at this size the default spacing is
+a gap you could park a car in, and heavy enough that a letter swelling under the
+cursor has somewhere to go. The effect runs over every word on the site, to a weight
+of 800 in all three faces.
 
 ## Spacing, shape and line
 
-- **Radius is zero everywhere.** Controls, blocks, the sheet, the dialog and the
-  embeds are square. A rounded corner is the first thing that would put this back
-  into the system it replaced.
-- **There are no shadows.** Nothing is raised, so nothing is lowered. Hover
-  feedback is a rule lighting up or a link gaining its acid highlight.
-- **No gradient is a surface.** Two exist, both for function: the carbon scrim
-  under a caption over a moving picture (`.clip-scrim`), and the ring of light
-  running round the call to action.
-- **Lines are scored into the wall.** `.scored` is a 2px carbon line; `.scored-thin`
-  is a 1px line at the `--rule` alpha. Table headers sit on a 2px line and rows on a
-  1px one. A bay and the sheet have a 2px carbon edge.
+- **Radius is two sizes and a pill.** `--radius` is 1.25rem, for a panel of glass, a
+  figure and a clip. `--radius-lg` is 1.75rem, for a sheet of paper. A control and a
+  chip are fully round. Nothing is square any more, and nothing is a circle that is
+  not meant to be one.
+- **Depth is a few percent of cream.** A panel of glass is the room with six percent
+  of cream over it and a hairline round it. There is no drop shadow anywhere; the
+  only things that look like one are the ring that beats beside the name and the
+  ring of light on the call to action, and both are the room's own light.
+- **No gradient is a surface.** The wall is one colour, and the ones that exist are
+  for function: the scrim under a caption over a moving picture (`.clip-scrim`), the
+  ring of light round the call to action, and the lantern that follows the pointer,
+  which is behind every block and is never under a word.
+- **Lines are hairlines of cream.** `.scored` is a 1px line at `--rule-strong`;
+  `.scored-thin` is a 1px line at `--rule`. They belong to the block they are in.
 - **Space** is generous and set by `clamp`: `.section-pad` is
   `clamp(3.5rem, 8vw, 7rem)` above and below a section's content, and the gutter is
   `clamp(1.25rem, 5vw, 7rem)`. Measure is `58ch` for a paragraph (`.measure`) and
@@ -180,19 +207,19 @@ the cloud draws inside a slot under the hero's controls instead.
 The page is eleven bands, and the list they come from is `src/lib/bands.ts`, which
 the page, the engine's validators and the tests all read:
 
-| Band | Side | Shape |
-|---|---|---|
-| `hero` | right | brain |
-| `work` (projects 1 and 2, with the index) | right | surface |
-| `work-2` (3 and 4) | left | field |
-| `work-3` (5 and 6) | right | skyline |
-| `work-4` (7 and 8) | left | network |
-| `work-5` (9 and 10) | right | helix |
-| `about` | right | brain |
-| `path` | left | surface |
-| `skills` | left | drape |
-| `endorsements` | right | network |
-| `contact` | right | brain |
+| Band | Side | Shape | Room |
+|---|---|---|---|
+| `hero` | right | brain | midnight |
+| `work` (projects 1 and 2, with the index) | right | surface | lagoon |
+| `work-2` (3 and 4) | left | field | indigo |
+| `work-3` (5 and 6) | right | skyline | ember |
+| `work-4` (7 and 8) | left | network | orchid |
+| `work-5` (9 and 10) | right | helix | forest |
+| `about` | right | brain | midnight |
+| `path` | left | surface | lagoon |
+| `skills` | left | drape | wine |
+| `endorsements` | right | network | orchid |
+| `contact` | right | brain | midnight |
 
 The ten projects are five bands of two and the sides alternate after every pair, so
 the cloud crosses the page six times and changes shape ten, and comes back to the
@@ -201,8 +228,7 @@ about: the first pair is the mark surface that broke static arbitrage, the secon
 band of estimates that moves with its start date, the third an order book, the
 fourth trade between countries, the fifth break even over years of compounding.
 A shape is not a claim, and nothing on the page says that this is what a project
-is. It used to be one band down one side, and the cloud was the brain, or a haze of
-it, from the first project to the last.
+is.
 
 This is a contract with the particle engine (`ParticleBrainREADME.md`), and these
 things must hold:
@@ -214,7 +240,8 @@ things must hold:
   the content on the left, and `band-lane-left` the reverse.
 - The shape is `data-shape` on the band, one of the seven names in
   `src/particles/structures.ts`. The engine reads both off the page and is not told
-  them a second way.
+  them a second way, and the room watcher reads the same attribute to choose the
+  room.
 - The engine reads the padding on each band's **first child** as the seam it has to
   change columns in. That is `.section-pad` on a section and `.band-pad` on the
   bands that continue one, which is a measurement as well as a margin. `.band-pad`
@@ -229,7 +256,8 @@ things must hold:
 - **Nothing between the root and the content paints an opaque background on `/`.**
   The canvas is fixed at `z-index: -10`, above the root's background and below every
   block, so the wall is on `html`, the body is transparent, and a wrapper that
-  carried the wall colour would cover the cloud completely.
+  carried the wall colour would cover the cloud completely. A panel of glass is
+  allowed because it is a few percent of cream and only ever inside the column.
 - The first screen carries the name, the standfirst and the two controls, and starts
   on what it is. The rest of the evidence arrives on the way down. The controls sit
   **beside** the standfirst from 720px and not under it, because under it they fell
@@ -245,78 +273,120 @@ Every other route is an ordinary column: `Section` without `lane` renders in
 `.shell`, because the cloud mounts on `/` only and a lane with nothing in it is a
 wasted third of the screen.
 
+## Rooms in practice
+
+The home page changes room as the cloud changes shape. `RoomWatcher`
+(`src/components/room-watcher.tsx`) watches for the band that is across the middle of
+the window, looks up the room of that band's shape in `roomOfShape`, and sets
+`data-room` on the root. The stylesheet turns that into a wall and a tone, and the
+wall's own change is a 900 millisecond transition on the root's background, so a
+reader who asked for less motion gets the new room at once without the watcher
+knowing. It also moves the browser's theme colour with the wall and tells the cloud,
+which tints itself.
+
+The cloud takes the room's two pigments by a listener on the `fl-room` event
+(`particle-brain.tsx`), moving a share of the way to them each frame with a time
+constant of 0.28 seconds and handing them to the engine as `setConfig({ surface })`.
+Nothing in the engine knows about rooms. A cloud that is shed down to a lower tier
+is already in whichever room the watcher last announced.
+
+Every other page is one room from top to bottom and says which in its own markup:
+`RoomMarker` (`src/components/room-marker.tsx`) renders a hidden element with
+`data-page-room`, and the stylesheet reads it with `html:has()`, so the wall is right
+in the first paint and not after the scripts have run. The page's `viewport` export
+(`roomViewport` in `src/lib/page-rooms.ts`) puts the same colour in the head, so a
+phone's own chrome meets the page. After hydration the watcher reads the marker back
+and sets the root's attribute, so all three agree.
+
+| Page | Room |
+|------|------|
+| `/path` | lagoon |
+| `/writing` | ember |
+| `/writing/<essay>` | the room of the project it is about |
+| `/reel` | indigo |
+| not found | wine |
+| `/cv`, `/privacy`, `/admin/analytics` | midnight, which is the root's own |
+
 ## Surfaces
 
-There are three materials. Everything is on the wall, and a block of another
-material is a decision somebody made, not a default.
+Everything is on the wall, and anything else is a decision somebody made.
 
 | Level | Name | Value | Where |
 |-------|------|-------|-------|
-| 0 | Wall | `#a7a39b` | Every page, and nearly everything on it |
-| 1 | Carbon block | `#121212` | `.chalk-block`, `.on-carbon`: the one inverted surface, used where a thing has to be read before anything else. The reconstruction ledger on the home page, the callout on the strongest project, and the caption over the reel's film. The tokens turn over inside it, so the same markup is carbon on the wall and chalk on carbon without restating a rule |
-| 2 | Chalk sheet | `#f4f2ee` | `.sheet`, `.palette`: a poster pasted on the wall, for anything read for twenty minutes. The essays, the privacy page and the search dialog |
-| - | Veil | `#121212` | The sheet over the opening animation, for the eight seconds the chalk cloud and the words are the only things on screen, lifting onto the wall |
+| 0 | The room | the wall, per room | Every page, and nearly everything on it |
+| 1 | Glass | cream at 0.06 over the room, a 1px edge at 0.16 | `.glass`: the tools, the evidence panel on a split entry, the caveat on every project but the strongest. Only inside the column the words are in |
+| 2 | Paper | `#f4f2ee` | `.chalk-block`: the one inverted surface, used where a thing has to be read before anything else, which is the ledger on the home page and the caveat on the strongest project. `.sheet`, `.palette`: a poster pasted on the wall, for anything read for twenty minutes, which is the essays, the privacy page and the search dialog. The tokens turn over inside it, so the same markup is cream on the room and carbon on paper without restating a rule |
+| - | Veil | the first room's wall | The sheet over the opening animation, for the eight seconds the cloud and the words are the only things on screen, lifting onto the page |
 
-`.chalk-block` is named for the chalk type on it. It is a block of carbon.
+The caption over the reel's films is not a surface of its own. The scrim under it
+(`.clip-scrim`) is the darkest colour on the site, laid down at a known strength, and
+the caption keeps the page's own tokens, so it is cream on that and never anything
+that depends on the frame behind it.
 
 ## Components
 
 ### Section
-A scored line with a label under it, a display heading, an optional lead sentence,
-and the content in a container (so what is inside lays itself out against the room
-the band gives it and not the window's). The line is inside the section's own
-container. `level` makes it the `h1` on a page whose heading it is, and `lane`
-chooses a side on the home page.
+A hairline with a label under it in the room's tone, a heading, an optional lead
+sentence, and the content in a container (so what is inside lays itself out against
+the room the band gives it and not the window's). The line is inside the section's
+own container. `level` makes it the `h1` on a page whose heading it is, and `lane`
+chooses a side on the home page. Its parts arrive as the page is scrolled.
 
 ### Header and footer
-The header is in the flow, above the page, and nothing else: the name in `.t-h3`,
-the navigation as labels, and the search as a ruled box. There is no rule under it.
-The footer is a scored line, the links as arrow labels, the one sentence that
-says nothing here is financial advice, and at the end of the row of links a ghost
-pill, **Back To Top**, on every route. It is a button and not an anchor to the top
-of the page, because it does something to the page rather than going somewhere in
-it: a link would add a history entry and put a fragment in the address bar. It
-scrolls smoothly and takes a reader who asked for less motion there at once, it
-moves a keyboard user's focus up to the name with the page, and it does not print.
-`tests/back-to-top.spec.ts` holds each of those.
+The header is in the flow, above the page, and nothing else: the name with a small
+light beside it that takes the colour of the room and beats slowly, the navigation as
+a pill of its own with the current page filled in, and the search as a field. There is
+no rule under it, and nothing in it is fixed to the window except the line that shows
+how far down the page you are. The footer is a hairline, the links as arrow labels,
+the one sentence that says nothing here is financial advice, and at the end of the row
+of links a ghost pill, **Back To Top**, on every route. It is a button and not an
+anchor to the top of the page, because it does something to the page rather than
+going somewhere in it: a link would add a history entry and put a fragment in the
+address bar. It scrolls smoothly and takes a reader who asked for less motion there
+at once, it moves a keyboard user's focus up to the name with the page, and it does
+not print. `tests/back-to-top.spec.ts` holds each of those.
 
 ### Link with arrow
-`.link-arrow`. Carbon like the text around it, with the arrow as part of the label,
-and no underline at rest. On hover **and on keyboard focus** it underlines at 2px
-and takes the acid highlight, so a reader who cannot hover has the same signal.
-Inside running prose a link is underlined at rest, because there is no arrow to
-carry it.
+`.link-arrow`. Acid, with the arrow as part of the label, and no underline at rest. On
+hover **and on keyboard focus** it underlines at 2px and takes a swatch of acid with
+carbon on it, so a reader who cannot hover has the same signal. Inside running prose a
+link is underlined at rest, because there is no arrow to carry it.
 
 ### Control
-`.pill`, `.pill-filled`, `.pill-ghost`. Square, 2px carbon edge, set in the
-terminal's voice (12px, tracked, upper case), at least 44px tall. The filled one is
-carbon with chalk on it, and there is one per view. Hover is acid with carbon on it.
+`.pill`, `.pill-filled`, `.pill-ghost`. Fully round, 1.5px edge, set in the page's
+own face, at least 44px tall. The filled one is acid with carbon on it, and there is
+one per view. Hover on the filled one turns it cream and on the ghost one turns it
+acid.
 
 ### The call to action
-`ShinyButton`, `.shiny-cta`. The animated control Finn supplied, re-skinned for the
-wall: square and carbon, with acid light running round the edge and a field of dots
-masked to a sweeping arc. It is paused while it is off screen (`data-cta` on the
-root, set by the hero's observer), because it animates a custom property and every
-frame is a real paint, and it holds still for a reader who asked for less motion.
-The glow and the inner shimmer are gone: acid over carbon at any strength worth
-seeing goes to olive. It uses the page's face, not its own import.
+`ShinyButton`, `.shiny-cta`. The animated control Finn supplied: a pill with a ring of
+light running round the edge and a field of dots masked to a sweeping arc. The
+first is `.shiny-primary`, filled in acid with carbon on it and a cream ring, because
+it is the one filled control in the view; the second is the room lifted a step
+(`color-mix` of the wall and cream), as a solid, because the fill is one layer of a
+two layer border trick and a see-through one would show the sweep behind it. It is
+paused while it is off screen (`data-cta` on the root, set by the hero's observer),
+because it animates a custom property and every frame is a real paint, and it holds
+still for a reader who asked for less motion. It uses the page's face, not its own
+import.
 
 ### The ledger
 `Ledger` and `.index-table`: a table of quantity, what it is against, the
-deviation and the verdict, aligned and undecorated. A verdict is carried three
-ways at once, by the word, the weight, and for a result that did not hold, the
-swatch, so that nobody needs the colour. Below 720px it is a list of short blocks
-of the same four things in the same order, and the table is `display: none`, so it
-is not in the accessibility tree twice. Where it sits beside the figure that did
-not hold, its column is as wide as the table is (`minmax(min-content, 1.4fr)`) and
-that figure takes what is left. It was a share of the block, and at 920 and at 1550
-pixels the share was 427 where the table needs 480, so the verdict was cut off the
-edge.
+deviation and the verdict, aligned and undecorated, on a sheet of paper in the first
+screen's copy column. A verdict is carried three ways at once, by the word, the
+weight, and for a result that did not hold, the swatch, so that nobody needs the
+colour. Below 720px it is a list of short blocks of the same four things in the same
+order, and the table is `display: none`, so it is not in the accessibility tree
+twice. Where it sits beside the figure that did not hold, its column is as wide as
+the table is (`minmax(min-content, 1.4fr)`) and that figure takes what is left. It
+was a share of the block, and at 920 and at 1550 pixels the share was 427 where the
+table needs 480, so the verdict was cut off the edge.
 
 ### The index
 `ProjectIndex`: the work as a listing, a number, the piece and its headline, the
 one figure that carries it, what it is built with, and how far the evidence goes.
-Each piece links to its entry. It scrolls inside itself below 720px, and the region
+Each piece links to its entry, and the row under the pointer lights like glass with
+its number in the room's tone. It scrolls inside itself below 720px, and the region
 is focusable and named so a keyboard can reach the columns that are off the edge.
 From 720px up it fits the column it is in. The lane leaves 605px at 1100, so the
 piece's column has a floor of 11rem and not 14rem, and the gaps are tighter from
@@ -329,16 +399,53 @@ wider, so nothing that measured the page could have seen it, and
 `ProjectEntry`: name, headline, body, clip, stats, the interval band, **what this
 does not show**, and the links. The limits are not optional and are not a footnote.
 
+Ten entries in one template were ten times the same page, and that is what made the
+work feel like one long block however many pictures were in it. So an entry takes one
+of four compositions by its place in the list, in an order that comes round again, so
+no two neighbours are alike and the ten are never more than three entries from a
+change. Every composition carries everything an entry has to carry. What changes is
+what the eye lands on first:
+
+| Kind | Entries | What comes first |
+|------|---------|------------------|
+| `figure` | 1, 5, 9 | The number that carries the project, as large as a number can be set, in the room's tone or as the swatch if it did not hold |
+| `clip` | 2, 6, 10 | The picture, wide, before anything is said about it |
+| `split` | 3, 7 | The argument on one side and the evidence, in a panel of glass, on the other |
+| `poster` | 4, 8 | The sentence the project is about, as the biggest type on the entry, and the caveat set as a quotation in the serif |
+
+`kindOf(index)` in `project-entry.tsx` is the rule, and `data-kind` on the entry is
+what the tests read. The strongest project's caveat is the one on paper.
+
 ### Flag and held
 `.flag` is a result that did not hold: the words, on a swatch of acid, with carbon
 on it, set on the words themselves and not on a table cell (on a cell the swatch
-stretches down a row with a paragraph in it and reads as a rendering fault). `.held`
-is a result that did: plain, at weight 500, with the word saying so. In print the
-swatch becomes weight 700 and an outline, because a pale grey says nothing and a
-colour printer and a monochrome one disagree about a pale green.
+stretches down a row with a paragraph in it and reads as a rendering fault). Where it
+is the big figure of an entry it is an inline block, because an inline swatch is as
+tall as the font's own ascent and descent, which at a line height of 0.9 is taller
+than the line and ran up into the name above and down over the caption. `.held` is a
+result that did: plain, at weight 500, with the word saying so. In print the swatch
+becomes weight 700 and an outline, because a pale grey says nothing and a colour
+printer and a monochrome one disagree about a pale green.
+
+### The letter
+`.letter`, the about section. Serif, with the opening line as large as a headline and
+the closing one pulled out with the room's own colour beside it, so the section has a
+top, a body and an end and is not four paragraphs of the same weight. There is a slot
+for a portrait, `portrait` in `src/lib/site.ts`, and it is `null`: the section shows
+one only when Finn supplies one, with its description, and there is no stand-in face.
+
+### The path
+A rail with a dot for every place, in the room's tone, and the dates, the place and
+what it taught beside it. `/path` is the same entries at length, with the asides that
+do not go on the CV.
+
+### The tools
+`Skills`: each group is a panel of glass holding chips, and every chip is a pill that
+takes the room's tone on its edge when it has the pointer. They also move away from
+it. See the life of the page.
 
 ### Bays
-`Bays`: five squares cut into the wall with a number and a label, empty, with a
+`Bays`: five dashed shapes cut into the room with a number and a label, empty, with a
 heading that counts them and says none is filled. They are the other half of the
 work (painting and drawing, photography and film, 3D and code, graphic design,
 archive and fashion), held open. A placeholder that was somebody else's picture is
@@ -351,60 +458,116 @@ true, and `tests/bays.spec.ts` checks the file exists, has a description and a
 size, and that the heading agrees with the list.
 
 ### Endorsements
-`.quote` in the headline face, upper case, with no marks drawn for it, the name
-beneath it as a label, and the word "Cut." where an endorsement was trimmed. No
-discs, no tinted cards.
+`.quote` in the serif, set large, with no marks drawn for it, the name beneath it as
+a label, and the word "Cut." where an endorsement was trimmed. Each is highlighted in
+acid behind carbon, the way a selection is and left that way, which is
+`.highlight`, and is exactly `::selection`.
+
+### The contact section
+The address set as a headline (`.contact-mail`), a filled pill and two ghost ones, and
+the same three things as a list for a reader who wants them as a list. The address
+takes the acid highlight on hover and focus.
 
 ### The search dialog
-`.palette`: a square sheet of chalk with a carbon edge. The wall behind it is dimmed
-by a flat carbon at 0.62 and nothing is blurred.
+`.palette`: a sheet of paper. The room behind it is dimmed by a flat colour and
+nothing is blurred.
 
 ### Charts and figures
-Square marks. A result that did not hold is a bar of acid with a carbon edge (acid
-alone against the wall is 2.17:1, and the edge is what makes it a shape), with its
-number in a `.flag` swatch beside it, so the reading is in the text as well as the
-colour. Every figure declares where its data came from.
+A result that did not hold is a bar of acid with its number in a `.flag` swatch
+beside it, so the reading is in the text as well as the colour. A range is a track
+with two marks. Every figure declares where its data came from.
+
+## The life of the page
+
+What makes the page feel inhabited, and what each is allowed to cost. All of it is
+decoration, and none of it is ever the only thing saying something.
+
+| What | Where | Rule |
+|------|-------|------|
+| The rooms | The wall and the cloud | The band across the middle of the window. 900ms on the wall, a time constant of 0.28s on the cloud |
+| The light by the name | The header | A dot in the room's tone that beats every 2.8 seconds |
+| How far down you are | The top edge | A 3px line in the room's tone, drawn by the scroll itself through a scroll timeline, so it costs no script. Left out where the browser cannot tie an animation to a scroll, because a line that does not move is worse than none |
+| The time in Oxford | The hero's label | `LiveTime`, `Europe/London`, ticking over with the minute. Empty in the server's HTML, because the server's clock is not the reader's, and aria-hidden, because a clock that changes under a screen reader is noise |
+| The lantern | Behind the page | A soft pool of the room's tone that follows the pointer, moved by a transform. Rank 1050 on the frame ladder |
+| Letter weight | Every word | The letters near the pointer swell to a weight of 800, drawn on a layer over the page, which is never touched. Rank 1000 |
+| The tools | `Skills` | Chips drift away from the pointer within 130px, by up to 26px, and settle back. Rank 1100 |
+| The index | `ProjectIndex` | The row under the pointer lights |
+| Arrivals | Sections and entries | A block sits 1.75rem low until it is in view and then settles. A transform and nothing else, so it is never transparent and every word is at full contrast whether it has arrived or not. Only once the document has said scripts are running (`data-js`) |
+
+The frame ladder is the page's one frame loop (`frameScheduler` in
+`src/particles/frame.ts`, which puts itself on `window.__frameScheduler`). The cloud
+is rank 0 and is never rationed. Everything else joins it at a rank above 1000, and
+when frames run long it is thinned and then given up, highest rank first, before the
+cloud loses a particle: the chips go first, then the lantern, then the letter
+weight. A decoration that asked for frames of its own would have its cost charged to
+the cloud, and the cloud would be stepped down from its full count to under half of
+it, and a cloud that has stepped down is never offered its particles back.
+
+The lantern, the letters and the chips are for a pointer that hovers and not for a
+reader who asked for less motion. The lantern lives inside `<main>` and the line inside
+`<header>`, because the tests that photograph the wall and the cloud with the page
+hidden hide those, and a pool of light that was not part of the page would be in every
+one of those photographs. The letter weight overlay measures the words where they are
+when it paints, so a chip or a block that moves afterwards tells it to measure again
+(the `fl-moved` event, and `transitionend`), or the heavier letter would be left behind
+where the word was.
 
 ## Motion
 
-Motion is CSS, so no library can park an element at a hidden transform and leave the
-page blank when a script is blocked. The budget is small: rows settling once on load
-(`.settle-rows`, 420ms), hover feedback at 140ms, and the call to action's light.
-The name is never animated: it is the first thing a reader needs, and it is painted,
-not arriving.
+Motion is CSS wherever it can be, so no library can park an element at a hidden
+transform and leave the page blank when a script is blocked. The budget is small:
+rows settling once on load (`.settle-rows`, 420ms), arrivals (900ms), hover feedback at
+200ms or less, the rooms (900ms), the beat beside the name, and the call to action's
+light. The name is never animated: it is the first thing a reader needs, and it is
+painted, not arriving.
 
 The opening animation runs about eight seconds on a reader's first visit to `/`:
 the name, then the second line (ECONOMICS, FINANCE, SOFTWARE DEV), which is held on
 the screen for a second and eight tenths, then the brain, then the hand-over at 7.9
 seconds, with the veil lifting over 700ms. The schedule is `src/particles/opening.ts`
 and `scripts/check-motion.ts` holds the second line to its hold. Both lines are
-drawn in the headline face, read off the page's own `h1`, and the engine waits for
+drawn in the headline face, read off the page's own `h1` (so they are Bricolage at
+weight 700, in capitals, exactly as the page's name is set), and the engine waits for
 that face to arrive (up to 1.5 seconds) before it draws the words, so a slow
-connection never gets them in a fallback. The page is held still while it runs, and a Skip button, shown only while it does, ends it the way Escape does, because an iPad has no Escape key and moving content that runs this long should be stoppable. It does not run for a reader who asked for less motion, and it
-is controlled by an attribute set before first paint so that LCP still happens on
-the real content.
+connection never gets them in a fallback. The page is held still while it runs, and a
+Skip button, shown only while it does, ends it the way Escape does, because an iPad
+has no Escape key and moving content that runs this long should be stoppable. It does
+not run for a reader who asked for less motion, and it is controlled by an attribute
+set before first paint so that LCP still happens on the real content. The veil is the
+first room's wall, so the cloud is chalk on midnight for the seconds it and the words
+are the only things on screen.
 
 `prefers-reduced-motion: reduce` collapses every animation and transition to
 nothing.
 
 ## Imagery
 
-There is no imagery yet, and that is deliberate. The art, the photography and the
+There is almost no imagery, and that is deliberate. The art, the photography and the
 clothes are Finn's, and none of it is on the site until he supplies it with its
 provenance.
 
 - **No stock images and no generated images**, standing in for his work or for
-  anything else. The bays are empty and say so.
+  anything else. The bays are empty and say so, and the about section has a slot for
+  his portrait and shows none until he gives one. The clips beside the projects are
+  free-licence footage from before this design, each credited and linked, and each a
+  placeholder for a screen recording of the thing running.
 - **No brand marks, logos or assets** from the designers the look nods to.
-- **No texture on the wall.** axe cannot read text over a background image, so a
-  texture would quietly weaken the accessibility gate. It can come later if he asks
-  and the gate can be kept.
-- The brain is the only picture: chalk dust drawn by the particle engine, in the
-  `ink` surface with chalk pigments. It is the quietest of the three looks by nature
-  (chalk on this wall is 2.25:1) and is the centrepiece because of what it does and
-  not because of how loud it is.
-- When work arrives, it goes in the bays, square, scored, captioned with a label,
-  with its medium and its date. A moving clip over a caption has the carbon scrim.
+- **No texture and no gradient on the wall.** axe cannot read text over a background
+  image, and the tests read the wall as a photograph's commonest colour.
+- The brain is the one picture: chalk dust drawn by the particle engine in the `ink`
+  surface, tinted to the room it is in. It is the centrepiece because of what it
+  does.
+- The share card is the opening: the name in the headline face, in cream on midnight,
+  with the engine's own brain beside it, drawn from the same generator and the same
+  seed as the page's cloud and projected flat into five thousand dots in the first
+  room's pigments. `src/app/og/[card]/route.tsx`. The card renderer cannot reach the
+  page's fonts, so the face is vendored in `src/app/og/fonts/`, cut from the variable
+  font as one static instance (weight 700, width 100, the largest optical size) with
+  its SIL Open Font License, and read at build because every card is prerendered.
+  `CARD_VERSION` in `src/lib/metadata.ts` is in the address of every card and is
+  raised whenever one is redrawn, because link previews are cached by address for
+  days.
+- The icon set is the same mark in cream on midnight (`npm run build:icons`).
 
 ## Content rules
 
@@ -414,7 +577,8 @@ provenance.
   assumptions the reader sets, or a tool with no result to reproduce.
 - **No availability claim.** The site does not say when, or whether, Finn is
   available or seeking work. It had a dated one once, and it went stale. `person`
-  has no field for it, so TypeScript flags any use.
+  has no field for it, so TypeScript flags any use. The clock in the hero is the
+  time where he is from and says nothing about whether he is free.
 - **Private repositories are never linked.** The public work links only to public
   repositories.
 - **Nothing on the site or in the repository names the tools or models that helped
@@ -431,11 +595,14 @@ provenance.
   check, in `tests/a11y.spec.ts`.
 - **A verdict is never carried by its colour alone.** The word says it, the weight
   says it, and in print an outline says it.
-- **Acid is never text on the wall.** At 2.17:1 it cannot be read at any size here.
-  It is a swatch behind carbon, or a highlight behind carbon.
-- **Focus is visible on everything**, a 2px carbon ring at a 3px offset, and acid
-  inside a carbon block (carbon on carbon is nothing). Links gain their highlight on
-  focus as well as hover.
+- **Acid is text only as a link, and a highlight only behind carbon.** It is at
+  least 10.6:1 on every wall, so it can be read, and a swatch of it is always carbon
+  on top.
+- **The tone is never the only thing saying something.** It is a numeral beside a
+  word, a rule beside a heading, a dot beside a name.
+- **Focus is visible on everything**, a 2px acid ring at a 3px offset, and carbon
+  inside paper (acid on cream is nothing). Links gain their highlight on focus as
+  well as hover.
 - **Controls are at least 44px tall.**
 - A region that can scroll is focusable and named.
 - The skip link is the first focusable element, carbon on chalk with a carbon edge
@@ -444,28 +611,31 @@ provenance.
   It holds still for a reader who asked for less motion, stops drawing when the tab
   is hidden, and stops when its space has scrolled off a phone's screen.
 - **Print** is ink on white with the chrome removed, for the CV and the essays. Links
-  print their address, and the blocks of carbon and chalk become a bordered page.
+  print their address, and glass and paper become a bordered page.
 
 ## Do's and don'ts
 
 ### Do
 - Ask for tokens, never for a colour. A component that names a hex is a component
-  that will not turn over inside a block.
+  that will not turn over inside a sheet of paper or change with the room.
 - Keep a rule inside the content's own column.
 - Put the verdict in words. Then colour it.
-- Use Big Shoulders only for headings, names, lead sentences and quotations, and
-  Martian Mono for everything else.
+- Use Bricolage for the page, Newsreader for what is read slowly and JetBrains Mono for
+  code.
 - Keep the first screen to the name, the standfirst, what it is and two controls.
-- Measure contrast against the wall before changing anything on it.
+- Run `npm run check:rooms` before moving a wall, and look at the brain in the room.
+- Join the frame ladder at a rank above 1000 with anything that moves every frame.
 - Say where a figure came from, and say what it does not show.
 
 ### Don't
-- Don't use a radius, a shadow, a card or a tinted band.
-- Don't set text in acid. Don't set text in chalk on the wall.
-- Don't add a third face, or a size between the ends of the scale.
+- Don't use a drop shadow, a card that is opaque, or a tinted band.
+- Don't set text in acid on paper, or in any colour that is not cream, carbon or acid
+  at an alpha.
+- Don't put a gradient or a texture on the wall.
+- Don't add a fourth face, or a size that is not on the scale.
 - Don't paint an opaque background between the root and the content on `/`.
 - Don't put a figure or a line into the lane.
-- Don't put a picture on the wall that is not Finn's, or that he has not supplied.
+- Don't put a picture on the page that is not Finn's, or that he has not supplied.
 - Don't invent a figure to fill a space.
 - Don't link a private repository.
 
@@ -473,26 +643,34 @@ provenance.
 
 | Path | What is in it |
 |---|---|
-| `src/lib/colours.ts` | The four colours, for the places that cannot read a stylesheet |
-| `src/app/globals.css` | The tokens, the type scale, the surfaces and the controls. This is where the system is enforced |
-| `src/app/layout.tsx` | The two faces, the viewport's theme colour, and the chrome |
-| `src/components/section.tsx` | Scored line, label, heading, lead and container; and `Band`, which carries a section on without a heading, for the pairs of projects |
+| `src/lib/rooms.ts` | The seven rooms, the shape each belongs to, and the pigments the cloud takes. For the places that cannot read a stylesheet |
+| `src/lib/colours.ts` | The fixed colours, for the places that cannot read a stylesheet |
+| `src/lib/page-rooms.ts` | The room of each page that is not the home page, and the head's theme colour. Server only, because it reads the band plan and the projects |
+| `src/app/globals.css` | The tokens, the rooms, the type scale, the surfaces and the controls. This is where the system is enforced |
+| `src/app/layout.tsx` | The three faces, the viewport's theme colour, and the chrome |
+| `src/components/room-watcher.tsx`, `room-marker.tsx` | What sets the room as the cloud changes shape, and what a page says about its own |
+| `src/components/section.tsx` | Hairline, label, heading, lead and container; and `Band`, which carries a section on without a heading, for the pairs of projects |
 | `src/components/back-to-top.tsx` | The button at the foot of every page |
 | `src/lib/bands.ts` | The plan: which side and which shape every band of the home page asks for, and how many projects a band holds |
-| `src/components/hero.tsx` | The name, the standfirst, the controls, the ledger block |
+| `src/components/hero.tsx`, `live-time.tsx` | The name, the clock, the standfirst, the controls, the ledger block |
 | `src/components/ledger.tsx` | The reconstruction table, and its phone form |
-| `src/components/project-index.tsx`, `project-entry.tsx` | The work as a listing and as entries |
+| `src/components/project-index.tsx`, `project-entry.tsx` | The work as a listing and as entries, in four compositions |
+| `src/components/skills.tsx`, `chip-field.tsx` | The tools as chips, and the part of them that shies from the pointer |
+| `src/components/cursor-light.tsx`, `reveal.tsx` | The lantern and the arrivals |
+| `src/lib/ladder.ts` | Reads the page's frame ladder from the window without bundling a second copy |
 | `src/components/bays.tsx`, `src/lib/bays.ts` | The bays, and the list a piece is added to |
 | `src/components/shiny-button.tsx` | The animated call to action |
-| `src/components/chrome.tsx`, `nav-links.tsx` | Header and footer |
+| `src/components/chrome.tsx`, `nav-links.tsx`, `palette-trigger.tsx` | Header and footer |
 | `src/components/intro.tsx` | The veil, the Skip button and the boot script for the opening |
-| `src/components/particle-brain-mount.tsx` | Mounts the cloud on `/` and passes it the chalk surface |
+| `src/components/particle-brain-mount.tsx` | Mounts the cloud on `/` and passes it the ink surface in the first room's pigments |
 | `src/particles/` | The engine. See `ParticleBrainREADME.md` |
-| `src/app/not-found.tsx` | A bad link, in the same wall |
-| `src/app/manifest.ts`, `og/[card]/route.tsx`, `icon.svg` | The platform surfaces, on the same four colours |
+| `src/app/not-found.tsx` | A bad link, in wine |
+| `src/app/manifest.ts`, `og/[card]/route.tsx`, `icon.svg` | The platform surfaces, on the first room |
 | `scripts/build-icons.ts` | Generates the icon set from one mark. Run `npm run build:icons` after changing it |
-| `tests/backdrop.spec.ts`, `cloud-overlap.ts`, `crossing.spec.ts` | The cloud never being under a word, and what the cloud is doing: its marks are measured as distance from the flat wall |
+| `scripts/check-rooms.ts` | The contrast of every step of type on every wall, and the stylesheet against the table |
+| `tests/backdrop.spec.ts`, `cloud-overlap.ts`, `crossing.spec.ts` | The cloud never being under a word, and what the cloud is doing: its marks are measured as distance from the flat wall, read off the photograph |
 | `tests/bands.spec.ts` | The markup being the plan, five pairs of projects alternating sides, and the engine reading each band's side and shape back off the page |
+| `tests/rooms.spec.ts` | The wall following the cloud, every page in its room, and the head agreeing with the paint |
 | `tests/fit.spec.ts` | The cloud's size on the screens people have: seven iPads upright and on their side, a laptop, an ultrawide, a window dragged tall, a phone on its side |
 | `tests/widths.spec.ts` | Every route at thirteen widths from 720px to 2560px: nothing cut by the screen's edge, nothing scrolling sideways inside itself, and on the home page nothing visible in the cloud's lane |
 | `tests/bays.spec.ts` | The bays against the disk, and the heading against the list |
@@ -502,20 +680,25 @@ provenance.
 | `tests/performance.spec.ts` | Budgets, and what a late font does to the page |
 | `tests/first-screen.spec.ts` | The name and both controls inside the window at five sizes |
 
-## Changing the wall
+## Changing a room
 
-The wall is the one decision everything else is derived from, so it is changed last
-and measured.
+A room is its wall, its tone and its two pigments. They are in two places that cannot
+read each other, `src/lib/rooms.ts` and the block for the room in
+`src/app/globals.css`, and they are changed together.
 
-1. Change `--wall` in `src/app/globals.css` and `wall` in `src/lib/colours.ts`
-   together, or `tests/platform.spec.ts` fails.
-2. Re-derive the alphas for `--ink-soft`, `--muted` and `--faint` against it, so the
-   lowest text stays above 4.5:1. Carbon on the wall is 7.45 now.
-3. Re-run the contrast walk in `tests/backdrop.spec.ts` and the overlap checks in
+1. Edit the room in both. `npm run check:rooms` fails if they differ.
+2. The same command works out every step of type against the wall and fails if one is
+   below its floor. The floors are well above 4.5:1 for small text, because the lowest
+   step on the lightest wall is 5.58 and there is not much room to give.
+3. Look at the cloud in the room. A pigment can pass its ratio and still be wrong
+   for the wall: the cloud has to read as chalk in it, and the first room's pigments
+   are the reference.
+4. Run the contrast walk in `tests/backdrop.spec.ts` and the overlap checks in
    `tests/cloud-overlap.ts`, which measure how far each region behind a word is from
    the flat wall.
-4. Look at the brain. Chalk on the wall is 2.25:1 and the cloud is already the
-   quietest it has been. A darker wall reads better in small type and worse in the
-   brain, and a lighter wall does the reverse. If the cloud stops reading as the
-   centrepiece, the answer is a darker pigment for it (soot), decided by looking at
-   it and not switched quietly.
+
+To add a room, add its name to `RoomName`, its row to `rooms`, a block to the
+stylesheet that answers to both `html[data-room="name"]` and
+`html:has([data-page-room="name"])`, and give it a shape or a page. Every shape has
+exactly one room and every room is the room of a shape, so a new room is a new shape
+in the engine first.

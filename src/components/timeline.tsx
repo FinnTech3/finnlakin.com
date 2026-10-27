@@ -44,7 +44,7 @@ function timelineList(Heading: "h2" | "h3") {
               ))}
             </ul>
             {entry.aside ? (
-              <p className="measure mt-3 border-l-2 border-carbon pl-5 t-caption leading-relaxed text-muted">
+              <p className="measure mt-3 border-l-2 border-rule-strong pl-5 t-caption leading-relaxed text-muted">
                 <span className="t-label">
                   About the setting.{" "}
                 </span>

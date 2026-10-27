@@ -6,20 +6,23 @@ import { contact, person } from "@/lib/site";
 
 /* In the flow, above the page, and nothing else.
 
-   It used to be laid over the top of the page, because the home page opened on
-   a full height black stage and a header in the flow would have put a strip of
-   something else above it. There is no stage. The wall runs from the top of the
-   window to the bottom, so the header is an ordinary block and every page
-   starts below it without keeping room for it.
+   The name is the one headline-face thing in it, with a small light beside it
+   that takes the colour of whatever room the page is in and beats slowly, which
+   is the only thing in the bar that moves. The navigation is a pill of its own
+   with the current page filled in, and the search is a field.
 
-   The name is the one headline-face thing in it. The navigation is labels, in
-   the terminal's voice, and the search is a ruled box. There is no rule under
-   the bar: a line across the full width would run through the lane the cloud
-   travels down, and the cloud goes over nothing. */
+   There is no rule under the bar and nothing in it is fixed to the window: it
+   is above the cloud's lane and goes over nothing, and a bar pinned to the
+   window would be over the cloud whichever side the lane was on. */
 export function SiteHeader() {
   return (
     <header className="site-header shell flex w-full flex-wrap items-center justify-between gap-x-8 gap-y-3 py-6">
-      <Link href="/" className="t-h3 text-ink hover:bg-accent-soft">
+      <span aria-hidden="true" className="scroll-progress" />
+      <Link
+        href="/"
+        className="t-h3 -ml-2 inline-flex items-center gap-2.5 rounded-full px-2 py-1 text-ink hover:bg-accent-soft hover:text-carbon"
+      >
+        <span aria-hidden="true" className="wordmark-dot" />
         {person.name}
       </Link>
 
@@ -47,19 +50,19 @@ export function SiteFooter() {
               wraps below them on a screen with no room beside them. */}
           <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-5">
             <div className="flex flex-wrap gap-x-8 gap-y-3">
-              <a href={`mailto:${contact.email}`} className="link-arrow t-label text-ink">
+              <a href={`mailto:${contact.email}`} className="link-arrow t-label">
                 {contact.email}
               </a>
-              <a href={contact.linkedin} className="link-arrow t-label text-ink">
+              <a href={contact.linkedin} className="link-arrow t-label">
                 LinkedIn
               </a>
-              <a href={contact.github} className="link-arrow t-label text-ink">
+              <a href={contact.github} className="link-arrow t-label">
                 GitHub
               </a>
-              <a href="/feed.xml" className="link-arrow t-label text-ink">
+              <a href="/feed.xml" className="link-arrow t-label">
                 Feed
               </a>
-              <Link href="/privacy" className="link-arrow t-label text-ink">
+              <Link href="/privacy" className="link-arrow t-label">
                 Privacy
               </Link>
             </div>

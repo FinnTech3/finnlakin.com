@@ -60,17 +60,171 @@ function GitHubMark() {
   );
 }
 
-/* One entry in the index, with everything the card used to carry and nothing
-   taken out: the name and the claim on the left, the evidence on the right. It
-   is a scored line and a column of type now, not a box, because on a wall a box
-   is a thing that has to be drawn and a line is a thing that is cut.
+/* Four compositions, and a project takes the one its place in the list gives it.
+   Ten entries in one template were ten times the same page, which is the thing
+   that made the work feel like a single long block however many pictures were in
+   it. Every one of the four carries everything an entry has to carry, so what
+   changes from one to the next is what the eye lands on first:
 
-   The page's one inverted block goes where the peach card used to: on the
-   sentence this site exists to make room for, what the result does not show.
-   Once, for the same reason as before. A dark panel repeated down a column
-   stops being an accent and becomes the background, and the caveat it was
-   carrying stops being read. So the strongest project gets it and the other
-   nine state the same thing under a thin line. */
+     figure   the number that carries the project, as large as a number can be set
+     clip     the picture, full width, before anything is said about it
+     split    the argument on one side and the evidence on the other
+     poster   the sentence the project is about, set as the page's biggest type
+
+   They run in that order and come round again, so no two neighbours are alike and
+   the ten are never more than three entries from a change. */
+export type EntryKind = "figure" | "clip" | "split" | "poster";
+const KINDS: readonly EntryKind[] = ["figure", "clip", "split", "poster"];
+
+export function kindOf(index: number): EntryKind {
+  return KINDS[index % KINDS.length]!;
+}
+
+/* The ordinal and what it is built with, and how far the evidence goes. */
+function Meta({ project, ordinal }: { project: Project; ordinal: string }) {
+  return (
+    <p className="t-label flex flex-wrap items-baseline gap-x-4 gap-y-1">
+      <span className="tnum text-tone">{ordinal}</span>
+      <span>{project.stack}</span>
+      <span className="text-ink">{provenanceShort[project.provenance]}</span>
+    </p>
+  );
+}
+
+/* One statistic. A figure that did not hold is a swatch, one that did is plain,
+   and the label is the sentence that says which, because nothing here is carried
+   by a colour alone. */
+function Stat({ stat }: { stat: Project["stats"][number] }) {
+  return (
+    <div className="stat">
+      <dt className="sr-only">{stat.label}</dt>
+      <dd className="stat-value">
+        {stat.tone === "flag" ? (
+          <span className="flag">{stat.value}</span>
+        ) : (
+          <span className={stat.tone === "pass" ? "held" : "text-ink"}>{stat.value}</span>
+        )}
+      </dd>
+      <p aria-hidden="true" className="stat-label">
+        {stat.label}
+      </p>
+    </div>
+  );
+}
+
+/* Two across, and four across only where the statistics have the whole width of
+   the entry. The container query is the entry's, not the list's own, so a list
+   that is only half of the entry's width cannot ask the question for itself: at
+   a wide window it was told there was room for four and gave each of them a
+   hundred pixels, which broke a figure across two lines and ran another out
+   of its column. The caller says how wide the list is. */
+function Stats({
+  stats,
+  className = "",
+  wide = false,
+}: {
+  stats: Project["stats"];
+  className?: string;
+  wide?: boolean;
+}) {
+  if (stats.length === 0) return null;
+  return (
+    <dl className={`grid grid-cols-2 gap-x-8 gap-y-7 ${wide ? "@5xl:grid-cols-4" : ""} ${className}`}>
+      {stats.map((stat) => (
+        <Stat key={stat.label} stat={stat} />
+      ))}
+    </dl>
+  );
+}
+
+/* The sentence this site exists to make room for. The strongest project's is a
+   sheet of paper, which is the one place on the page that is lit like that, and
+   it is not repeated down the list: a bright panel under every entry stops being
+   an accent and becomes the background, and the caveat it carries stops being
+   read. The other nine state the same thing in glass. */
+function Limits({ project, paper = false, voice = false }: { project: Project; paper?: boolean; voice?: boolean }) {
+  if (voice) {
+    return (
+      <blockquote className="m-0 border-l-2 border-tone pl-6">
+        <p className="t-label text-ink">What this does not show</p>
+        <p className="mt-3 max-w-[34em] font-serif text-[clamp(1.25rem,2vw,1.6rem)] leading-[1.4] text-ink-soft italic">
+          {project.limits}
+        </p>
+      </blockquote>
+    );
+  }
+  return (
+    <div className={paper ? "chalk-block" : "glass p-5 @3xl:p-6"}>
+      <p className="measure t-caption leading-relaxed text-muted">
+        <span className="font-bold text-ink">What this does not show.{" "}</span>
+        {project.limits}
+      </p>
+    </div>
+  );
+}
+
+function Links({ project }: { project: Project }) {
+  return (
+    <div className="flex flex-wrap gap-x-7 gap-y-3">
+      {project.writing ? (
+        <Link href={`/writing/${project.writing}`} className="link-arrow text-[0.9375rem]">
+          Read the write-up <span aria-hidden="true">&rarr;</span>
+        </Link>
+      ) : null}
+      {project.links.map((link) => (
+        <a
+          key={link.href}
+          href={link.href}
+          className="link-arrow inline-flex items-center gap-2 text-[0.9375rem]"
+        >
+          {isRepo(link.href) ? <GitHubMark /> : null}
+          {link.label} <span aria-hidden="true">&rarr;</span>
+        </a>
+      ))}
+    </div>
+  );
+}
+
+/* A clip, on every project, which is what Finn asked for.
+
+   The case against is in ATTENTION.md rather than acted on quietly: readers are
+   documented to skip imagery that reads as decorative, and about half of these
+   are atmosphere rather than evidence. Each one is a placeholder for a screen
+   recording of the thing actually running, which would beat all of them. */
+function ClipFigure({ project, wide = false }: { project: Project; wide?: boolean }) {
+  const clip = clipById.get(projectClips[project.slug] ?? "");
+  if (!clip) return null;
+  return (
+    <figure className="m-0">
+      <div
+        className={`relative w-full overflow-hidden rounded-[var(--radius-lg)] border border-glass-edge ${
+          wide ? "aspect-[21/9]" : "aspect-[16/9]"
+        }`}
+      >
+        <ClipPlayer clip={clip} />
+      </div>
+      <figcaption className="t-caption mt-3 leading-relaxed text-muted">{clip.caption}</figcaption>
+      {/* The credit is its own block rather than a word at the end of the
+          caption. A link inside a run of prose has to be distinguishable by
+          something other than colour, and link-arrow underlines on hover and
+          focus only; out of the sentence, the rule does not apply and the
+          caption reads better for it. */}
+      <p className="t-caption mt-2 text-muted">
+        <a href={clip.href} className="link-arrow">
+          {clip.credit}
+        </a>
+      </p>
+    </figure>
+  );
+}
+
+/* The paragraph the repository's own README gave. */
+function Body({ project }: { project: Project }) {
+  return <p className="measure text-[1.0625rem] leading-[1.7] text-ink-soft">{project.body}</p>;
+}
+
+/* One entry in the index, with everything the card used to carry and nothing
+   taken out. See the four kinds above. */
 export function ProjectEntry({
   project,
   index,
@@ -81,108 +235,104 @@ export function ProjectEntry({
   strongest?: boolean;
 }) {
   const ordinal = String(index + 1).padStart(2, "0");
-  const clip = clipById.get(projectClips[project.slug] ?? "");
+  const [lead, ...rest] = project.stats;
+  /* A figure entry is built around its first statistic. A project with none has
+     nothing to set large, and an entry that asked for a figure and had none would
+     lose its argument along with it, so it takes the picture first instead. */
+  const kind = kindOf(index) === "figure" && !lead ? "clip" : kindOf(index);
 
   return (
-    <article id={project.slug} className="@container scored pt-6 pb-20">
-      <div className="grid gap-x-14 gap-y-10 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-        <div>
-          <p className="t-label flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <span className="tnum text-ink">{ordinal}</span>
-            <span>{project.stack}</span>
-          </p>
+    <article
+      id={project.slug}
+      data-kind={kind}
+      className="@container scored pt-8 pb-24"
+    >
+      <div data-reveal="">
+        <Meta project={project} ordinal={ordinal} />
+        <h3 className="t-hsm mt-4 max-w-[9em] text-ink text-balance">{project.name}</h3>
+      </div>
 
-          <h3 className="t-hsm mt-3 max-w-[6.6em] text-ink text-balance">{project.name}</h3>
-
-          <p className="t-body-lg mt-5 max-w-[34ch] text-pretty text-ink">{project.headline}</p>
-
-          <p className="t-label mt-5">{provenanceShort[project.provenance]}</p>
-        </div>
-
-        <div>
-          <p className="measure text-[0.875rem] leading-[1.7] text-ink">{project.body}</p>
-
-          {/* A clip, on every project, which is what Finn asked for.
-
-              The case against is in ATTENTION.md rather than acted on quietly:
-              readers are documented to skip imagery that reads as decorative,
-              and about half of these are atmosphere rather than evidence. Each
-              one is a placeholder for a screen recording of the thing actually
-              running, which would beat all of them. */}
-          {clip ? (
-            <figure className="m-0 mt-8">
-              <div className="relative aspect-[16/9] w-full overflow-hidden border-2 border-carbon">
-                <ClipPlayer clip={clip} />
-              </div>
-              <figcaption className="t-caption mt-3 leading-relaxed text-muted">
-                {clip.caption}
-              </figcaption>
-              {/* The credit is its own block rather than a word at the end of
-                  the caption. A link inside a run of prose has to be
-                  distinguishable by something other than colour, and link-arrow
-                  underlines on hover and focus only; out of the sentence, the
-                  rule does not apply and the caption reads better for it. */}
-              <p className="t-caption mt-2 text-muted">
-                <a href={clip.href} className="link-arrow">
-                  {clip.credit}
-                </a>
+      {kind === "figure" && lead ? (
+        <>
+          <div data-reveal="" className="mt-8 grid items-end gap-x-12 gap-y-6 @4xl:grid-cols-[auto_minmax(0,1fr)]">
+            <div>
+              <p className="figure-xl">
+                {lead.tone === "flag" ? <span className="flag">{lead.value}</span> : lead.value}
               </p>
-            </figure>
-          ) : null}
-
-          {project.stats.length > 0 ? (
-            <dl className="mt-9 grid grid-cols-2 gap-x-8 gap-y-6 @5xl:grid-cols-4">
-              {project.stats.map((stat) => (
-                <div key={stat.label} className="flex flex-col gap-1.5">
-                  <dt className="sr-only">{stat.label}</dt>
-                  <dd className="font-display text-[2.25rem] leading-none font-bold tracking-[-0.01em] uppercase">
-                    {stat.tone === "flag" ? (
-                      <span className="flag">{stat.value}</span>
-                    ) : (
-                      <span className={stat.tone === "pass" ? "held" : "text-ink"}>
-                        {stat.value}
-                      </span>
-                    )}
-                  </dd>
-                  <p aria-hidden="true" className="t-caption leading-snug text-muted">
-                    {stat.label}
-                  </p>
-                </div>
-              ))}
-            </dl>
-          ) : null}
-
-          {project.band ? (
-            <div className="mt-9">
-              <IntervalBand {...project.band} />
+              <p className="t-caption mt-3 max-w-[32ch] leading-snug text-muted">{lead.label}</p>
             </div>
-          ) : null}
-
-          <div className={strongest ? "chalk-block mt-9" : "scored-thin mt-9 pt-4"}>
-            <p className="measure t-caption leading-relaxed text-muted">
-              <span className="font-bold text-ink">What this does not show.{" "}</span>
-              {project.limits}
-            </p>
+            <p className="lede max-w-[26em]">{project.headline}</p>
           </div>
-
-          <div className="mt-8 flex flex-wrap gap-x-7 gap-y-3">
-            {project.writing ? (
-              <Link href={`/writing/${project.writing}`} className="link-arrow text-[0.875rem]">
-                Read the write-up <span aria-hidden="true">&rarr;</span>
-              </Link>
-            ) : null}
-            {project.links.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="link-arrow inline-flex items-center gap-2 text-[0.875rem]"
-              >
-                {isRepo(link.href) ? <GitHubMark /> : null}
-                {link.label} <span aria-hidden="true">&rarr;</span>
-              </a>
-            ))}
+          <div data-reveal="" className="mt-10 grid gap-x-12 gap-y-10 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+            <Body project={project} />
+            <ClipFigure project={project} />
           </div>
+          <Stats stats={rest} wide className="mt-10" />
+        </>
+      ) : null}
+
+      {kind === "clip" ? (
+        <>
+          <div data-reveal="" className="mt-8">
+            <ClipFigure project={project} wide />
+          </div>
+          <div data-reveal="" className="mt-10 grid gap-x-12 gap-y-8 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+            <div className="flex flex-col gap-6">
+              <p className="lede max-w-[24em]">{project.headline}</p>
+              <Body project={project} />
+            </div>
+            <Stats stats={project.stats} className="self-start" />
+          </div>
+        </>
+      ) : null}
+
+      {kind === "split" ? (
+        <>
+          <div data-reveal="" className="mt-8 grid items-start gap-x-12 gap-y-10 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="flex flex-col gap-6">
+              <p className="lede max-w-[24em]">{project.headline}</p>
+              <Body project={project} />
+            </div>
+            <div className="glass flex flex-col gap-8 p-6 @3xl:p-8">
+              <Stats stats={project.stats} />
+              {project.band ? <IntervalBand {...project.band} /> : null}
+            </div>
+          </div>
+          <div data-reveal="" className="mt-10">
+            <ClipFigure project={project} />
+          </div>
+        </>
+      ) : null}
+
+      {kind === "poster" ? (
+        <>
+          <p data-reveal="" className="poster-headline mt-8 max-w-[18em] text-pretty text-ink">
+            {project.headline}
+          </p>
+          <div data-reveal="" className="mt-10 grid gap-x-12 gap-y-10 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <Body project={project} />
+            <Stats stats={project.stats} className="self-start" />
+          </div>
+          <div data-reveal="" className="mt-10">
+            <ClipFigure project={project} wide />
+          </div>
+        </>
+      ) : null}
+
+      {/* A range, where the finding is a range, drawn under the argument it
+          belongs to. In the split kind it is inside the evidence panel. */}
+      {project.band && kind !== "split" ? (
+        <div data-reveal="" className="mt-10">
+          <IntervalBand {...project.band} />
         </div>
+      ) : null}
+
+      <div data-reveal="" className="mt-10">
+        <Limits project={project} paper={strongest} voice={kind === "poster"} />
+      </div>
+
+      <div data-reveal="" className="mt-8">
+        <Links project={project} />
       </div>
     </article>
   );

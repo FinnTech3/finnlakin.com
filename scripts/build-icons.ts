@@ -3,14 +3,15 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { carbon, chalk } from "../src/lib/colours";
+import { wall } from "../src/lib/colours";
+import { cream } from "../src/lib/rooms";
 
 /* Generates the icon set from one mark so every size stays in step. Run with
    `npm run build:icons` after changing it; the outputs are committed, because
    they are assets rather than build products.
 
-   The mark is two letters built out of bars on a grid of sixty four, in chalk
-   on carbon. It is drawn from rectangles and not set in a typeface, for two
+   The mark is two letters built out of bars on a grid of sixty four, in cream
+   on the first room's wall. It is drawn from rectangles and not set in a typeface, for two
    reasons. An icon is shown by a browser's tab strip and a phone's home screen,
    neither of which can load a web font, so type in an SVG falls back to
    whatever the machine has and the mark is different on every one. And the
@@ -31,10 +32,11 @@ const publicDir = join(root, "public");
 mkdirSync(appDir, { recursive: true });
 mkdirSync(publicDir, { recursive: true });
 
-/* Chalk on carbon. The wall is a mid grey that sits badly in a tab strip, which
-   is either lighter or darker than it, so the icon carries its own ground. */
-const GROUND = carbon;
-const MARK = chalk;
+/* Cream on midnight, which is the page's own first colour. The icon still
+   carries a ground of its own and does not rely on the page's, because a tab
+   strip is not the page and may be lighter or darker than it. */
+const GROUND = wall;
+const MARK = cream;
 
 /* The F and the L, in sixty fourths of the icon: x, y, width, height. Every bar
    is eight wide, and the two letters are the same height, so the pair reads as

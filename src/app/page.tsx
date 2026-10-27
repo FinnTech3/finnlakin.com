@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { Bays } from "@/components/bays";
 import { CompareFigure } from "@/components/compare-figure";
 import { Endorsements } from "@/components/endorsements";
@@ -12,7 +13,7 @@ import { bandOf, bandPlan, PROJECTS_PER_BAND } from "@/lib/bands";
 import { buildMetadata } from "@/lib/metadata";
 import { numberWord } from "@/lib/numbers";
 import { projects } from "@/lib/projects";
-import { contact, person } from "@/lib/site";
+import { contact, person, portrait } from "@/lib/site";
 import { timeline } from "@/lib/timeline";
 
 export const metadata = buildMetadata({ path: "/" });
@@ -140,14 +141,34 @@ export default function HomePage() {
       ))}
 
       <Section {...bandOf(plan, "about")} eyebrow="About" title="Why this way">
-        <div className="longform">
-          <p>
+        {/* Set as a letter, and the page's one place for a face. The portrait is
+            only here once Finn has supplied one (see lib/site.ts): a face that
+            is not his is the one thing this section cannot have. */}
+        {portrait ? (
+          <figure data-reveal="" className="mb-12 max-w-[22rem]">
+            {/* A plain image, as the bays use: next/image would put its client
+                runtime on the home page, which has a ceiling. The size is
+                stated, so nothing moves when it loads. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={portrait.src}
+              alt={portrait.alt}
+              width={portrait.width}
+              height={portrait.height}
+              loading="lazy"
+              decoding="async"
+              className="h-auto w-full rounded-[var(--radius-lg)] border border-glass-edge"
+            />
+          </figure>
+        ) : null}
+        <div className="letter">
+          <p data-reveal="">
             I read {person.course} at {person.university}, and I have just come
             back from an exchange year at {person.exchange}, taught in French.
             Before that, Charterhouse, with A-levels in Mathematics, Economics
             and French.
           </p>
-          <p>
+          <p data-reveal="">
             The projects on this page came out of a habit rather than a plan.
             Somebody publishes a number, I want to know how it was built, and the
             only way to find out is to build it again and see where the two
@@ -159,13 +180,13 @@ export default function HomePage() {
             date, a backtest that turns from profit to loss once it is charged
             for its own trading.
           </p>
-          <p>
+          <p data-reveal="">
             The habit has a cost worth naming. It makes me slow to accept a
             figure and slower to publish one, and there are results here that
             took longer to caveat than to compute. I would rather that than the
             alternative, which is a portfolio of numbers nobody can check.
           </p>
-          <p>
+          <p data-reveal="">
             What I want next is to do this for a desk: equity research,
             quantitative methods, or the engineering underneath both.
           </p>
@@ -183,20 +204,28 @@ export default function HomePage() {
         title="Where I have studied and worked"
         intro="Each place, with what it was actually for."
       >
-        <div className="flex flex-col gap-10">
-          <ol className="flex flex-col">
-            {timeline.slice(0, 3).map((entry) => (
+        <div className="flex flex-col gap-12">
+          {/* A rail with a stop for each place: the line is the years, and the
+              dot on it is the room's own colour, so it changes with the wall. */}
+          <ol className="relative flex flex-col border-l border-rule-strong pl-8">
+            {timeline.slice(0, 3).map((entry, index) => (
               <li
                 key={entry.id}
-                className="scored-thin grid gap-2 py-5 first:border-t-0 first:pt-0 md:grid-cols-[10rem_minmax(0,1fr)] md:gap-8"
+                data-reveal=""
+                style={{ "--i": index } as CSSProperties}
+                className="relative pb-10 last:pb-0"
               >
-                <span className="tnum t-caption text-muted">
-                  {entry.start} – {entry.end}
+                <span
+                  aria-hidden="true"
+                  className="absolute top-2 -left-[2.4rem] size-3 rounded-full bg-tone ring-4 ring-paper"
+                />
+                <span className="tnum t-caption block text-muted">
+                  {entry.start} &ndash; {entry.end}
                 </span>
-                <div>
-                  <span className="index-name block text-ink">{entry.title}</span>
-                  <span className="t-label mt-1.5 block">{entry.org}</span>
-                </div>
+                <span className="mt-1.5 block max-w-[24em] font-display text-[clamp(1.35rem,2.3vw,1.8rem)] leading-[1.1] font-semibold tracking-[-0.025em] text-ink">
+                  {entry.title}
+                </span>
+                <span className="t-label mt-2.5 block">{entry.org}</span>
               </li>
             ))}
           </ol>
@@ -231,7 +260,13 @@ export default function HomePage() {
         title="Get in touch"
         intro="Happy to talk through any of the methods above, including the parts that did not work."
       >
-        <div className="flex flex-wrap items-center gap-3">
+        {/* The address, set as a headline, because it is the one thing this
+            section is for. */}
+        <a data-reveal="" href={`mailto:${contact.email}`} className="contact-mail">
+          {contact.email}
+        </a>
+
+        <div data-reveal="" className="mt-10 flex flex-wrap items-center gap-3">
           <a href={`mailto:${contact.email}`} className="pill pill-filled min-h-11">
             Email me
           </a>

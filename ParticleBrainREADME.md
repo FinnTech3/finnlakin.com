@@ -11,16 +11,17 @@ that goes on travelling down the page beside the writing.
 The particles accumulate additively into a float target, which is the only way
 to draw thirty thousand overlapping shards without sorting them. What that
 buffer means is a choice the final pass makes, and there are three (see
-Surfaces). The site is a warm grey wall with chalk dust on it, so it passes the
+Surfaces). The site is a dark room with chalk dust in it, so it passes the
 `ink` reading: the buffer is how much chalk has been laid down, and the cloud is
-pale marks on a mid grey page. Nothing between the root element and the content
-paints an opaque background, the cloud sits behind all of it at `z-index: -10`,
-and what keeps it off the words is the lane rather than the layer.
+pale marks on a flat coloured wall, tinted to the room the page is in (see
+Rooms). Nothing between the root element and the content paints an opaque
+background, the cloud sits behind all of it at `z-index: -10`, and what keeps it
+off the words is the lane rather than the layer.
 
-The opening animation runs on a carbon veil, which is the one dark thing the
-cloud is ever over, so the words are legible for the eight seconds they are the
-only thing on screen. Chalk over carbon and chalk over the wall are the same
-pigment over two grounds, which is why the engine needs no change between them.
+The opening animation runs on a veil of the first room's wall, so the cloud is
+chalk on midnight for the eight seconds it and the words are the only things on
+screen, and the page comes up out of the same colour. The veil and the page are
+the same ground, which is why the engine needs no change between them.
 
 The first reading of the buffer was as emitted light, with bloom and depth of
 field, over a black page. It is still in the engine and still the default for a
@@ -90,7 +91,8 @@ targets. It never calculates where a particle is.
 | `src/components/particle-brain-mount.tsx` | Loads it, on the home page only, and says which surface the site uses and in what pigment. |
 | `src/components/hero.tsx` | The first band: where the choreography starts, and the slot a phone's cloud is drawn in. |
 | `src/lib/bands.ts` | The plan: which side and which shape each band of the home page asks for. The page, the validators and the tests all read it. |
-| `src/app/globals.css` | The wall on the root, the lane the layout leaves empty, and the veil over the opening. |
+| `src/app/globals.css` | The wall on the root and the seven rooms it can be, the lane the layout leaves empty, and the veil over the opening. |
+| `src/lib/rooms.ts`, `src/components/room-watcher.tsx` | The rooms: each wall and the two pigments the cloud is drawn in there, and what announces a change of room as the cloud changes shape. |
 
 ## The simulation
 
@@ -606,7 +608,7 @@ depth of field and keeps the tone map, the mask and the colour conversion. It
 has the real mask.
 
 One thing the suite does not measure here, deliberately. Text on its own opaque
-surface (the block of carbon on the home page, the chalk sheet) is excluded from
+surface (the block of paper on the home page, the essay sheet) is excluded from
 the contrast walk, because the cloud behind it reaches the reader not at all; axe
 covers that case properly, on every route, since it resolves an element's own
 background. Axe cannot read the canvas, which is what the pixel measurement is for.
@@ -631,11 +633,12 @@ final pass reads the buffer in one of three ways, chosen by
   sheet quickly and the hundredth in the same place adds almost nothing, which
   is what ink does and light does not. The pigment runs from `pale` where the
   laydown is thin to `deep` where it is heavy. Dark pigments on a pale page are a
-  drawing; pale ones on a mid grey page are chalk, which is why there is no third
-  kind for it. The site passes `{ kind: "ink", pale: "#cfccc4", deep: "#f6f4f0",
-  gain: 5.2 }` from `particle-brain-mount.tsx`: chalk on the wall, and the same
-  chalk on the carbon veil for the opening. The output is premultiplied, so it
-  composites over either ground without the pass knowing which one it is.
+  drawing; pale ones on a dark page are chalk, which is why there is no third
+  kind for it. The site passes `{ kind: "ink", pale: "#9db1ff", deep: "#f5f7ff",
+  gain: 5.2 }` from `particle-brain-mount.tsx`, which are the first room's
+  pigments, and the cloud takes each room's own as the page changes room (see
+  Rooms). The output is premultiplied, so it composites over any ground without
+  the pass knowing which one it is.
 - **`riso`**, two pigments, printed one after the other. The second plate samples
   the buffer again at `offset`, a few pixels off, which is the whole character of
   a duplicator, and each plate goes through a halftone screen at its own angle so
@@ -688,13 +691,28 @@ flat, and the wall is read off the photograph as its commonest colour:
 `markedBehind` in `tests/cloud-overlap.ts`.
 
 **How legible the cloud is, is a property of the pigment and the wall, not of the
-engine.** The pigment's ends are 1.57:1 against the wall where the laydown is thin
-and 2.29:1 where it is heaviest, which is the most any pixel of it can be. That is
-quiet by nature: it reads as a presence, not as a figure. The levers are the wall (`--wall` in
-`globals.css`, no darker than text can bear) and the pigment (`pale` and `deep`,
-and `gain`, which is how quickly the laydown saturates). A darker pigment such as
-soot reads harder against the wall and is a different look, so it is a decision
-and not a tuning.
+engine.** The pigment's ends are at least 7.5:1 against the wall where the laydown
+is thin and at least 12:1 where it is heaviest, in all seven rooms, which is the
+most any pixel of it can be (`scripts/check-rooms.ts` works it out for every room).
+That is a long way from the cloud the warm grey wall gave, which was quiet by
+nature and read as a presence and not as a figure, and it is why this one reads as
+a figure. The levers are the room (`rooms.ts` and `globals.css`, changed together)
+and the pigment (`pale` and `deep` per room, and `gain`, which is how quickly the
+laydown saturates).
+
+## Rooms
+
+One cloud, seven colour worlds. The page keeps a table of rooms (`src/lib/rooms.ts`):
+a wall, a tone and the two pigments the cloud is drawn in while it is there, one room
+for every shape. `RoomWatcher` reads each band's `data-shape` off the page and, as
+the band across the middle of the window changes, sets `data-room` on the root,
+which the stylesheet turns into the wall, and dispatches an `fl-room` event with the
+room. `particle-brain.tsx` listens for it and moves the cloud's two pigments a share
+of the way to the room's each frame, with a time constant of 0.28 seconds, handing
+them to the engine through `setConfig({ surface })`, which is the call the engine
+already had. Nothing in the engine knows about rooms, the simulation is unchanged,
+and a cloud that has been shed down a tier is already in whichever room was last
+announced because it reads the root's attribute when it starts.
 
 ## Scroll
 
@@ -1021,7 +1039,8 @@ Everything in `DEFAULTS` in `src/particles/types.ts`:
 | Particle scale | `particleScale`, `particleScaleCompact` |
 | Colour palette of the light reading, which no page uses now | `RAMP`, `WARM`, `WARM_SHARE` in `palette.ts` |
 | What the cloud is drawn in: light, one ink, two inks | `surface`, a `CloudSurface` in `types.ts`, and see Surfaces |
-| The site's chalk: its two pigments, and how fast it saturates | `surface` in `particle-brain-mount.tsx` |
+| The site's chalk: how fast it saturates, and the first room's pigments | `surface` in `particle-brain-mount.tsx` |
+| The pigments in every other room | `pale` and `deep` per room in `src/lib/rooms.ts`, and the same wall and tone in the stylesheet, which `scripts/check-rooms.ts` holds to the table |
 | Spring, friction | `spring`, `friction` |
 | Pointer parting | `pointerReach`, `pointerPush`, `pointerSwirl`, `mouseSmoothing` |
 | Entrance | `entryWindow`, `SHOW_SECONDS` in `engine.ts`, the constants in `entrance.ts` |

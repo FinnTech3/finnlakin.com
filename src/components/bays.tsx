@@ -32,7 +32,7 @@ export function Bays() {
         {bays.map((bay, index) =>
           bay.piece ? (
             <figure key={bay.label} className="m-0">
-              <div className="relative aspect-square overflow-hidden border-2 border-[var(--rule-strong)]">
+              <div className="relative aspect-square overflow-hidden rounded-[var(--radius)] border border-glass-edge">
                 {/* A plain image. next/image would put its client runtime on the
                     home page whether or not a bay is filled, and the home page's
                     JavaScript has a ceiling. The size is stated, so nothing

@@ -14,7 +14,14 @@ import { projects } from "@/lib/projects";
    That is for a phone. From 720 pixels up the table fits the column it is in,
    at every width, and tests/tables.spec.ts holds it to that: a table that
    scrolls inside itself does not make the page wider, which is why a column cut
-   off mid-word went unseen for as long as it did. */
+   off mid-word went unseen for as long as it did.
+
+   Below 720 the two columns that do not fit are not columns. What each is built
+   with and how far its evidence goes sit under the piece's headline instead, in
+   the same words, and the two columns are not displayed, so the table is three
+   across and fits a phone and nothing is cut off the edge of it. They were
+   scrolled to, and the first thing a phone showed of the index was a word
+   cut in half at the right-hand side of the screen. */
 export function ProjectIndex() {
   return (
     <div className="table-wrap" tabIndex={0} role="region" aria-label="Index of work">
@@ -33,8 +40,12 @@ export function ProjectIndex() {
               Piece
             </th>
             <th scope="col">Figure</th>
-            <th scope="col">Built with</th>
-            <th scope="col">Evidence</th>
+            <th scope="col" className="from-tablet">
+              Built with
+            </th>
+            <th scope="col" className="from-tablet">
+              Evidence
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -48,6 +59,10 @@ export function ProjectIndex() {
                     {project.name}
                   </a>
                   <div className="t-caption mt-1.5 max-w-[46ch]">{project.headline}</div>
+                  <div className="t-label mt-2.5 min-[720px]:hidden">
+                    {project.stack} <span aria-hidden="true">&middot;</span>{" "}
+                    {provenanceShort[project.provenance]}
+                  </div>
                 </td>
                 <td className="figure">
                   {stat?.tone === "flag" ? (
@@ -56,8 +71,8 @@ export function ProjectIndex() {
                     (stat?.value ?? "")
                   )}
                 </td>
-                <td>{project.stack}</td>
-                <td>{provenanceShort[project.provenance]}</td>
+                <td className="from-tablet">{project.stack}</td>
+                <td className="from-tablet">{provenanceShort[project.provenance]}</td>
               </tr>
             );
           })}

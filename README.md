@@ -29,7 +29,7 @@ generates either, so when the CV changes, replace both together.
 | `src/content/writing/` | Long-form pieces, one component each |
 | `src/components/` | Presentation, including the two chart forms |
 | `src/app/` | Routes, the share-card generator, and the analytics endpoints |
-| `scripts/` | The CV generator |
+| `scripts/` | The validators run by `npm run lint` (the cloud's shapes and motion, the voice, the rooms' contrast) and the icon generator |
 | `tests/` | Playwright, run against the production build |
 
 Content lives in typed modules rather than markdown so that a figure without a

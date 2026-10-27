@@ -96,7 +96,7 @@ export function PaletteTrigger() {
            Not full width on a phone. It was, which gave it a row of its own
            under the name and pushed the navigation onto a third, and the header
            ended sixty pixels below where the page had been told it did. */
-        className="t-label flex min-h-11 min-w-[9rem] items-center gap-2.5 border-2 border-carbon px-4 text-left text-ink hover:bg-accent-soft hover:text-carbon sm:min-h-0 sm:py-2.5"
+        className="glass flex min-h-11 min-w-[9rem] items-center gap-2.5 rounded-full px-4 text-left text-[0.8125rem] font-semibold text-ink hover:bg-accent-soft hover:text-carbon sm:min-h-0 sm:py-2.5"
       >
         {/* A magnifier, so the control reads as a field to search in rather
             than as a button that says Search. Inline rather than an icon

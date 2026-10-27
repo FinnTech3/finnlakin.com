@@ -22,6 +22,16 @@ export const person = {
   location: "Oxford, United Kingdom",
 } as const;
 
+/* A portrait of Finn, for the about section.
+
+   There is none yet, and nothing stands in for one: a face that is not his is
+   the one thing this section cannot have. When he supplies a photograph, put the
+   file in public/ and fill this in, and the about section shows it with nothing
+   else changing. `alt` is for somebody who cannot see it, and the pixel size is
+   stated so the page does not move when it loads. */
+export type Portrait = { src: string; alt: string; width: number; height: number };
+export const portrait: Portrait | null = null;
+
 /* Phone number is deliberately absent. Finn asked for it off the site: once a
    number is indexed and archived it cannot be taken back. */
 export const contact = {

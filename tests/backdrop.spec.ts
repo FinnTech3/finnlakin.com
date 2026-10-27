@@ -289,9 +289,10 @@ test.describe("the particle engine", () => {
      compositor had already cleared. It reported zero lit pixels for a cloud
      that was plainly on screen.
 
-     Nor by counting bright pixels, which was the second. The page is a mid grey
-     wall and every pixel of it is brighter than any threshold that would find
-     a faint cloud over black, so a count that way is the area of the frame, and
+     Nor by counting bright pixels, which was the second. The page is a wall of
+     colour and not black, so every pixel of it is brighter than any threshold
+     that would find a faint cloud over black, and a count that way is the area
+     of the frame, and
      "the engine drew nothing" read as the whole of it. A mark is a pixel that is
      not the wall, and the page is hidden for the photograph so that the words
      and the controls are not counted as marks too. */
@@ -679,9 +680,20 @@ test.describe("the particle engine", () => {
     await link.click();
     expect(page.url()).toContain("#contact");
 
-    /* Selection: dragging across a paragraph must select it, not the canvas. */
+    /* Selection: dragging across a paragraph must select it, not the canvas.
+
+       Measured once the paragraph has arrived. A block of the page sits a little
+       low until it is in view and then settles over most of a second, and a
+       box read straight after the scroll is a box on the way somewhere: the drag
+       below started where the first line had been and not where it was. */
     const paragraph = page.locator("#about p").first();
     await paragraph.scrollIntoViewIfNeeded();
+    await page.evaluate(async () => {
+      const finite = document
+        .getAnimations()
+        .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime));
+      await Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
+    });
     const area = await paragraph.boundingBox();
     await page.mouse.move(area!.x + 5, area!.y + 10);
     await page.mouse.down();
@@ -1288,10 +1300,10 @@ test.describe("contrast where the words actually are", () => {
              which is the only honest way to ask what a reader sees behind a
              word when there is nothing between the word and the cloud. It
              assumes there is nothing between them. A word inside the block of
-             carbon, or on a filled control, sits on an opaque surface, the
+             paper, or on a filled control, sits on an opaque surface, the
              cloud behind it reaches the reader not at all, and measuring it
-             against the wall would report chalk type against grey and call it
-             a failure. Those elements are not unmeasured: axe resolves an
+             against the wall would report carbon type against the room's
+             colour and call it a failure. Those elements are not unmeasured: axe resolves an
              element's own background and checks exactly this case, on every
              route, in a11y.spec.ts. What is left here is what only this test
              can do. */

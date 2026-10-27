@@ -1,9 +1,13 @@
+import type { Viewport } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { RoomMarker } from "@/components/room-marker";
 import { ArticleSchema } from "@/components/structured-data";
 import { writingBodies } from "@/content/writing";
 import { buildMetadata } from "@/lib/metadata";
+import { roomOfProject, roomViewport } from "@/lib/page-rooms";
 import { projectBySlug } from "@/lib/projects";
+import { homeRoom } from "@/lib/rooms";
 import { writing, writingBySlug } from "@/lib/writing";
 
 export function generateStaticParams() {
@@ -33,6 +37,15 @@ export async function generateMetadata({ params }: PageProps<"/writing/[slug]">)
   });
 }
 
+/* An essay is in the room of the project it is about: the colour that project's
+   entry is in on the home page, so a piece read from the index and the entry it
+   came from are the same weather. */
+export async function generateViewport({ params }: PageProps<"/writing/[slug]">): Promise<Viewport> {
+  const { slug } = await params;
+  const piece = writingBySlug.get(slug);
+  return roomViewport(piece ? roomOfProject(piece.projectSlug) : homeRoom.name);
+}
+
 export default async function WritingPiecePage({ params }: PageProps<"/writing/[slug]">) {
   const { slug } = await params;
   const piece = writingBySlug.get(slug);
@@ -49,6 +62,7 @@ export default async function WritingPiecePage({ params }: PageProps<"/writing/[
 
   return (
     <article>
+      <RoomMarker room={roomOfProject(piece.projectSlug)} />
       <ArticleSchema piece={piece} />
       <header className="shell w-full pt-6 pb-16 sm:pt-12 sm:pb-20">
           <div className="t-label flex flex-wrap items-center gap-x-3 gap-y-1">

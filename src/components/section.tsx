@@ -1,17 +1,19 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { Lane } from "@/lib/bands";
 import type { ShapeName } from "@/particles/structures";
 
-/* A section of the wall: a scored line, a label, a headline, and what the
-   section is about.
+/* A section of the page: a hairline, a label in the room's own colour, a
+   headline, and what the section is about.
 
    The line is inside the section's own container and not on the band, and that
    is load bearing. On the home page a band spans the whole window with the lane
    as padding, so a rule drawn on the band would run through the lane under the
    cloud. Drawn on a block inside it, the rule stops where the content stops.
 
-   The heading is the headline face at the section size. The eyebrow is a label,
-   not a second heading. */
+   The three parts arrive one after another as the section comes into view, each
+   a beat behind the one before (data-reveal and --i, see globals.css). The
+   heading is the headline face at the section size. The eyebrow is a label, not
+   a second heading. */
 export function Section({
   id,
   eyebrow,
@@ -52,11 +54,25 @@ export function Section({
       data-shape={lane ? shape : undefined}
     >
       <div className={`${inner} section-pad`}>
-        <div className="scored pt-3">
-          <p className="t-label">{eyebrow}</p>
+        <div data-reveal="" className="scored pt-3">
+          <p className="t-label text-tone">{eyebrow}</p>
         </div>
-        <Heading className="t-h mt-8 max-w-[8.5em] text-ink text-balance">{title}</Heading>
-        {intro ? <p className="measure t-body-lg mt-6 text-ink-soft">{intro}</p> : null}
+        <Heading
+          data-reveal=""
+          style={{ "--i": 1 } as CSSProperties}
+          className="t-h mt-8 max-w-[9em] text-ink text-balance"
+        >
+          {title}
+        </Heading>
+        {intro ? (
+          <p
+            data-reveal=""
+            style={{ "--i": 2 } as CSSProperties}
+            className="measure t-body-lg mt-6 text-[1.1875rem] text-ink-soft"
+          >
+            {intro}
+          </p>
+        ) : null}
         {/* A container, so what is inside can lay itself out against the room
             the band actually gives it rather than against the window. On the
             home page a band leaves two fifths of the screen to the particle

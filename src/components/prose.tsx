@@ -29,7 +29,7 @@ export function WrongFirst({
         <span className="flag">Wrong first</span>
       </p>
       <div className="flex max-w-[62ch] flex-col gap-3 text-[0.9375rem] leading-relaxed">
-        <p className="text-muted line-through decoration-carbon decoration-2">{struck}</p>
+        <p className="text-muted line-through decoration-ink decoration-2">{struck}</p>
         <p className="text-ink-soft">{children}</p>
       </div>
     </div>
@@ -39,7 +39,7 @@ export function WrongFirst({
 /* A note alongside the argument rather than inside it. */
 export function Marginal({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div role="note" className="my-10 max-w-[58ch] border-l-2 border-carbon pl-6">
+    <div role="note" className="my-10 max-w-[58ch] border-l-2 border-ink pl-6">
       <p className="t-label">{label}</p>
       <div className="mt-2 text-[0.875rem] leading-relaxed text-muted">{children}</div>
     </div>
@@ -98,7 +98,7 @@ export function Embed({
 }) {
   return (
     <figure className="my-12 flex flex-col gap-4">
-      <div className="overflow-hidden border-2 border-carbon">
+      <div className="overflow-hidden rounded-[var(--radius)] border-2 border-ink">
         <iframe
           title={title}
           src={src}
