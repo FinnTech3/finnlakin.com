@@ -107,8 +107,15 @@ test.describe("performance budget", () => {
        palette instead of splitting it measured 580KB on this same page, so the
        ceiling is what stops that 122KB coming back: anything that pulls the
        panel into the first-load
-       bundle again fails here rather than quietly shipping. */
-    expect(result.javascriptBytes / 1024, "uncompressed JavaScript, KB").toBeLessThan(570);
+       bundle again fails here rather than quietly shipping.
+
+       572KB, up from 570, for a patch release of the framework: moving from
+       16.4.0 to 16.4.3 added a tenth of a kilobyte to the page's runtime, and
+       the page then measured 570.12 against a ceiling of 570 that it had been
+       sitting a few hundredths under. Two kilobytes of room, so the next patch
+       does not fail it for the same reason, and still a ceiling: the command
+       palette alone was 122. */
+    expect(result.javascriptBytes / 1024, "uncompressed JavaScript, KB").toBeLessThan(572);
 
     console.log(
       `home: LCP ${result.lcp}ms, CLS ${result.cls}, ` +
