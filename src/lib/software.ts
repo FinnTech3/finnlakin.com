@@ -114,7 +114,7 @@ export const products: Product[] = [
     needs: "Python 3.10 or newer. Three single-file scripts, standard library only, no network.",
     limit:
       "It does not change your code: it writes plans under one folder and nothing else. It can tell you a plan is complete and its evidence is real, not that the fix is the right one.",
-    agensi: null,
+    agensi: "https://www.agensi.io/skills/repo-audit-planner-evidence-checked-fix-plans",
     github: gh("repo-audit-planner"),
     tests: 127,
     media: clip(
@@ -138,7 +138,7 @@ export const products: Product[] = [
     needs: "Nothing to install to use the skills: copy a folder. The validator needs Python 3.10 or newer and no packages, and it reads local files only.",
     limit:
       "It does not write your code or sign off a release, a migration or a security finding. No benchmark here shows it changes an agent's output, and the validator checks structure and wording, not whether a skill is right.",
-    agensi: null,
+    agensi: "https://www.agensi.io/skills/engineering-workflow-skills-14-senior-engineer-workflows",
     github: gh("engineering-skills-pack"),
     tests: 372,
     media: clip(
@@ -162,7 +162,7 @@ export const products: Product[] = [
     needs: "Node.js 20 or newer and Chromium through Playwright, which the skill asks before installing.",
     limit:
       "Only tested on Linux. It does not upload or download files, drag, hover or read iframes. It labels page text as untrusted, but it cannot make a model immune to a hostile page: the agent still has to behave.",
-    agensi: null,
+    agensi: "https://www.agensi.io/skills/browser-agent-cli-safe-browser-control-for-your-agent",
     github: gh("browser-agent-cli"),
     tests: 219,
     media: clip(
@@ -186,7 +186,7 @@ export const products: Product[] = [
     needs: "Python 3.10 or newer, standard library only. No network, no API key, no install.",
     limit:
       "It is policy and evidence, not a sandbox. It cannot stop an agent that never calls it, it cannot prove a person approved anything, and the log is tamper evident, not tamper proof.",
-    agensi: null,
+    agensi: "https://www.agensi.io/skills/coworker-charter-permissions-approvals-audit-for-agents",
     github: gh("coworker-charter"),
     tests: 399,
     media: clip(
@@ -210,7 +210,7 @@ export const products: Product[] = [
     needs: "Python 3.10 or newer, and network access to the pages you ask it to audit. Nothing to install.",
     limit:
       "The score is a diagnostic, not a promise of rankings, traffic or revenue, and it is a score for one page and not a whole site. It will not invent a testimonial, a statistic or a price: missing proof is a marked gap.",
-    agensi: null,
+    agensi: "https://www.agensi.io/skills/growth-stack-seo-and-marketing-skills-in-one-pack",
     github: gh("growth-stack"),
     tests: 269,
     media: clip(
@@ -234,7 +234,7 @@ export const products: Product[] = [
     needs: "Python 3.10 or newer. Two files, standard library only. No network, no ffmpeg.",
     limit:
       "WAV files only. It measures and does not hear: no taste, quality or genre. Where a number is an estimate it says so, and where there is nothing to say it says there is not enough rhythm.",
-    agensi: null,
+    agensi: "https://www.agensi.io/skills/sound-check-give-your-agent-ears-for-audio",
     github: gh("sound-check"),
     tests: 170,
     media: clip(
@@ -258,7 +258,7 @@ export const products: Product[] = [
     needs: "Python 3.10 or newer on each computer you test from. No packages, no account.",
     limit:
       "The lab proves the diagnosis on one real silent drop. It says nothing about Wi-Fi, Windows, macOS, phones or UDP. It cannot see inside your sharing tool or read your router's admin page.",
-    agensi: null,
+    agensi: "https://www.agensi.io/skills/desk-mesh-doctor-fix-device-sharing-that-won-t-connect",
     github: gh("desk-mesh-doctor"),
     tests: 373,
     media: clip(

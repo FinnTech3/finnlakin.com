@@ -42,7 +42,9 @@ export default function SoftwarePage() {
             ? "The skills are sold on Agensi, a marketplace for agent skills."
             : waiting.length === skills.length
               ? "The skills are sold on Agensi, a marketplace for agent skills. None of the listings is live yet, so each card links to the source on GitHub until it is."
-              : `The skills are sold on Agensi, a marketplace for agent skills. ${numberWord(waiting.length, { capital: true })} of the ${numberWord(skills.length)} listings are not live yet, and those cards link to the source on GitHub until they are.`}
+              : waiting.length === 1
+                ? `The skills are sold on Agensi, a marketplace for agent skills. One of the ${numberWord(skills.length)} has no listing yet, and its card links to the source on GitHub until it has.`
+                : `The skills are sold on Agensi, a marketplace for agent skills. ${numberWord(waiting.length, { capital: true })} of the ${numberWord(skills.length)} have no listing yet, and those cards link to the source on GitHub until they have.`}
         </p>
 
         <div className="mt-12 flex flex-col">
