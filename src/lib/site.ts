@@ -42,6 +42,7 @@ export const contact = {
 
 export const nav = [
   { href: "/", label: "Work" },
+  { href: "/software", label: "Software" },
   { href: "/path", label: "Path" },
   { href: "/reel", label: "Reel" },
   { href: "/writing", label: "Writing" },

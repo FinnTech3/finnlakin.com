@@ -37,5 +37,6 @@ export const pageRoom = {
   path: "lagoon",
   writing: "ember",
   reel: "indigo",
+  software: "forest",
   notFound: "wine",
 } as const satisfies Record<string, RoomName>;

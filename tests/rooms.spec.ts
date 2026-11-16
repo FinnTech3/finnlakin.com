@@ -120,6 +120,7 @@ const pages: { path: string; room: RoomName }[] = [
   { path: "/path", room: pageRoom.path },
   { path: "/writing", room: pageRoom.writing },
   { path: "/reel", room: pageRoom.reel },
+  { path: "/software", room: pageRoom.software },
   { path: "/cv", room: "midnight" },
   { path: "/privacy", room: "midnight" },
   ...writing.map((piece) => ({

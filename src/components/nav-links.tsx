@@ -9,12 +9,17 @@ import { nav } from "@/lib/site";
    rendered.
 
    One pill holds them all and the current page is filled in cream, so where you
-   are is carried by a shape and a weight and not by a colour alone. */
+   are is carried by a shape and a weight and not by a colour alone.
+
+   Six items now, and on a phone the pill has its own row and the width of the
+   screen less its gutters. The padding and the size step down with the width so
+   the six fit at 360 pixels and up: at the desktop padding they were 451 pixels
+   across on a 390 screen, which made every page scroll sideways. */
 export function NavLinks() {
   const pathname = usePathname();
 
   return (
-    <ul className="glass flex items-center gap-1 rounded-full p-1">
+    <ul className="glass flex items-center rounded-full p-1 min-[440px]:gap-0.5 sm:gap-1">
       {nav.map((item) => {
         const current =
           item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
@@ -24,7 +29,7 @@ export function NavLinks() {
             <Link
               href={item.href}
               aria-current={current ? "page" : undefined}
-              className={`block rounded-full px-4 py-2 text-[0.8125rem] font-semibold tracking-[0.01em] ${
+              className={`block rounded-full px-2 py-2 text-[0.75rem] font-semibold tracking-[0.01em] min-[440px]:px-3 min-[440px]:text-[0.8125rem] sm:px-4 ${
                 current
                   ? "bg-cream text-carbon"
                   : "text-muted hover:bg-accent-soft hover:text-carbon"

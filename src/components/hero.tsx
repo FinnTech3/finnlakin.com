@@ -1,11 +1,14 @@
 import { CtaVisibility } from "@/components/cta-visibility";
 import { Ledger } from "@/components/ledger";
 import { LiveTime } from "@/components/live-time";
+import Link from "next/link";
 import { ShinyButton } from "@/components/shiny-button";
 import type { BandPlan } from "@/lib/bands";
+import { numberWord } from "@/lib/numbers";
 import { projects } from "@/lib/projects";
 import { held, rebuiltWord, reconstructions } from "@/lib/reconstructions";
 import { person } from "@/lib/site";
+import { products } from "@/lib/software";
 
 /* The opening, and where the cloud's choreography starts.
 
@@ -134,6 +137,23 @@ export function Hero({ band }: { band: BandPlan }) {
             print, drawing and clothes on the other. It is one habit either way: take the finished
             thing apart, work out what it is made of, and write down what you found.
           </p>
+
+          {/* What I am working on now. After the paragraph and inside the same
+              column, so it is below the first screen and never in the cloud's
+              lane. The count comes from the list, so it cannot disagree with
+              the page it points to. */}
+          <div data-reveal="" className="glass p-6 min-[720px]:col-span-2">
+            <p className="t-label text-tone">Now</p>
+            <p className="measure mt-3 text-[1.0625rem] leading-[1.65] text-ink">
+              I build software and I am now selling it: {numberWord(products.length)} tools, each
+              with a real demo, one number I can back and a plain statement of what it will not do.
+            </p>
+            <p className="mt-4">
+              <Link href="/software" className="link-arrow text-[0.9375rem]">
+                See the software <span aria-hidden="true">&rarr;</span>
+              </Link>
+            </p>
+          </div>
         </div>
 
         {/* The claim the whole site is evidence for, so it gets the one inverted
