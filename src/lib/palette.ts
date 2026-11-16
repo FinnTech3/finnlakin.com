@@ -1,5 +1,6 @@
 import { projects } from "./projects";
 import { contact, nav } from "./site";
+import { products } from "./software";
 import { writing } from "./writing";
 
 export type PaletteItem = {
@@ -37,11 +38,21 @@ export function buildPaletteItems(): PaletteItem[] {
     })),
   );
 
+  /* Where each product can be had: the live listing where there is one and the
+     source where there is not, so a result is never a link that was not checked. */
+  const software: PaletteItem[] = products.map((product) => ({
+    href: product.agensi ?? product.download ?? product.github,
+    label: `${product.name} · ${product.agensi ? "Agensi" : product.download ? "Download" : "Source on GitHub"}`,
+    group: "Software",
+    hint: product.promise,
+    external: true,
+  }));
+
   const contacts: PaletteItem[] = [
     { href: `mailto:${contact.email}`, label: contact.email, group: "Contact", external: true },
     { href: contact.linkedin, label: "LinkedIn", group: "Contact", external: true },
     { href: contact.github, label: "GitHub", group: "Contact", external: true },
   ];
 
-  return [...pages, ...pieces, ...repos, ...contacts];
+  return [...pages, ...pieces, ...software, ...repos, ...contacts];
 }

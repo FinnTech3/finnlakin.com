@@ -304,6 +304,7 @@ and sets the root's attribute, so all three agree.
 | `/writing` | ember |
 | `/writing/<essay>` | the room of the project it is about |
 | `/reel` | indigo |
+| `/software` | forest |
 | not found | wine |
 | `/cv`, `/privacy`, `/admin/analytics` | midnight, which is the root's own |
 
@@ -646,6 +647,7 @@ provenance.
 | `src/lib/rooms.ts` | The seven rooms, the shape each belongs to, and the pigments the cloud takes. For the places that cannot read a stylesheet |
 | `src/lib/colours.ts` | The fixed colours, for the places that cannot read a stylesheet |
 | `src/lib/page-rooms.ts` | The room of each page that is not the home page, and the head's theme colour. Server only, because it reads the band plan and the projects |
+| `src/lib/software.ts`, `src/components/software-card.tsx` | The software, as data, and the card that renders one. `/software`, the home page's teaser, the search and `tests/software.spec.ts` all read the list, so a product is added by adding an entry. `agensi` is null until a listing has been checked, and the card then links to the source and says the listing is coming. The clips and stills are in `public/software/` |
 | `src/app/globals.css` | The tokens, the rooms, the type scale, the surfaces and the controls. This is where the system is enforced |
 | `src/app/layout.tsx` | The three faces, the viewport's theme colour, and the chrome |
 | `src/components/room-watcher.tsx`, `room-marker.tsx` | What sets the room as the cloud changes shape, and what a page says about its own |

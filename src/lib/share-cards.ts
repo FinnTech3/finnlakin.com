@@ -27,6 +27,7 @@ export function cardKey(path: string): string {
 export const shareCards: ShareCard[] = [
   { key: cardKey("/"), title: siteTitle },
   { key: cardKey("/writing"), title: "Long-form", kicker: "Writing" },
+  { key: cardKey("/software"), title: "What I build, and now sell", kicker: "Software" },
   { key: cardKey("/path"), title: "Where I have studied and worked", kicker: "Path" },
   { key: cardKey("/reel"), title: "Things that are easier to show than to say", kicker: "Reel" },
   { key: cardKey("/cv"), title: "Curriculum vitae", kicker: "CV" },

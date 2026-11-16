@@ -20,6 +20,7 @@ const ROUTES = [
   "/",
   "/path",
   "/reel",
+  "/software",
   "/writing",
   "/writing/marked-to-model",
   "/writing/whose-inflation",
