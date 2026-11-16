@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Thirty, where it was twenty. A normal run is twelve to sixteen minutes, and
     # one run spent fifteen of them downloading the browser, which left the suite
     # three and a half minutes before the limit cancelled it. That was the
