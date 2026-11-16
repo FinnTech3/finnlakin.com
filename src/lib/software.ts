@@ -126,6 +126,30 @@ export const products: Product[] = [
     ),
   },
   {
+    slug: "engineering-skills-pack",
+    name: "Engineering Skills Pack",
+    kind: "skill",
+    promise:
+      "Fourteen workflows for an AI coding agent, from clarifying a request to writing the postmortem, each ending in exit criteria a command or a number can check. A validator keeps all fourteen in that shape.",
+    proof: {
+      value: "0 problems",
+      label: "across 14 skills, from a validator with 28 rules. The demo breaks a copy of one skill and it names four",
+    },
+    needs: "Nothing to install to use the skills: copy a folder. The validator needs Python 3.10 or newer and no packages, and it reads local files only.",
+    limit:
+      "It does not write your code or sign off a release, a migration or a security finding. No benchmark here shows it changes an agent's output, and the validator checks structure and wording, not whether a skill is right.",
+    agensi: null,
+    github: gh("engineering-skills-pack"),
+    tests: 372,
+    media: clip(
+      "engineering-skills-pack",
+      "engineering-skills-pack",
+      { width: 1060, height: 464 },
+      "A terminal. The validator passes 14 skills, then fails a deliberately broken copy of one with four problems, naming the file, line and rule, and passes it again once the original is put back.",
+      "Real output, 19 seconds. The clip breaks a copy of one skill in a temporary folder, so nothing in the pack is touched.",
+    ),
+  },
+  {
     slug: "browser-agent-cli",
     name: "Browser Agent CLI",
     kind: "skill",
@@ -147,6 +171,30 @@ export const products: Product[] = [
       { width: 1052, height: 654 },
       "A terminal beside a screenshot. The tool reads a made-up sign-up page as a tree of refs, fences a planted instruction from the footer as data, fills the form, and refuses a stale ref after the page changes.",
       "A real session against a made-up page on localhost. The planted instruction in the footer is mine.",
+    ),
+  },
+  {
+    slug: "coworker-charter",
+    name: "Coworker Charter",
+    kind: "skill",
+    promise:
+      "Write down what your AI agent may do. A checker answers allow, ask or deny for every action, spend caps included, and a hash-chained log shows if anyone edits it.",
+    proof: {
+      value: "399",
+      label: "offline tests. The demo edits one entry in the audit log and the check names the broken line",
+    },
+    needs: "Python 3.10 or newer, standard library only. No network, no API key, no install.",
+    limit:
+      "It is policy and evidence, not a sandbox. It cannot stop an agent that never calls it, it cannot prove a person approved anything, and the log is tamper evident, not tamper proof.",
+    agensi: null,
+    github: gh("coworker-charter"),
+    tests: 399,
+    media: clip(
+      "coworker-charter",
+      "coworker-charter",
+      { width: 900, height: 882 },
+      "A terminal. A charter is checked, a read is allowed, a refund of 42 USD asks for approval and a refund of 140 USD is denied by the spend cap. Both decisions are logged and the log verifies, then one entry is edited and the check names the broken line.",
+      "Real runs against the example support charter in the repository, 22 seconds. Long output is cut and marked on screen.",
     ),
   },
   {
@@ -239,15 +287,13 @@ export const products: Product[] = [
     github: gh("quiet-snow"),
     download: `${gh("quiet-snow")}/releases`,
     tests: null,
-    media: {
-      kind: "still",
-      src: "/software/quiet-snow.webp",
-      width: 960,
-      height: 600,
-      alt: "Two drawn windows on a dark blue desktop, a pale one behind a dark one, each with a soft pile of snow along its top edge, snow lying along the taskbar and flakes falling.",
-      caption:
-        "A frame from the Windows renderer, drawn over a mock desktop by CI. It is not a recording of a real desktop.",
-    },
+    media: clip(
+      "quiet-snow",
+      "quiet-snow",
+      { width: 960, height: 600 },
+      "A drawn desktop at night with two windows, one pale and one dark, each with a soft pile of snow along its top. A cursor sweeps the pile off the pale window, then the dark window is dragged and its snow falls.",
+      "Real output from the app's own renderer, over a drawn desktop. It is not a recording of a real desktop.",
+    ),
   },
 ];
 
